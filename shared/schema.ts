@@ -91,6 +91,10 @@ export const insertContactMessageSchema = createInsertSchema(contactMessages, {
   message: z.string().min(10, "Message must be at least 10 characters")
 }).omit({ id: true, timestamp: true });
 
+// Helper to convert empty strings to undefined for optional fields
+const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((val) => (val === "" ? undefined : val), schema);
+
 const imageUrlValidator = z.string().min(1, "Image URL is required").refine(
   (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
   { message: "Image URL must be a valid URL or absolute path" }
@@ -98,14 +102,22 @@ const imageUrlValidator = z.string().min(1, "Image URL is required").refine(
 
 export const insertGalleryItemSchema = createInsertSchema(galleryItems, {
   title: z.string().min(1, "Title is required"),
-  imageUrl: imageUrlValidator.optional(),
-  beforeImageUrl: imageUrlValidator.optional(),
-  afterImageUrl: imageUrlValidator.optional(),
+  imageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  beforeImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  afterImageUrl: emptyToUndefined(imageUrlValidator.optional()),
   category: z.enum(["deep-cleaning", "move-in-out", "all"])
-}).omit({ id: true, createdAt: true, order: true }).refine(
-  (data) => data.imageUrl || (data.beforeImageUrl && data.afterImageUrl),
-  { message: "Must provide either imageUrl or both beforeImageUrl and afterImageUrl" }
-);
+}).omit({ id: true, createdAt: true, order: true }).superRefine((data, ctx) => {
+  const hasImageUrl = data.imageUrl !== undefined;
+  const hasBeforeAfter = data.beforeImageUrl !== undefined && data.afterImageUrl !== undefined;
+  
+  if (!hasImageUrl && !hasBeforeAfter) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Must provide either imageUrl or both beforeImageUrl and afterImageUrl",
+      path: ["root"],
+    });
+  }
+});
 
 export const insertTestimonialSchema = createInsertSchema(testimonials, {
   name: z.string().min(1, "Name is required"),

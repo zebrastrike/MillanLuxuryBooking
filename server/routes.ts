@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
-import { z } from "zod";
+import { z, ZodError } from "zod";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -75,7 +75,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact", async (req, res) => {
+  app.get("/api/contact", isAdmin, async (req, res) => {
     try {
       const messages = await storage.getContactMessages();
       res.json({
@@ -90,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact/:id", async (req, res) => {
+  app.get("/api/contact/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -168,7 +168,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery", async (req, res) => {
+  app.post("/api/gallery", isAdmin, async (req, res) => {
     try {
       const validatedData = insertGalleryItemSchema.parse(req.body);
       const item = await storage.createGalleryItem(validatedData);
@@ -179,11 +179,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: item
       });
     } catch (error) {
-      if (error instanceof Error && error.name === "ZodError") {
+      if (error instanceof ZodError) {
         res.status(400).json({
           success: false,
           message: "Invalid gallery data",
-          errors: error
+          errors: { issues: error.issues }
         });
       } else {
         res.status(500).json({
@@ -194,7 +194,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/gallery/:id", async (req, res) => {
+  app.patch("/api/gallery/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -249,14 +249,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         data: item
       });
     } catch (error) {
-      if (error instanceof Error) {
-        if (error.name === "ZodError") {
-          res.status(400).json({
-            success: false,
-            message: "Invalid gallery data",
-            errors: error
-          });
-        } else if (
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid gallery data",
+          errors: { issues: error.issues }
+        });
+      } else if (error instanceof Error) {
+        if (
           error.message.includes("Gallery item must have") ||
           error.message.includes("Order must be")
         ) {
@@ -279,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/gallery/:id", async (req, res) => {
+  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -328,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/testimonials", async (req, res) => {
+  app.post("/api/testimonials", isAdmin, async (req, res) => {
     try {
       const validatedData = insertTestimonialSchema.parse(req.body);
       const item = await storage.createTestimonial(validatedData);
@@ -354,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/testimonials/:id", async (req, res) => {
+  app.patch("/api/testimonials/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -388,7 +388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/testimonials/:id", async (req, res) => {
+  app.delete("/api/testimonials/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -437,7 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", async (req, res) => {
+  app.post("/api/services", isAdmin, async (req, res) => {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const item = await storage.createService(validatedData);
@@ -463,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/services/:id", async (req, res) => {
+  app.patch("/api/services/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", async (req, res) => {
+  app.delete("/api/services/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

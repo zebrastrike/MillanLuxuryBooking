@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, LogOut, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
+import { ContactMessages } from "@/components/admin/ContactMessages";
+import { GalleryManagement } from "@/components/admin/GalleryManagement";
+import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
+import { ServicesManagement } from "@/components/admin/ServicesManagement";
 
 export default function Admin() {
   const { toast } = useToast();
@@ -18,7 +22,7 @@ export default function Admin() {
         variant: "destructive",
       });
       setTimeout(() => {
-        window.location.href = "/api/login";
+        window.location.href = "/api/login?returnTo=/admin";
       }, 500);
       return;
     }
@@ -97,59 +101,43 @@ export default function Admin() {
           </TabsList>
 
           <TabsContent value="gallery" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gallery Management</CardTitle>
-                <CardDescription>
-                  Manage before/after photos and gallery images
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Gallery management coming soon...</p>
-              </CardContent>
-            </Card>
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Gallery Management</h2>
+              <p className="text-muted-foreground">
+                Manage before/after photos and gallery images
+              </p>
+            </div>
+            <GalleryManagement />
           </TabsContent>
 
           <TabsContent value="testimonials" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Testimonials Management</CardTitle>
-                <CardDescription>
-                  Manage customer reviews and testimonials
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Testimonials management coming soon...</p>
-              </CardContent>
-            </Card>
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Testimonials Management</h2>
+              <p className="text-muted-foreground">
+                Manage customer reviews and testimonials
+              </p>
+            </div>
+            <TestimonialsManagement />
           </TabsContent>
 
           <TabsContent value="services" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Services Management</CardTitle>
-                <CardDescription>
-                  Manage service offerings and details
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Services management coming soon...</p>
-              </CardContent>
-            </Card>
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Services Management</h2>
+              <p className="text-muted-foreground">
+                Manage service offerings and details
+              </p>
+            </div>
+            <ServicesManagement />
           </TabsContent>
 
           <TabsContent value="messages" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Contact Messages</CardTitle>
-                <CardDescription>
-                  View and manage contact form submissions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Messages management coming soon...</p>
-              </CardContent>
-            </Card>
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Contact Messages</h2>
+              <p className="text-muted-foreground">
+                View and manage contact form submissions
+              </p>
+            </div>
+            <ContactMessages />
           </TabsContent>
         </Tabs>
       </main>

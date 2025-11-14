@@ -102,6 +102,12 @@ export async function setupAuth(app: Express) {
   passport.deserializeUser((user: Express.User, cb) => cb(null, user));
 
   app.get("/api/login", (req, res, next) => {
+    // Capture and store returnTo URL in session
+    const returnTo = (req.query.returnTo as string) || req.get('referer') || '/admin';
+    if (returnTo && req.session) {
+      req.session.returnTo = returnTo;
+    }
+    
     ensureStrategy(req.hostname);
     passport.authenticate(`replitauth:${req.hostname}`, {
       prompt: "login consent",
