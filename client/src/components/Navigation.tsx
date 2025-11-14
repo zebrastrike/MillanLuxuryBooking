@@ -1,0 +1,119 @@
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+
+export function Navigation() {
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 50);
+    };
+    
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const navLinks = [
+    { href: "#about", label: "About" },
+    { href: "#services", label: "Services" },
+    { href: "#gallery", label: "Gallery" },
+    { href: "#testimonials", label: "Reviews" },
+    { href: "#faq", label: "FAQ" },
+    { href: "#contact", label: "Contact" },
+  ];
+
+  return (
+    <nav 
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled 
+          ? "bg-card/95 backdrop-blur-md shadow-md border-b border-border" 
+          : "bg-transparent"
+      }`}
+    >
+      <div className="container mx-auto px-6 md:px-8">
+        <div className="flex items-center justify-between h-16 md:h-20">
+          {/* Logo */}
+          <a 
+            href="#hero" 
+            className={`font-serif text-xl md:text-2xl font-semibold tracking-wide transition-colors ${
+              isScrolled ? "text-foreground" : "text-white"
+            }`}
+            data-testid="link-logo"
+          >
+            MILLAN
+          </a>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden lg:flex items-center gap-8">
+            {navLinks.map((link) => (
+              <a
+                key={link.href}
+                href={link.href}
+                className={`text-sm font-medium transition-colors hover-elevate px-3 py-2 rounded-md ${
+                  isScrolled ? "text-foreground" : "text-white"
+                }`}
+                data-testid={`link-nav-${link.label.toLowerCase()}`}
+              >
+                {link.label}
+              </a>
+            ))}
+          </div>
+          
+          {/* CTA Button */}
+          <div className="hidden lg:block">
+            <Button 
+              asChild
+              variant="default"
+              size="default"
+              data-testid="button-book-nav"
+            >
+              <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
+                Book Now
+              </a>
+            </Button>
+          </div>
+          
+          {/* Mobile Menu */}
+          <Sheet>
+            <SheetTrigger asChild className="lg:hidden">
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className={isScrolled ? "text-foreground" : "text-white"}
+                data-testid="button-menu-toggle"
+              >
+                <Menu className="w-6 h-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px]">
+              <div className="flex flex-col gap-6 mt-8">
+                {navLinks.map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="text-lg font-medium text-foreground hover-elevate px-4 py-2 rounded-md transition-colors"
+                    data-testid={`link-mobile-${link.label.toLowerCase()}`}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+                <Button 
+                  asChild
+                  variant="default"
+                  className="w-full mt-4"
+                  data-testid="button-book-mobile"
+                >
+                  <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
+                    Book Now
+                  </a>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </nav>
+  );
+}

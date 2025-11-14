@@ -1,0 +1,90 @@
+import { Button } from "@/components/ui/button";
+import { Sparkles } from "lucide-react";
+import crownLogo from "@assets/generated_images/Gold_crown_logo_c3af8ae9.png";
+import darkBotanicalBg from "@assets/generated_images/Dark_botanical_hero_background_18ef14b3.png";
+
+export function Hero() {
+  return (
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background Image with Parallax Effect */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: `url(${darkBotanicalBg})`,
+          backgroundAttachment: 'fixed'
+        }}
+      />
+      
+      {/* Gradient Overlay for Text Legibility */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/50 to-black/70" />
+      
+      {/* Content */}
+      <div className="relative z-10 container mx-auto px-6 md:px-8 text-center">
+        {/* Crown Logo */}
+        <div className="flex justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+          <img 
+            src={crownLogo} 
+            alt="Millan Luxury Cleaning Crown Logo" 
+            className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 drop-shadow-2xl"
+          />
+        </div>
+        
+        {/* Brand Name */}
+        <h1 className="text-white font-serif font-semibold text-4xl md:text-6xl lg:text-7xl mb-4 tracking-wide animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-100">
+          MILLAN
+        </h1>
+        <h2 className="text-white font-serif font-medium text-2xl md:text-4xl lg:text-5xl mb-6 tracking-widest animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+          LUXURY CLEANING
+        </h2>
+        
+        {/* Tagline */}
+        <div className="flex items-center justify-center gap-3 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+          <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+          <p className="text-white text-lg md:text-xl lg:text-2xl font-serif tracking-wide">
+            Crowning Every Space in Sparkle
+          </p>
+          <Sparkles className="w-5 h-5 md:w-6 md:h-6 text-primary" />
+        </div>
+        
+        {/* Subtitle */}
+        <p className="text-white/90 text-sm md:text-base lg:text-lg max-w-2xl mx-auto mb-4 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-400">
+          Personal Cleaning Service
+        </p>
+        
+        {/* Description */}
+        <p className="text-white/80 text-base md:text-lg max-w-3xl mx-auto mb-12 leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+          An immaculate home should feel like a retreat—restful, rejuvenating, and refined. 
+          Millan Luxury Cleaning delivers high-end home cleaning services in Phoenix, AZ, 
+          with a dedication to precision and care that sets us apart.
+        </p>
+        
+        {/* CTA Button */}
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700">
+          <Button 
+            asChild
+            variant="outline"
+            size="lg"
+            className="border-primary text-white backdrop-blur-sm"
+            data-testid="button-book-hero"
+          >
+            <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
+              BOOK HERE
+            </a>
+          </Button>
+        </div>
+        
+        {/* Location */}
+        <p className="text-white/70 text-sm md:text-base mt-8 animate-in fade-in duration-1000 delay-1000">
+          Serving Phoenix, AZ and surrounding areas
+        </p>
+      </div>
+      
+      {/* Scroll Indicator */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <div className="w-6 h-10 border-2 border-white/30 rounded-full flex justify-center pt-2">
+          <div className="w-1 h-2 bg-white/50 rounded-full"></div>
+        </div>
+      </div>
+    </section>
+  );
+}
