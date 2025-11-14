@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import crownLogo from "@assets/generated_images/Gold_crown_logo_c3af8ae9.png";
+import crownLogo from "@assets/generated_images/Gold_luxury_crown_logo_5d1ddad8.png";
 import darkBotanicalBg from "@assets/generated_images/Dark_botanical_hero_background_18ef14b3.png";
 
 export function Hero() {
