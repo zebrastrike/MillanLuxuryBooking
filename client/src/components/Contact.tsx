@@ -16,7 +16,7 @@ import { BusinessHours } from "./BusinessHours";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { contactFormSchema, type ContactFormData } from "@shared/schema";
+import { insertContactMessageSchema, type InsertContactMessage } from "@shared/schema";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -24,8 +24,8 @@ import { apiRequest } from "@/lib/queryClient";
 export function Contact() {
   const { toast } = useToast();
   
-  const form = useForm<ContactFormData>({
-    resolver: zodResolver(contactFormSchema),
+  const form = useForm<InsertContactMessage>({
+    resolver: zodResolver(insertContactMessageSchema),
     defaultValues: {
       name: "",
       email: "",
@@ -35,7 +35,7 @@ export function Contact() {
   });
 
   const contactMutation = useMutation({
-    mutationFn: async (data: ContactFormData) => {
+    mutationFn: async (data: InsertContactMessage) => {
       return await apiRequest("POST", "/api/contact", data);
     },
     onSuccess: () => {
@@ -54,7 +54,7 @@ export function Contact() {
     }
   });
 
-  const onSubmit = (data: ContactFormData) => {
+  const onSubmit = (data: InsertContactMessage) => {
     contactMutation.mutate(data);
   };
 

@@ -1,14 +1,57 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { contactFormSchema, insertGalleryItemSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z } from "zod";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup authentication middleware
+  await setupAuth(app);
+
+  // Auth status endpoint - check if user is logged in (not protected)
+  app.get('/api/auth/status', async (req: any, res) => {
+    try {
+      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
+        res.json({ authenticated: false, user: null });
+        return;
+      }
+      
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        res.json({ authenticated: false, user: null });
+        return;
+      }
+      
+      res.json({ authenticated: true, user });
+    } catch (error) {
+      console.error("Error fetching auth status:", error);
+      res.json({ authenticated: false, user: null });
+    }
+  });
+
+  // Auth user endpoint - get current logged-in user (protected)
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        res.status(404).json({ message: "User not found" });
+        return;
+      }
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
   // Contact form submission endpoint
   app.post("/api/contact", async (req, res) => {
     try {
-      const validatedData = contactFormSchema.parse(req.body);
+      const validatedData = insertContactMessageSchema.parse(req.body);
       const message = await storage.createContactMessage(validatedData);
       
       res.status(201).json({
@@ -49,7 +92,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/contact/:id", async (req, res) => {
     try {
-      const message = await storage.getContactMessage(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const message = await storage.getContactMessage(id);
       if (!message) {
         res.status(404).json({
           success: false,
@@ -87,7 +139,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/gallery/:id", async (req, res) => {
     try {
-      const item = await storage.getGalleryItem(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const item = await storage.getGalleryItem(id);
       if (!item) {
         res.status(404).json({
           success: false,
@@ -135,28 +196,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/gallery/:id", async (req, res) => {
     try {
-      // Preprocess: strip empty strings to undefined for cleaner validation
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      // Preprocess: strip empty strings to undefined
       const preprocessedBody: any = {};
       for (const [key, value] of Object.entries(req.body)) {
         if (typeof value === 'string' && value.trim() === '') {
-          // Empty strings become undefined (won't be included in update)
           continue;
         }
         preprocessedBody[key] = value;
       }
       
-      // Validate individual fields in the update payload
       const updateSchema = z.object({
         title: z.string().min(1, "Title is required").optional(),
-        imageUrl: z.string().min(1, "Image URL is required").refine(
+        imageUrl: z.string().min(1).refine(
           (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
           { message: "Image URL must be a valid URL or absolute path" }
         ).optional(),
-        beforeImageUrl: z.string().min(1, "Image URL is required").refine(
+        beforeImageUrl: z.string().min(1).refine(
           (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
           { message: "Image URL must be a valid URL or absolute path" }
         ).optional(),
-        afterImageUrl: z.string().min(1, "Image URL is required").refine(
+        afterImageUrl: z.string().min(1).refine(
           (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
           { message: "Image URL must be a valid URL or absolute path" }
         ).optional(),
@@ -165,9 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       
       const validatedData = updateSchema.parse(preprocessedBody);
-      
-      // Storage layer will validate the merged result maintains integrity constraints
-      const item = await storage.updateGalleryItem(req.params.id, validatedData);
+      const item = await storage.updateGalleryItem(id, validatedData);
       
       if (!item) {
         res.status(404).json({
@@ -194,7 +260,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           error.message.includes("Gallery item must have") ||
           error.message.includes("Order must be")
         ) {
-          // Validation errors from storage layer
           res.status(400).json({
             success: false,
             message: error.message
@@ -216,7 +281,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/gallery/:id", async (req, res) => {
     try {
-      const deleted = await storage.deleteGalleryItem(req.params.id);
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const deleted = await storage.deleteGalleryItem(id);
       
       if (!deleted) {
         res.status(404).json({
@@ -234,6 +308,224 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({
         success: false,
         message: "Failed to delete gallery item"
+      });
+    }
+  });
+
+  // Testimonials endpoints
+  app.get("/api/testimonials", async (req, res) => {
+    try {
+      const items = await storage.getTestimonials();
+      res.json({
+        success: true,
+        data: items
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve testimonials"
+      });
+    }
+  });
+
+  app.post("/api/testimonials", async (req, res) => {
+    try {
+      const validatedData = insertTestimonialSchema.parse(req.body);
+      const item = await storage.createTestimonial(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Testimonial created successfully",
+        data: item
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "ZodError") {
+        res.status(400).json({
+          success: false,
+          message: "Invalid testimonial data",
+          errors: error
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Failed to create testimonial"
+        });
+      }
+    }
+  });
+
+  app.patch("/api/testimonials/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const item = await storage.updateTestimonial(id, req.body);
+      
+      if (!item) {
+        res.status(404).json({
+          success: false,
+          message: "Testimonial not found"
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        message: "Testimonial updated successfully",
+        data: item
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to update testimonial"
+      });
+    }
+  });
+
+  app.delete("/api/testimonials/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const deleted = await storage.deleteTestimonial(id);
+      
+      if (!deleted) {
+        res.status(404).json({
+          success: false,
+          message: "Testimonial not found"
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        message: "Testimonial deleted successfully"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete testimonial"
+      });
+    }
+  });
+
+  // Services endpoints
+  app.get("/api/services", async (req, res) => {
+    try {
+      const items = await storage.getServices();
+      res.json({
+        success: true,
+        data: items
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve services"
+      });
+    }
+  });
+
+  app.post("/api/services", async (req, res) => {
+    try {
+      const validatedData = insertServiceSchema.parse(req.body);
+      const item = await storage.createService(validatedData);
+      
+      res.status(201).json({
+        success: true,
+        message: "Service created successfully",
+        data: item
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "ZodError") {
+        res.status(400).json({
+          success: false,
+          message: "Invalid service data",
+          errors: error
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          message: "Failed to create service"
+        });
+      }
+    }
+  });
+
+  app.patch("/api/services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const item = await storage.updateService(id, req.body);
+      
+      if (!item) {
+        res.status(404).json({
+          success: false,
+          message: "Service not found"
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        message: "Service updated successfully",
+        data: item
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to update service"
+      });
+    }
+  });
+
+  app.delete("/api/services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+      
+      const deleted = await storage.deleteService(id);
+      
+      if (!deleted) {
+        res.status(404).json({
+          success: false,
+          message: "Service not found"
+        });
+        return;
+      }
+      
+      res.json({
+        success: true,
+        message: "Service deleted successfully"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete service"
       });
     }
   });
