@@ -25,7 +25,7 @@ export function Hero() {
           <img 
             src={millanLogo} 
             alt="Millan Luxury Cleaning Logo" 
-            className="w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 drop-shadow-2xl object-contain"
+            className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 drop-shadow-2xl object-contain"
           />
         </div>
         
