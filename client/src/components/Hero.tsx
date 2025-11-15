@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import crownLogo from "@assets/generated_images/Gold_luxury_crown_logo_5d1ddad8.png";
+import millanLogo from "@assets/IMG_5919 - Millan Luxury Cleaning (1)_1763147963949.png";
 import darkBotanicalBg from "@assets/generated_images/Dark_botanical_hero_background_18ef14b3.png";
 
 export function Hero() {
@@ -20,12 +20,12 @@ export function Hero() {
       
       {/* Content */}
       <div className="relative z-10 container mx-auto px-6 md:px-8 text-center">
-        {/* Crown Logo */}
+        {/* Logo */}
         <div className="flex justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
           <img 
-            src={crownLogo} 
-            alt="Millan Luxury Cleaning Crown Logo" 
-            className="w-24 h-24 md:w-32 md:h-32 lg:w-40 lg:h-40 drop-shadow-2xl"
+            src={millanLogo} 
+            alt="Millan Luxury Cleaning Logo" 
+            className="w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 drop-shadow-2xl object-contain"
           />
         </div>
         
