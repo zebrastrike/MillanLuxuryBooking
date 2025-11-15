@@ -117,10 +117,21 @@ export function Footer() {
         </div>
 
         {/* Copyright */}
-        <div className="border-t border-border pt-8 text-center">
-          <p className="text-muted-foreground text-sm">
-            © {currentYear} Millan Luxury Cleaning. All rights reserved.
-          </p>
+        <div className="border-t border-border pt-8">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-muted-foreground text-sm">
+              © {currentYear} Millan Luxury Cleaning. All rights reserved.
+            </p>
+            <a 
+              href="https://giddyupp.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-primary transition-colors text-sm flex items-center gap-2"
+              data-testid="link-built-by-giddyupp"
+            >
+              Built by <span className="font-semibold text-primary">GiddyUpp</span>
+            </a>
+          </div>
         </div>
       </div>
     </footer>
