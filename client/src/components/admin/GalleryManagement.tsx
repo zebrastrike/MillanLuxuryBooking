@@ -189,6 +189,42 @@ export function GalleryManagement() {
     isPending: boolean;
   }) => {
     const rootError = form.formState.errors.root?.message;
+    const [uploading, setUploading] = useState(false);
+    
+    const handleFileUpload = async (file: File, fieldName: 'imageUrl' | 'beforeImageUrl' | 'afterImageUrl') => {
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Upload failed');
+        }
+        
+        const { data } = await response.json();
+        form.setValue(fieldName, data.url);
+        
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully",
+        });
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: error instanceof Error ? error.message : "Failed to upload image",
+          variant: "destructive",
+        });
+      } finally {
+        setUploading(false);
+      }
+    };
     
     return (
       <Form {...form}>
@@ -238,9 +274,25 @@ export function GalleryManagement() {
             name="imageUrl"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Single Image URL</FormLabel>
+                <FormLabel>Single Image</FormLabel>
                 <FormControl>
-                  <Input {...field} value={field.value || ""} placeholder="/images/example.jpg or https://..." data-testid="input-imageUrl" />
+                  <div className="space-y-2">
+                    <Input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload(file, 'imageUrl');
+                      }}
+                      disabled={uploading}
+                      data-testid="input-imageUrl-file"
+                    />
+                    {field.value && (
+                      <div className="text-sm text-muted-foreground truncate">
+                        Uploaded: {field.value}
+                      </div>
+                    )}
+                  </div>
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -255,9 +307,25 @@ export function GalleryManagement() {
               name="beforeImageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Before Image URL</FormLabel>
+                  <FormLabel>Before Image</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} placeholder="/images/before.jpg" data-testid="input-beforeImageUrl" />
+                    <div className="space-y-2">
+                      <Input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'beforeImageUrl');
+                        }}
+                        disabled={uploading}
+                        data-testid="input-beforeImageUrl-file"
+                      />
+                      {field.value && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          Uploaded
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -269,9 +337,25 @@ export function GalleryManagement() {
               name="afterImageUrl"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>After Image URL</FormLabel>
+                  <FormLabel>After Image</FormLabel>
                   <FormControl>
-                    <Input {...field} value={field.value || ""} placeholder="/images/after.jpg" data-testid="input-afterImageUrl" />
+                    <div className="space-y-2">
+                      <Input 
+                        type="file" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'afterImageUrl');
+                        }}
+                        disabled={uploading}
+                        data-testid="input-afterImageUrl-file"
+                      />
+                      {field.value && (
+                        <div className="text-xs text-muted-foreground truncate">
+                          Uploaded
+                        </div>
+                      )}
+                    </div>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -287,9 +371,9 @@ export function GalleryManagement() {
         </div>
 
         <DialogFooter>
-          <Button type="submit" disabled={isPending} data-testid="button-submit">
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isPending ? "Saving..." : "Save"}
+          <Button type="submit" disabled={isPending || uploading} data-testid="button-submit">
+            {(isPending || uploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {uploading ? "Uploading..." : isPending ? "Saving..." : "Save"}
           </Button>
         </DialogFooter>
         </form>
