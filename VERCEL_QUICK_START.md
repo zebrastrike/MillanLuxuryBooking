@@ -1,16 +1,14 @@
 # Vercel Deployment - Quick Start
 
-## 🚨 Critical Fix: Node.js 22 Required
+## 🚨 Build Configuration Fixed
 
-Your build needs **Node.js 22** because `vite.config.ts` uses `import.meta.dirname`.
+**Path normalization issue resolved!**
+- Created `build-vercel.sh` wrapper script
+- Updated `vercel.json` to use modern configuration format
+- This fixes the "cline/index.html" error caused by Vercel's Windows-style path normalization
 
-**YOU MUST manually set Node.js version in Vercel:**
-1. Go to Vercel Dashboard → Your Project
-2. Settings → General → Node.js Version
-3. Select **22.x** from dropdown
-4. Click Save and redeploy
-
-✅ `.nvmrc` file created as backup (Vercel may ignore it, so use manual setting above)
+**Still required:** Set Node.js to 22.x in Vercel Dashboard:
+1. Settings → General → Node.js Version → **22.x**
 
 ## Files Created for Vercel
 
