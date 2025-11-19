@@ -2,6 +2,27 @@
 
 This guide explains how to deploy your Millan Luxury Cleaning website to Vercel.
 
+## ⚠️ Critical Fix: Node.js Version (REQUIRED)
+
+**IMPORTANT:** Your build requires **Node.js 22** or higher because `vite.config.ts` uses `import.meta.dirname` (not available in Node 18).
+
+### How to Fix the "cline/index.html" Build Error:
+
+**REQUIRED: Configure in Vercel Dashboard**
+1. Go to your project settings in Vercel
+2. Navigate to: Settings → General → Node.js Version
+3. Select **22.x** from the dropdown menu
+4. Click "Save"
+5. Trigger a new deployment (Deployments → Redeploy)
+
+**Backup: .nvmrc file**
+- A `.nvmrc` file with `22` is included in your project
+- Vercel may honor this automatically, but manual configuration above is more reliable
+- If manual setting fails, the `.nvmrc` provides a fallback
+
+**Verification:**
+After deploying, check the build logs to confirm it shows "Node.js 22.x" at the start of the build process.
+
 ## ⚠️ Important Notes
 
 ### Authentication System

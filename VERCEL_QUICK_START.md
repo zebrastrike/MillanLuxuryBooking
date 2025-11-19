@@ -1,9 +1,22 @@
 # Vercel Deployment - Quick Start
 
+## 🚨 Critical Fix: Node.js 22 Required
+
+Your build needs **Node.js 22** because `vite.config.ts` uses `import.meta.dirname`.
+
+**YOU MUST manually set Node.js version in Vercel:**
+1. Go to Vercel Dashboard → Your Project
+2. Settings → General → Node.js Version
+3. Select **22.x** from dropdown
+4. Click Save and redeploy
+
+✅ `.nvmrc` file created as backup (Vercel may ignore it, so use manual setting above)
+
 ## Files Created for Vercel
 
 ✅ **vercel.json** - Vercel configuration for routing and serverless functions
 ✅ **.vercelignore** - Excludes unnecessary files from deployment  
+✅ **.nvmrc** - Tells Vercel to use Node.js 22 (fixes build error)
 ✅ **api/index.js** - Serverless function entry point (placeholder)
 ✅ **VERCEL_DEPLOYMENT.md** - Complete deployment guide
 
