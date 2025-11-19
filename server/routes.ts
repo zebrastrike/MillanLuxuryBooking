@@ -4,6 +4,10 @@ import { storage } from "./storage";
 import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { put } from "@vercel/blob";
+import multer from "multer";
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
@@ -45,6 +49,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // File upload endpoint for Vercel Blob
+  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        res.status(400).json({
+          success: false,
+          message: "No file provided"
+        });
+        return;
+      }
+
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(500).json({
+          success: false,
+          message: "BLOB_READ_WRITE_TOKEN not configured"
+        });
+        return;
+      }
+
+      const filename = `gallery/${Date.now()}-${req.file.originalname}`;
+      
+      const blob = await put(filename, req.file.buffer, {
+        access: 'public',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      });
+
+      res.json({
+        success: true,
+        data: { url: blob.url }
+      });
+    } catch (error) {
+      console.error("Upload error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to upload file"
+      });
     }
   });
 
