@@ -62,9 +62,31 @@ After deploying:
 4. Add it to Environment Variables
 5. Redeploy to apply the token
 
-## ⚠️ Important Authentication Warning
+## ⚠️ CRITICAL: Authentication & Security Warning
+
+**DO NOT DEPLOY TO PRODUCTION WITHOUT FIXING AUTHENTICATION!**
 
 Your app currently uses **Replit Auth** which will NOT work on Vercel.
+
+### Security Issues:
+
+1. **Upload endpoint has NO authentication** - Anyone can upload files to your Blob storage
+2. **Admin endpoints are unprotected** on Vercel
+3. This creates severe security vulnerabilities
+
+### Before Production Deployment:
+
+**You MUST implement Vercel-compatible authentication:**
+- Recommended: **Clerk** (easiest setup with Vercel)
+- Alternatives: Auth0, NextAuth.js
+
+**Protect these endpoints:**
+- `/api/upload` - File uploads (CRITICAL!)
+- `/api/gallery/*` - Gallery management
+- `/api/testimonials/*`, `/api/services/*` - Content management
+- All admin panel features
+
+See VERCEL_DEPLOYMENT.md for detailed instructions.
 
 **Before deploying, you must:**
 - Remove authentication/admin features, OR

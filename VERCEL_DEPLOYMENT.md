@@ -75,6 +75,35 @@ NODE_ENV=production
 5. Copy the `BLOB_READ_WRITE_TOKEN` from the environment variables
 6. Paste it into your project's Environment Variables section
 
+**Note:** File uploads will only work on Vercel with BLOB_READ_WRITE_TOKEN configured. Local development won't support file uploads unless you add the token to your local environment.
+
+## ⚠️ CRITICAL: Authentication Required Before Production
+
+**THE UPLOAD ENDPOINT HAS NO AUTHENTICATION!**
+
+The `/api/upload` endpoint currently has **no authentication** because Replit Auth won't work on Vercel. This means anyone can upload files to your Blob storage.
+
+**Before deploying to production, you MUST:**
+
+1. Choose an auth provider that works on Vercel:
+   - **Clerk** (recommended) - Easy to set up, works great with Vercel
+   - **Auth0** - Enterprise-grade authentication
+   - **NextAuth.js** - Open source, self-hosted option
+
+2. Implement authentication for:
+   - `/api/upload` - File uploads
+   - `/api/gallery/*` - Gallery management (POST, PATCH, DELETE)
+   - `/api/testimonials/*` - Testimonial management
+   - `/api/services/*` - Service management
+   - All other admin endpoints
+
+3. Verify only authenticated admin users can access these endpoints
+
+**Current State:**
+- Authentication works on Replit (uses Replit Auth)
+- Authentication **WILL NOT WORK** on Vercel
+- Upload endpoint is currently **UNPROTECTED**
+
 ### 2. Update Package.json Scripts
 
 The `vercel-build` script is already configured:

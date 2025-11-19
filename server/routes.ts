@@ -53,8 +53,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File upload endpoint for Vercel Blob
-  // NOTE: isAdmin middleware won't work on Vercel (requires Replit Auth replacement)
-  // TODO: Replace with Clerk/Auth0 or implement alternative auth before production
+  // ⚠️ CRITICAL SECURITY WARNING ⚠️
+  // This endpoint has NO AUTHENTICATION and will allow anyone to upload files!
+  // DO NOT deploy to production without implementing proper authentication.
+  // 
+  // Required before production:
+  // 1. Implement Clerk, Auth0, or another auth provider that works on Vercel
+  // 2. Add authentication middleware to this endpoint
+  // 3. Verify only authenticated admins can upload files
+  //
+  // Current state: isAdmin middleware removed because Replit Auth won't work on Vercel
   app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -66,9 +74,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!process.env.BLOB_READ_WRITE_TOKEN) {
-        res.status(500).json({
+        res.status(400).json({
           success: false,
-          message: "BLOB_READ_WRITE_TOKEN not configured"
+          message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads."
         });
         return;
       }

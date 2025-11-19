@@ -55,6 +55,7 @@ Preferred communication style: Simple, everyday language.
 - `POST /api/contact` - Submit contact form
 - `GET /api/contact` - Retrieve all contact messages
 - `GET /api/contact/:id` - Retrieve specific contact message
+- `POST /api/upload` - Upload file to Vercel Blob (⚠️ no auth on Vercel)
 - `GET /api/gallery` - Retrieve gallery items
 - `POST /api/gallery` - Create gallery item
 - `GET /api/gallery/:id` - Retrieve specific gallery item
@@ -82,6 +83,10 @@ Preferred communication style: Simple, everyday language.
 **Third-Party Services**:
 - **Square Booking**: External booking system for appointment scheduling (links embedded in service cards)
   - URLs: `book.squareup.com/appointments/[location_id]/services/[service_id]`
+- **Vercel Blob**: Cloud file storage for gallery images (production only)
+  - Requires `BLOB_READ_WRITE_TOKEN` environment variable
+  - Images uploaded via `/api/upload` endpoint to blob storage
+  - ⚠️ Upload endpoint currently lacks authentication for Vercel deployment
   
 **CDN/External Assets**:
 - Google Fonts: Playfair Display and Inter fonts loaded via CDN
@@ -109,7 +114,47 @@ Preferred communication style: Simple, everyday language.
 - class-variance-authority: Component variant styling
 - nanoid: Unique ID generation
 
+**File Storage & Upload**:
+- **@vercel/blob**: Vercel Blob storage SDK for cloud file uploads
+- **multer**: Middleware for handling multipart/form-data file uploads
+- File upload workflow: Frontend uploads file → `/api/upload` → Vercel Blob → URL returned
+
 **Database (Configured but not actively used)**:
 - Drizzle ORM: Type-safe ORM for PostgreSQL
 - @neondatabase/serverless: Neon PostgreSQL serverless driver
 - drizzle-zod: Zod schema integration for Drizzle
+
+## Deployment
+
+### Vercel Deployment Status
+
+**Current Status**: Successfully building and deploying to Vercel
+
+**Key Configuration**:
+- Build command: `npm run vercel-build`
+- Output directory: `dist/public`
+- Node.js version: 22.x (required)
+- Framework preset: Vite
+
+**Required Environment Variables for Vercel**:
+- `DATABASE_URL` - Neon PostgreSQL connection string
+- `SESSION_SECRET` - Random secret for session encryption
+- `BLOB_READ_WRITE_TOKEN` - Vercel Blob storage access token
+- `NODE_ENV=production`
+
+**Critical Known Issues**:
+1. ⚠️ **Authentication does not work on Vercel** - Replit Auth is platform-specific
+   - Admin panel and protected routes will be inaccessible on Vercel
+   - Upload endpoint (`/api/upload`) has **NO AUTHENTICATION** on Vercel
+   - **SECURITY RISK**: Anyone can upload files to Blob storage if deployed without fixing auth
+   
+2. **Required before production**:
+   - Implement Vercel-compatible authentication (Clerk, Auth0, or NextAuth.js)
+   - Protect all admin endpoints with new auth middleware
+   - Test authentication flow on Vercel preview deployments
+
+**Documentation**:
+- `VERCEL_DEPLOYMENT.md` - Comprehensive deployment guide
+- `VERCEL_QUICK_START.md` - Quick reference for deployment steps
+- `build-vercel.sh` - Build script for Vercel deployments
+- `.vercelignore` - Files excluded from deployment
