@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import millanLogo from "@assets/IMG_5919 - Millan Luxury Cleaning (1)_1763147963949.png";
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -37,12 +38,14 @@ export function Navigation() {
           {/* Logo */}
           <a 
             href="#hero" 
-            className={`font-serif text-xl md:text-2xl font-semibold tracking-wide transition-colors ${
-              isScrolled ? "text-foreground" : "text-white"
-            }`}
+            className="transition-opacity hover:opacity-80"
             data-testid="link-logo"
           >
-            MILLAN
+            <img 
+              src={millanLogo} 
+              alt="Millan Luxury Cleaning" 
+              className="h-12 md:h-14 w-auto object-contain"
+            />
           </a>
           
           {/* Desktop Navigation */}
