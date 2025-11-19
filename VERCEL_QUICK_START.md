@@ -49,8 +49,18 @@ git push origin main
 4. Add Environment Variables:
    - `DATABASE_URL` = your Neon PostgreSQL connection string
    - `SESSION_SECRET` = any random secret key
+   - `BLOB_READ_WRITE_TOKEN` = get from Vercel Storage → Blob (see below)
    - `NODE_ENV` = production
 5. Click **Deploy**
+
+### Getting Blob Storage Token:
+
+After deploying:
+1. Go to your Vercel project → **Storage** tab
+2. Create a Blob store (if not exists)
+3. Copy the `BLOB_READ_WRITE_TOKEN`
+4. Add it to Environment Variables
+5. Redeploy to apply the token
 
 ## ⚠️ Important Authentication Warning
 

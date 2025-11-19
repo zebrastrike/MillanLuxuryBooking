@@ -55,6 +55,9 @@ DATABASE_URL=your_neon_database_connection_string
 # Session Secret (Required)
 SESSION_SECRET=your_random_secret_key_here
 
+# Vercel Blob Storage (Required for gallery images)
+BLOB_READ_WRITE_TOKEN=vercel_blob_rw_XXXXXXXXXXXX
+
 # If using Replit Auth (won't work on Vercel - replace or remove)
 # REPLIT_DEPLOYMENT=1
 # ISSUER_URL=...
@@ -62,6 +65,15 @@ SESSION_SECRET=your_random_secret_key_here
 # Production URLs
 NODE_ENV=production
 ```
+
+#### Getting BLOB_READ_WRITE_TOKEN:
+
+1. Go to your Vercel project dashboard
+2. Navigate to **Storage** tab
+3. Click **Create Database** → **Blob**
+4. Name your blob store (e.g., "millan-gallery-images")
+5. Copy the `BLOB_READ_WRITE_TOKEN` from the environment variables
+6. Paste it into your project's Environment Variables section
 
 ### 2. Update Package.json Scripts
 
