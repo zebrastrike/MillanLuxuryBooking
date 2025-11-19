@@ -1,37 +1,24 @@
 # Vercel ignore file
-# These files/folders will not be uploaded to Vercel
+# Only exclude files that aren't needed for the build
 
-# Development files
-node_modules
+# Development files (Replit-specific)
 .replit
 .upm
 replit.nix
 .config
 
-# Source files (we only need built files)
-client/
-server/
-shared/
-
-# Build artifacts (except dist/)
+# Build artifacts
 *.log
 .DS_Store
-
-# Environment files (use Vercel dashboard for env vars)
-.env
-.env.local
-.env.*.local
 
 # Database files
 *.db
 *.sqlite
 
-# Test files
-*.test.ts
-*.test.tsx
-*.spec.ts
-*.spec.tsx
-
 # Development tools
 .vscode/
 .idea/
+
+# Note: Do NOT exclude client/, server/, or shared/ - they're needed to build!
+# Note: node_modules is automatically excluded by Vercel
+# Note: .env files are automatically excluded by Vercel

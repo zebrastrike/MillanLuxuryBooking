@@ -1,0 +1,44 @@
+21:08:36.703 Running build in Washington, D.C., USA (East) – iad1
+21:08:36.704 Build machine configuration: 2 cores, 8 GB
+21:08:36.838 Cloning github.com/zebrastrike/MillanLuxuryBooking (Branch: main, Commit: dc79ad9)
+21:08:36.839 Previous build caches not available.
+21:08:37.809 Cloning completed: 970.000ms
+21:08:37.870 Found .vercelignore
+21:08:37.884 Removed 90 ignored files defined in .vercelignore
+21:08:37.885   /.replit
+21:08:37.885   /client/index.html
+21:08:37.885   /client/public/favicon.png
+21:08:37.885   /client/public/gallery/1.png
+21:08:37.885   /client/public/gallery/2.png
+21:08:37.885   /client/public/gallery/3.png
+21:08:37.886   /client/public/gallery/4.png
+21:08:37.886   /client/public/gallery/5.png
+21:08:37.886   /client/public/gallery/6.png
+21:08:37.886   /client/src/App.tsx
+21:08:38.372 Running "vercel build"
+21:08:38.768 Vercel CLI 48.10.3
+21:08:39.844 Installing dependencies...
+21:08:44.319 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+21:08:44.337 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+21:08:48.977
+21:08:48.978 added 497 packages in 9s
+21:08:48.978
+21:08:48.978 67 packages are looking for funding
+21:08:48.978   run `npm fund` for details
+21:08:49.048 Starting Vercel build...
+21:08:49.053 Node version: v22.21.1
+21:08:49.053 Current directory: /vercel/path0
+21:08:49.161
+21:08:49.161 > rest-express@1.0.0 build
+21:08:49.161 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+21:08:49.161
+21:08:49.411 [36mvite v5.4.20 [32mbuilding for production... [36m [39m
+21:08:49.441 [32m✓ [39m 0 modules transformed.
+21:08:49.443 [31mx [39m Build failed in 9ms
+21:08:49.443 [31merror during build:
+21:08:49.443 [31mCould not resolve entry module "client/index.html". [31m
+21:08:49.443     at getRollupError (file:///vercel/path0/node_modules/rollup/dist/es/shared/parseAst.js:396:41)
+21:08:49.444     at error (file:///vercel/path0/node_modules/rollup/dist/es/shared/parseAst.js:392:42)
+21:08:49.444     at ModuleLoader.loadEntryModule (file:///vercel/path0/node_modules/rollup/dist/es/shared/node-entry.js:20086:20)
+21:08:49.444     at async Promise.all (index 0) [39m
+21:08:49.458 Error: Command "bash build-vercel.sh" exited with 1
