@@ -62,13 +62,13 @@ export function Hero() {
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-700">
           <Button 
             asChild
-            variant="outline"
+            variant="default"
             size="lg"
-            className="border-primary text-white backdrop-blur-sm"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/50 border-2 border-primary-foreground/20 px-12 py-6 text-lg font-bold tracking-wider"
             data-testid="button-book-hero"
           >
             <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
-              BOOK HERE
+              BOOK NOW
             </a>
           </Button>
         </div>
