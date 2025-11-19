@@ -138,12 +138,24 @@ export function GalleryManagement() {
   });
 
   const onAddSubmit = (data: GalleryFormData) => {
-    addMutation.mutate(data);
+    const cleanedData: GalleryFormData = {
+      ...data,
+      imageUrl: data.imageUrl || undefined,
+      beforeImageUrl: data.beforeImageUrl || undefined,
+      afterImageUrl: data.afterImageUrl || undefined,
+    };
+    addMutation.mutate(cleanedData);
   };
 
   const onEditSubmit = (data: GalleryFormData) => {
     if (editingItem) {
-      updateMutation.mutate({ id: editingItem.id, data });
+      const cleanedData: Partial<GalleryFormData> = {
+        ...data,
+        imageUrl: data.imageUrl || undefined,
+        beforeImageUrl: data.beforeImageUrl || undefined,
+        afterImageUrl: data.afterImageUrl || undefined,
+      };
+      updateMutation.mutate({ id: editingItem.id, data: cleanedData });
     }
   };
 

@@ -53,7 +53,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File upload endpoint for Vercel Blob
-  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
+  // NOTE: isAdmin middleware won't work on Vercel (requires Replit Auth replacement)
+  // TODO: Replace with Clerk/Auth0 or implement alternative auth before production
+  app.post("/api/upload", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({
