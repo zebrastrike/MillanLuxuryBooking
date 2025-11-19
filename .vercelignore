@@ -1,0 +1,37 @@
+# Vercel ignore file
+# These files/folders will not be uploaded to Vercel
+
+# Development files
+node_modules
+.replit
+.upm
+replit.nix
+.config
+
+# Source files (we only need built files)
+client/
+server/
+shared/
+
+# Build artifacts (except dist/)
+*.log
+.DS_Store
+
+# Environment files (use Vercel dashboard for env vars)
+.env
+.env.local
+.env.*.local
+
+# Database files
+*.db
+*.sqlite
+
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# Development tools
+.vscode/
+.idea/
