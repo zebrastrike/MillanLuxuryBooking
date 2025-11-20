@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@clerk/clerk-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,27 +9,39 @@ import { ContactMessages } from "@/components/admin/ContactMessages";
 import { GalleryManagement } from "@/components/admin/GalleryManagement";
 import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
+import { useQuery } from "@tanstack/react-query";
 
 export default function Admin() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isAdmin, isLoading } = useAuth();
+  const { userId, isLoaded, signOut } = useAuth();
+  
+  // Fetch current user from database to check admin status
+  const { data: user, isLoading: isUserLoading } = useQuery({
+    queryKey: ['/api/auth/user'],
+    enabled: isLoaded && !!userId,
+  });
+
+  const isLoading = !isLoaded || isUserLoading;
+  const isAuthenticated = isLoaded && !!userId;
+  const isAdmin = user?.isAdmin ?? false;
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (isLoaded && !userId) {
       toast({
         title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
+        description: "Please sign in to access the admin panel.",
         variant: "destructive",
       });
+      // Redirect to home after a short delay
       setTimeout(() => {
-        window.location.href = "/api/login?returnTo=/admin";
-      }, 500);
+        window.location.href = "/";
+      }, 1000);
       return;
     }
-  }, [isAuthenticated, isLoading, toast]);
+  }, [isLoaded, userId, toast]);
 
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !isAdmin) {
+    if (!isUserLoading && isAuthenticated && !isAdmin) {
       toast({
         title: "Access Denied",
         description: "You do not have admin privileges.",
@@ -40,7 +52,7 @@ export default function Admin() {
       }, 1000);
       return;
     }
-  }, [isAuthenticated, isAdmin, isLoading, toast]);
+  }, [isAuthenticated, isAdmin, isUserLoading, toast]);
 
   if (isLoading) {
     return (
@@ -66,14 +78,12 @@ export default function Admin() {
             </p>
           </div>
           <Button 
-            variant="outline" 
-            asChild
+            variant="outline"
+            onClick={() => signOut({ redirectUrl: "/" })}
             data-testid="button-logout"
           >
-            <a href="/api/logout">
-              <LogOut className="mr-2 h-4 w-4" />
-              Logout
-            </a>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
           </Button>
         </div>
       </header>

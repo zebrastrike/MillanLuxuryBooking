@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { setupAuth, isAuthenticated, isAdmin } from "./clerkAuth";
 import { put } from "@vercel/blob";
 import multer from "multer";
 
@@ -52,18 +52,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // File upload endpoint for Vercel Blob
-  // ⚠️ CRITICAL SECURITY WARNING ⚠️
-  // This endpoint has NO AUTHENTICATION and will allow anyone to upload files!
-  // DO NOT deploy to production without implementing proper authentication.
-  // 
-  // Required before production:
-  // 1. Implement Clerk, Auth0, or another auth provider that works on Vercel
-  // 2. Add authentication middleware to this endpoint
-  // 3. Verify only authenticated admins can upload files
-  //
-  // Current state: isAdmin middleware removed because Replit Auth won't work on Vercel
-  app.post("/api/upload", upload.single('file'), async (req, res) => {
+  // File upload endpoint for Vercel Blob - Protected with Clerk auth
+  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({
