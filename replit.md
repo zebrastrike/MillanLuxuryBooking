@@ -51,16 +51,23 @@ Preferred communication style: Simple, everyday language.
 { success: boolean, data?: any, message?: string, errors?: any }
 ```
 
+**Authentication**: Clerk OAuth (works on both Replit and Vercel)
+- User registration and login managed by Clerk
+- Admin role stored in database and synced with Clerk user IDs
+- Protected endpoints require Clerk authentication + admin privileges
+
 **Key Endpoints**:
-- `POST /api/contact` - Submit contact form
-- `GET /api/contact` - Retrieve all contact messages
-- `GET /api/contact/:id` - Retrieve specific contact message
-- `POST /api/upload` - Upload file to Vercel Blob (⚠️ no auth on Vercel)
-- `GET /api/gallery` - Retrieve gallery items
-- `POST /api/gallery` - Create gallery item
-- `GET /api/gallery/:id` - Retrieve specific gallery item
-- `PUT /api/gallery/:id` - Update gallery item
-- `DELETE /api/gallery/:id` - Delete gallery item
+- `GET /api/auth/status` - Check authentication status (public)
+- `GET /api/auth/user` - Get current user info (protected)
+- `POST /api/contact` - Submit contact form (public)
+- `GET /api/contact` - Retrieve all contact messages (admin only)
+- `GET /api/contact/:id` - Retrieve specific contact message (admin only)
+- `POST /api/upload` - Upload file to Vercel Blob (admin only, Clerk protected)
+- `GET /api/gallery` - Retrieve gallery items (public)
+- `POST /api/gallery` - Create gallery item (admin only)
+- `GET /api/gallery/:id` - Retrieve specific gallery item (public)
+- `PUT /api/gallery/:id` - Update gallery item (admin only)
+- `DELETE /api/gallery/:id` - Delete gallery item (admin only)
 
 **Data Validation**: Zod schemas shared between client and server for type safety and runtime validation.
 
@@ -91,6 +98,14 @@ Preferred communication style: Simple, everyday language.
 **CDN/External Assets**:
 - Google Fonts: Playfair Display and Inter fonts loaded via CDN
 - Generated botanical background images stored in `attached_assets/generated_images/`
+
+**Authentication**:
+- **Clerk**: OAuth-based authentication provider
+  - Works on both Replit and Vercel
+  - Handles user registration, login, and session management
+  - Free tier: 10,000 monthly active users (sufficient indefinitely for this use case)
+  - Frontend: `@clerk/clerk-react` with `<ClerkProvider>`
+  - Backend: `@clerk/express` with `clerkMiddleware()`
 
 **UI Libraries**:
 - Radix UI: Comprehensive set of accessible component primitives (@radix-ui/react-*)
@@ -136,22 +151,32 @@ Preferred communication style: Simple, everyday language.
 - Node.js version: 22.x (required)
 - Framework preset: Vite
 
-**Required Environment Variables for Vercel**:
-- `DATABASE_URL` - Neon PostgreSQL connection string
-- `SESSION_SECRET` - Random secret for session encryption
-- `BLOB_READ_WRITE_TOKEN` - Vercel Blob storage access token
-- `NODE_ENV=production`
+**Required Environment Variables**:
 
-**Critical Known Issues**:
-1. ⚠️ **Authentication does not work on Vercel** - Replit Auth is platform-specific
-   - Admin panel and protected routes will be inaccessible on Vercel
-   - Upload endpoint (`/api/upload`) has **NO AUTHENTICATION** on Vercel
-   - **SECURITY RISK**: Anyone can upload files to Blob storage if deployed without fixing auth
-   
-2. **Required before production**:
-   - Implement Vercel-compatible authentication (Clerk, Auth0, or NextAuth.js)
-   - Protect all admin endpoints with new auth middleware
-   - Test authentication flow on Vercel preview deployments
+For local development (Replit):
+- `DATABASE_URL` - Neon PostgreSQL connection string (auto-provided)
+- `CLERK_SECRET_KEY` - Clerk backend secret key (from clerk.com dashboard)
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend publishable key (from clerk.com dashboard)
+- `BLOB_READ_WRITE_TOKEN` - Vercel Blob storage access token (optional, needed for file uploads)
+- `NODE_ENV=development`
+
+For Vercel deployment:
+- Same as above, all keys configured in Vercel environment settings
+- All authentication flows work identically on Vercel due to Clerk's cross-platform support
+- File upload endpoint (`/api/upload`) is fully protected with Clerk authentication on Vercel
+
+**How Client Sets Up Clerk**:
+1. Business owner creates account at https://clerk.com (free tier is sufficient)
+2. Creates a new application in Clerk dashboard
+3. Copies `CLERK_SECRET_KEY` and `CLERK_PUBLISHABLE_KEY` from API Keys page
+4. Adds these as environment variables in development or Vercel settings
+5. Admin users can be assigned the `isAdmin` flag in the database (managed in admin panel)
+
+**Authentication Status**:
+✅ Full Clerk integration complete - works on both Replit and Vercel
+✅ Admin panel protected with Clerk authentication
+✅ Upload endpoint protected with Clerk authentication + admin verification
+✅ User database syncing with Clerk (one-way: Clerk → database on login)
 
 **Documentation**:
 - `VERCEL_DEPLOYMENT.md` - Comprehensive deployment guide
