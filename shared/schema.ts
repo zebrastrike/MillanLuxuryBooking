@@ -83,6 +83,35 @@ export const services = pgTable("services", {
 export type Service = typeof services.$inferSelect;
 export type InsertService = typeof services.$inferInsert;
 
+// Social Links table
+export const socialLinks = pgTable("social_links", {
+  id: serial("id").primaryKey(),
+  instagram: varchar("instagram", { length: 500 }),
+  yelp: varchar("yelp", { length: 500 }),
+  phone: varchar("phone", { length: 20 }),
+  email: varchar("email", { length: 255 }),
+  address: text("address"),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+export type SocialLinks = typeof socialLinks.$inferSelect;
+export type InsertSocialLinks = typeof socialLinks.$inferInsert;
+
+// Google Reviews table
+export const googleReviews = pgTable("google_reviews", {
+  id: serial("id").primaryKey(),
+  googleReviewId: varchar("google_review_id", { length: 255 }).unique(),
+  author: varchar("author", { length: 255 }).notNull(),
+  rating: integer("rating").notNull(),
+  comment: text("comment").notNull(),
+  reviewDate: timestamp("review_date").notNull(),
+  featured: boolean("featured").default(false),
+  syncedAt: timestamp("synced_at").defaultNow().notNull()
+});
+
+export type GoogleReview = typeof googleReviews.$inferSelect;
+export type InsertGoogleReview = typeof googleReviews.$inferInsert;
+
 // Zod schemas for validation
 export const insertContactMessageSchema = createInsertSchema(contactMessages, {
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -130,3 +159,18 @@ export const insertServiceSchema = createInsertSchema(services, {
   description: z.string().min(10, "Description must be at least 10 characters"),
   features: z.array(z.string().min(1))
 }).omit({ id: true, createdAt: true, order: true });
+
+export const insertSocialLinksSchema = createInsertSchema(socialLinks, {
+  instagram: z.string().url("Instagram URL must be valid").optional(),
+  yelp: z.string().url("Yelp URL must be valid").optional(),
+  phone: z.string().min(10, "Phone must be valid").optional(),
+  email: z.string().email("Email must be valid").optional(),
+  address: z.string().optional()
+}).omit({ id: true, updatedAt: true });
+
+export const insertGoogleReviewSchema = createInsertSchema(googleReviews, {
+  author: z.string().min(1, "Author is required"),
+  rating: z.number().min(1).max(5),
+  comment: z.string().min(1, "Comment is required"),
+  reviewDate: z.date().or(z.string().datetime())
+}).omit({ id: true, syncedAt: true, featured: true, googleReviewId: true });
