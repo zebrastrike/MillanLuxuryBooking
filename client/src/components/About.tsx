@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import lightBotanicalBg from "@assets/generated_images/Light_botanical_section_background_e6c03f5a.png";
+import ownerPhoto from "@assets/IMG_3773_1763679613585.jpeg";
 
 export function About() {
   return (
@@ -25,29 +26,44 @@ export function About() {
             An immaculate home should feel like a retreat—restful, rejuvenating, and refined
           </p>
           
-          {/* Content Card */}
+          {/* Content Card with Owner Photo */}
           <Card className="p-8 md:p-12 shadow-lg">
-            <div className="space-y-6 text-center md:text-left">
-              <h3 className="font-serif text-2xl md:text-3xl font-semibold text-primary mb-6">
-                Hi, I'm Ivan Millan, the heart behind Millan Luxury Cleaning Co.
-              </h3>
-              
-              <p className="text-base md:text-lg leading-relaxed text-foreground">
-                What began as a small passion for creating clean, peaceful spaces has grown 
-                into a full-service cleaning business built on trust, quality, and care. I started 
-                this company because I truly believe a clean home can bring peace of mind and 
-                a sense of luxury to everyday life.
-              </p>
-              
-              <p className="text-base md:text-lg leading-relaxed text-foreground">
-                Every service is done with attention to detail and pride — as if it were my own home. My 
-                goal is to give each client that fresh start feeling every time they walk in.
-              </p>
-              
-              <div className="pt-4">
-                <p className="text-primary font-semibold text-lg">
-                  Dedicated to making your space shine inside and out
+            <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
+              {/* Photo */}
+              <div className="flex justify-center md:justify-start">
+                <div className="w-full max-w-sm rounded-lg overflow-hidden shadow-md">
+                  <img 
+                    src={ownerPhoto} 
+                    alt="Ivan Millan, Founder of Millan Luxury Cleaning"
+                    className="w-full h-auto object-cover"
+                    data-testid="img-owner-photo"
+                  />
+                </div>
+              </div>
+
+              {/* Text Content */}
+              <div className="space-y-6">
+                <h3 className="font-serif text-2xl md:text-3xl font-semibold text-primary">
+                  Hi, I'm Ivan Millan, the heart behind Millan Luxury Cleaning Co.
+                </h3>
+                
+                <p className="text-base md:text-lg leading-relaxed text-foreground">
+                  What began as a small passion for creating clean, peaceful spaces has grown 
+                  into a full-service cleaning business built on trust, quality, and care. I started 
+                  this company because I truly believe a clean home can bring peace of mind and 
+                  a sense of luxury to everyday life.
                 </p>
+                
+                <p className="text-base md:text-lg leading-relaxed text-foreground">
+                  Every service is done with attention to detail and pride — as if it were my own home. My 
+                  goal is to give each client that fresh start feeling every time they walk in.
+                </p>
+                
+                <div className="pt-4">
+                  <p className="text-primary font-semibold text-lg">
+                    Dedicated to making your space shine inside and out
+                  </p>
+                </div>
               </div>
             </div>
           </Card>
