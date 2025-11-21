@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { setupAuth, isAuthenticated, isAdmin } from "./clerkAuth";
 import { put } from "@vercel/blob";
@@ -42,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/gallery/:id", isAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertGalleryItemSchema.partial().parse(req.body);
+      const validatedData = updateGalleryItemSchema.parse(req.body);
       const item = await storage.updateGalleryItem(id, validatedData);
       res.json(item);
     } catch (error) {

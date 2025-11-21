@@ -160,6 +160,27 @@ export const insertServiceSchema = createInsertSchema(services, {
   features: z.array(z.string().min(1))
 }).omit({ id: true, createdAt: true, order: true });
 
+// Update schemas for partial updates
+export const updateGalleryItemSchema = z.object({
+  title: z.string().min(1, "Title is required").optional(),
+  imageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  beforeImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  afterImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  category: z.enum(["deep-cleaning", "move-in-out", "all"]).optional()
+});
+
+export const updateTestimonialSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  review: z.string().min(10, "Review must be at least 10 characters").optional(),
+  rating: z.number().min(1).max(5).optional()
+});
+
+export const updateServiceSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  description: z.string().min(10, "Description must be at least 10 characters").optional(),
+  features: z.array(z.string().min(1)).optional()
+});
+
 export const insertSocialLinksSchema = createInsertSchema(socialLinks, {
   instagram: z.string().url("Instagram URL must be valid").optional(),
   yelp: z.string().url("Yelp URL must be valid").optional(),
