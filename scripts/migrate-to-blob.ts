@@ -21,9 +21,15 @@ interface MigrationResults {
 
 async function uploadToBlob(filePath: string, fileName: string): Promise<BlobUploadResult> {
   const fileBuffer = fs.readFileSync(filePath);
+  const token = process.env.Blob_Evans_READ_WRITE_TOKEN || process.env.BLOB_READ_WRITE_TOKEN;
+  
+  if (!token) {
+    throw new Error('No token found. Set Blob_Evans_READ_WRITE_TOKEN or BLOB_READ_WRITE_TOKEN environment variable');
+  }
+  
   const blob = await put(fileName, fileBuffer, {
     access: 'public',
-    token: process.env.BLOB_READ_WRITE_TOKEN!,
+    token,
   });
   
   return blob;
