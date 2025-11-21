@@ -1,0 +1,94 @@
+{
+  "static": {},
+  "gallery": {},
+  "errors": [
+    {
+      "file": "generated_images/Dark_botanical_hero_background_18ef14b3.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "generated_images/Light_botanical_section_background_e6c03f5a.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "generated_images/Gold_crown_logo_c3af8ae9.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "IMG_3773_1763679613585.jpeg",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 093949_1763138704138.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094008_1763138704139.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094021_1763138704140.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094028_1763138704141.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094040_1763138704141.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094050_1763138704144.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094059_1763138704145.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094108_1763138704146.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094118_1763138704147.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094127_1763138704147.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094138_1763138704148.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094149_1763138704148.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094222_1763138704149.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094232_1763138704150.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094240_1763138704150.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094253_1763138704151.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-14 094304_1763138704152.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    },
+    {
+      "file": "Screenshot 2025-11-20 160041_1763679653310.png",
+      "error": "Error: Vercel Blob: No token found. Either configure the `BLOB_READ_WRITE_TOKEN` environment variable, or pass a `token` option to your calls."
+    }
+  ]
+}
