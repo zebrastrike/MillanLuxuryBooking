@@ -25,6 +25,20 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 
 ---
 
+## Step 1b: Configure Clerk Redirect URLs (IMPORTANT!)
+
+Before deploying, set redirect URLs in Clerk Dashboard → **Settings** → **Paths**:
+
+| Setting | Value |
+|---------|-------|
+| After sign-up fallback | `/` |
+| After sign-in fallback | `/admin` |
+| After logo click | `/` |
+
+**Note:** Use relative paths (starting with `/`), NOT full URLs. This prevents infinite redirect loops on production.
+
+---
+
 ## Step 2: Redeploy
 
 1. After adding environment variables, Vercel will auto-redeploy
