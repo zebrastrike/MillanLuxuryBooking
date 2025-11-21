@@ -81,17 +81,20 @@ async function seedDatabase() {
   const testimonialsData = [
     {
       name: "Alexandra Martinez",
-      quote: "Millan Luxury Cleaning transformed my home. Their attention to detail is extraordinary. I'm genuinely impressed with their professionalism and care.",
+      review: "Millan Luxury Cleaning transformed my home. Their attention to detail is extraordinary. I'm genuinely impressed with their professionalism and care.",
+      rating: 5,
       order: 0,
     },
     {
       name: "James Chen",
-      quote: "After hiring Millan, my home has never looked better. They treat your space with the respect it deserves. Highly recommended!",
+      review: "After hiring Millan, my home has never looked better. They treat your space with the respect it deserves. Highly recommended!",
+      rating: 5,
       order: 1,
     },
     {
       name: "Sophia Rodriguez",
-      quote: "The team is professional, punctual, and thorough. They use premium products and their commitment to excellence is unmatched.",
+      review: "The team is professional, punctual, and thorough. They use premium products and their commitment to excellence is unmatched.",
+      rating: 5,
       order: 2,
     },
   ];
