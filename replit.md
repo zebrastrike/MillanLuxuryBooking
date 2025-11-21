@@ -13,13 +13,19 @@ Preferred communication style: Simple, everyday language.
 ## Current Setup Status (as of Nov 21, 2025)
 
 **✅ PRODUCTION READY:**
-- Clerk authentication fully integrated and tested
+- Clerk authentication fully integrated and tested (admin login working)
 - Vercel Blob storage configured for image uploads
 - All environment keys in place (Replit + Vercel)
 - Admin dashboard with 4 management tabs: Gallery, Testimonials, Services, Contact Messages
 - Database schema with all necessary tables
+- Images work locally in Replit preview
 
-**📋 TODO (Incomplete Features):**
+**📸 Image Upload Workflow (Working):**
+- Use admin dashboard → Gallery Management → Upload button
+- Images upload to Vercel Blob and auto-populate gallery
+- No migration script needed - upload through UI
+
+**📋 TODO (Incomplete Features - Optional):**
 1. Social Links Management - Schema added, but needs:
    - Storage layer methods (create, get, update)
    - API routes for /api/social-links
@@ -34,6 +40,12 @@ Preferred communication style: Simple, everyday language.
    
 **🚀 Ready to Deploy:**
 The app is production-ready for core features. Deploy to Vercel when ready.
+
+**Next Steps:**
+1. Login to admin dashboard with Clerk credentials (admin user needs isAdmin flag set in database)
+2. Upload gallery images through admin dashboard
+3. Add testimonials and manage services in dashboard
+4. Deploy to Vercel when satisfied
 
 ## System Architecture
 
