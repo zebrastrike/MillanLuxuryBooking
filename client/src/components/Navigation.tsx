@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import millanLogo from "@assets/IMG_5919 - Millan Luxury Cleaning (1)_1763147963949.png";
+
+const millanLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);

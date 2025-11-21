@@ -1,5 +1,4 @@
 import { SiInstagram, SiYelp } from "react-icons/si";
-import giddyuppLogo from "@assets/4087e60a-eca2-4438-9a21-19ed5c1f5e29_1763192740013.png";
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -127,15 +126,10 @@ export function Footer() {
               href="https://giddyupp.com" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+              className="text-muted-foreground hover:text-primary transition-colors text-sm"
               data-testid="link-built-by-giddyupp"
             >
-              <span className="text-muted-foreground text-sm">Built by</span>
-              <img 
-                src={giddyuppLogo} 
-                alt="GiddyUpp" 
-                className="h-12 w-auto object-contain"
-              />
+              Built by GiddyUpp
             </a>
           </div>
         </div>

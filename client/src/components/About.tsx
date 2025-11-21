@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
-import lightBotanicalBg from "@assets/generated_images/Light_botanical_section_background_e6c03f5a.png";
-import ownerPhoto from "@assets/IMG_3773_1763679613585.jpeg";
+
+const lightBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png";
+const ownerPhoto = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg";
 
 export function About() {
   return (

@@ -3,8 +3,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
-import darkBotanicalBg from "@assets/generated_images/Dark_botanical_hero_background_18ef14b3.png";
 import type { Service } from "@shared/schema";
+
+const darkBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 // Icon mapping for services
 const iconMap: Record<string, any> = {

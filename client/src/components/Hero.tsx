@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import millanLogo from "@assets/IMG_5919 - Millan Luxury Cleaning (1)_1763147963949.png";
-import darkBotanicalBg from "@assets/generated_images/Dark_botanical_hero_background_18ef14b3.png";
+
+const millanLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
+const darkBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
   return (
