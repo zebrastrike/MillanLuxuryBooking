@@ -13,42 +13,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Setup authentication middleware
   await setupAuth(app);
 
-  // Auth status endpoint - check if user is logged in (not protected)
-  app.get('/api/auth/status', async (req: any, res) => {
+  // Gallery endpoints
+  app.get("/api/gallery", async (req, res) => {
     try {
-      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
-        res.json({ authenticated: false, user: null });
-        return;
-      }
-      
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      
-      if (!user) {
-        res.json({ authenticated: false, user: null });
-        return;
-      }
-      
-      res.json({ authenticated: true, user });
+      const items = await storage.getGalleryItems();
+      res.json(items);
     } catch (error) {
-      console.error("Error fetching auth status:", error);
-      res.json({ authenticated: false, user: null });
+      console.error("Error fetching gallery:", error);
+      res.status(500).json({ message: "Failed to fetch gallery" });
     }
   });
 
-  // Auth user endpoint - get current logged-in user (protected)
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.post("/api/gallery", isAdmin, async (req, res) => {
     try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      if (!user) {
-        res.status(404).json({ message: "User not found" });
-        return;
-      }
-      res.json(user);
+      const validatedData = insertGalleryItemSchema.parse(req.body);
+      const item = await storage.createGalleryItem(validatedData);
+      res.status(201).json(item);
     } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid gallery item data" });
+      } else {
+        console.error("Error creating gallery item:", error);
+        res.status(500).json({ message: "Failed to create gallery item" });
+      }
+    }
+  });
+
+  app.put("/api/gallery/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertGalleryItemSchema.partial().parse(req.body);
+      const item = await storage.updateGalleryItem(id, validatedData);
+      res.json(item);
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid gallery item data" });
+      } else {
+        console.error("Error updating gallery item:", error);
+        res.status(500).json({ message: "Failed to update gallery item" });
+      }
+    }
+  });
+
+  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteGalleryItem(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting gallery item:", error);
+      res.status(500).json({ message: "Failed to delete gallery item" });
     }
   });
 
