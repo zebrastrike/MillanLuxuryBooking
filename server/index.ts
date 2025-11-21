@@ -7,6 +7,15 @@ if (!process.env.CLERK_PUBLISHABLE_KEY && process.env.VITE_CLERK_PUBLISHABLE_KEY
   process.env.CLERK_PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY;
 }
 
+// Debug: Check if publishable key is set and log its format (without exposing the full key)
+const pubKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (pubKey) {
+  const keyFormat = pubKey.substring(0, 8) + '...' + pubKey.substring(pubKey.length - 4);
+  console.log(`[DEBUG] Clerk Publishable Key detected: ${keyFormat}`);
+} else {
+  console.log('[DEBUG] WARNING: No Clerk Publishable Key found in environment variables!');
+}
+
 const app = express();
 
 declare module 'http' {
