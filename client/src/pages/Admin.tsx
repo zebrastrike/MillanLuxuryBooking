@@ -16,11 +16,12 @@ export default function Admin() {
   const { userId, isLoaded, signOut } = useAuth();
   
   // Fetch current user from database to check admin status
-  const { data: user, isLoading: isUserLoading } = useQuery({
+  const { data: userResponse, isLoading: isUserLoading } = useQuery<any>({
     queryKey: ['/api/auth/user'],
     enabled: isLoaded && !!userId,
   });
 
+  const user = userResponse as any;
   const isLoading = !isLoaded || isUserLoading;
   const isAuthenticated = isLoaded && !!userId;
   const isAdmin = user?.isAdmin ?? false;
