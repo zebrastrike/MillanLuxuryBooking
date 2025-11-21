@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  
+  <!-- Home Page -->
+  <url>
+    <loc>https://millanluxurycleaning.com</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+    <image:image>
+      <image:loc>https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png</image:loc>
+      <image:title>Millan Luxury Cleaning Hero</image:title>
+    </image:image>
+  </url>
+
+  <!-- About Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#about</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Services Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#services</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+  <!-- Gallery Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#gallery</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <image:image>
+      <image:loc>https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/gallery/Screenshot%202025-11-14%20093949_1763138704138.png</image:loc>
+      <image:title>Professional Cleaning Results</image:title>
+    </image:image>
+  </url>
+
+  <!-- Testimonials Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#testimonials</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <!-- FAQ Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#faq</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+
+  <!-- Contact Section (anchor link) -->
+  <url>
+    <loc>https://millanluxurycleaning.com/#contact</loc>
+    <lastmod>2025-11-21</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+
+</urlset>
