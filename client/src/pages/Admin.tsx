@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
+import { SignIn } from "@clerk/clerk-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,20 +27,16 @@ export default function Admin() {
   const isAuthenticated = isLoaded && !!userId;
   const isAdmin = user?.isAdmin ?? false;
 
-  useEffect(() => {
-    if (isLoaded && !userId) {
-      toast({
-        title: "Unauthorized",
-        description: "Please sign in to access the admin panel.",
-        variant: "destructive",
-      });
-      // Redirect to home after a short delay
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1000);
-      return;
-    }
-  }, [isLoaded, userId, toast]);
+  // Show Clerk sign-in page if not authenticated
+  if (isLoaded && !userId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="w-full max-w-md">
+          <SignIn redirectUrl="/admin" />
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!isUserLoading && isAuthenticated && !isAdmin) {
