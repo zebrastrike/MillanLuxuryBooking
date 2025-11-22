@@ -38,6 +38,7 @@ export default function Admin() {
     );
   }
 
+  // Check if user is admin after login
   useEffect(() => {
     if (!isUserLoading && isAuthenticated && !isAdmin) {
       toast({
@@ -48,7 +49,6 @@ export default function Admin() {
       setTimeout(() => {
         window.location.href = "/";
       }, 1000);
-      return;
     }
   }, [isAuthenticated, isAdmin, isUserLoading, toast]);
 
