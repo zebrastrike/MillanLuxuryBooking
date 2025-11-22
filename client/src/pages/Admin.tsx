@@ -16,11 +16,31 @@ export default function Admin() {
   const { toast } = useToast();
   const { userId, isLoaded, signOut } = useAuth();
   
+  // Debug logging
+  useEffect(() => {
+    console.log('[Admin] Clerk Auth State:', { 
+      userId, 
+      isLoaded, 
+      isAuthenticated: isLoaded && !!userId 
+    });
+  }, [userId, isLoaded]);
+  
   // Fetch current user from database to check admin status
-  const { data: userResponse, isLoading: isUserLoading } = useQuery<any>({
+  const { data: userResponse, isLoading: isUserLoading, error: userError } = useQuery<any>({
     queryKey: ['/api/auth/user'],
     enabled: isLoaded && !!userId,
+    retry: false,
   });
+
+  // Debug logging for user query
+  useEffect(() => {
+    if (userResponse) {
+      console.log('[Admin] User data:', userResponse);
+    }
+    if (userError) {
+      console.error('[Admin] User query error:', userError);
+    }
+  }, [userResponse, userError]);
 
   const user = userResponse as any;
   const isLoading = !isLoaded || isUserLoading;
@@ -29,10 +49,27 @@ export default function Admin() {
 
   // Show Clerk sign-in page if not authenticated
   if (isLoaded && !userId) {
+    console.log('[Admin] Showing SignIn - user not authenticated');
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="w-full max-w-md">
-          <SignIn redirectUrl="/admin" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Admin Login Required</CardTitle>
+              <CardDescription>Please sign in to access the admin dashboard</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <SignIn 
+                redirectUrl="/admin" 
+                appearance={{
+                  elements: {
+                    rootBox: "w-full",
+                    card: "shadow-none border-0"
+                  }
+                }}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
@@ -40,7 +77,8 @@ export default function Admin() {
 
   // Check if user is admin after login
   useEffect(() => {
-    if (!isUserLoading && isAuthenticated && !isAdmin) {
+    if (!isUserLoading && isAuthenticated && user && !isAdmin) {
+      console.log('[Admin] Access denied - user is not admin:', user);
       toast({
         title: "Access Denied",
         description: "You do not have admin privileges.",
@@ -48,20 +86,57 @@ export default function Admin() {
       });
       setTimeout(() => {
         window.location.href = "/";
-      }, 1000);
+      }, 2000);
     }
-  }, [isAuthenticated, isAdmin, isUserLoading, toast]);
+  }, [isAuthenticated, isAdmin, isUserLoading, user, toast]);
 
+  // Loading state
   if (isLoading) {
+    console.log('[Admin] Loading...');
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <p className="text-sm text-muted-foreground">Loading admin dashboard...</p>
+        </div>
       </div>
     );
   }
 
+  // Error state - user loaded but not admin
+  if (isAuthenticated && user && !isAdmin) {
+    console.log('[Admin] Redirecting - not admin');
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>You do not have admin privileges</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">Redirecting to home page...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Fallback for any other state
   if (!isAuthenticated || !isAdmin) {
-    return null;
+    console.log('[Admin] Unexpected state - showing fallback');
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Required</CardTitle>
+            <CardDescription>Please wait while we verify your access</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
