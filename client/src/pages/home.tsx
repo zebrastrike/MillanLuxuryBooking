@@ -9,6 +9,7 @@ import { FAQ } from "@/components/FAQ";
 import { Contact } from "@/components/Contact";
 import { Footer } from "@/components/Footer";
 
+// Main landing page for Millan Luxury Cleaning
 export default function Home() {
   return (
     <div className="min-h-screen">
