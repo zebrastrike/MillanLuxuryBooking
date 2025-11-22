@@ -10,6 +10,7 @@ import NotFound from "@/pages/not-found";
 
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
+// Main router component
 function Router() {
   return (
     <Switch>
