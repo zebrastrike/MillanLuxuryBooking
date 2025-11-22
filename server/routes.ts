@@ -370,10 +370,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/testimonials", async (req, res) => {
     try {
       const items = await storage.getTestimonials();
-      res.json({
-        success: true,
-        data: items
-      });
+      res.json(items);
     } catch (error) {
       res.status(500).json({
         success: false,
@@ -479,10 +476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/services", async (req, res) => {
     try {
       const items = await storage.getServices();
-      res.json({
-        success: true,
-        data: items
-      });
+      res.json(items);
     } catch (error) {
       res.status(500).json({
         success: false,
