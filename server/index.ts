@@ -10,13 +10,28 @@ if (!process.env.CLERK_PUBLISHABLE_KEY && process.env.VITE_CLERK_PUBLISHABLE_KEY
   process.env.CLERK_PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY;
 }
 
-// Debug: Check if publishable key is set and log its format (without exposing the full key)
+// Debug: Check Clerk environment setup
 const pubKey = process.env.CLERK_PUBLISHABLE_KEY || process.env.VITE_CLERK_PUBLISHABLE_KEY;
-if (pubKey) {
+const secretKey = process.env.CLERK_SECRET_KEY;
+
+if (!pubKey) {
+  console.error('[ERROR] CLERK_PUBLISHABLE_KEY not found in environment variables!');
+  console.error('[HELP] Make sure VITE_CLERK_PUBLISHABLE_KEY is set in your environment');
+} else {
   const keyFormat = pubKey.substring(0, 8) + '...' + pubKey.substring(pubKey.length - 4);
   console.log(`[DEBUG] Clerk Publishable Key detected: ${keyFormat}`);
+}
+
+if (!secretKey) {
+  console.error('[ERROR] CLERK_SECRET_KEY not found in environment variables!');
 } else {
-  console.log('[DEBUG] WARNING: No Clerk Publishable Key found in environment variables!');
+  console.log('[DEBUG] Clerk Secret Key detected');
+}
+
+if (pubKey && secretKey) {
+  console.log('[DEBUG] ✅ Both Clerk keys are configured');
+} else {
+  console.error('[ERROR] ❌ Clerk authentication will not work - missing keys!');
 }
 
 const app = express();
