@@ -2,6 +2,9 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Millan Luxury Cleaning - Express Server
+// Production-ready application with Clerk authentication and Vercel Blob storage
+
 // Map VITE_CLERK_PUBLISHABLE_KEY to CLERK_PUBLISHABLE_KEY for backend if not already set
 if (!process.env.CLERK_PUBLISHABLE_KEY && process.env.VITE_CLERK_PUBLISHABLE_KEY) {
   process.env.CLERK_PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY;
