@@ -12,7 +12,7 @@ import { useEffect } from "react";
 export function ContactMessages() {
   const { toast } = useToast();
   
-  const { data: messagesData, isLoading, error } = useQuery<{ success: boolean; data: ContactMessage[] }>({
+  const { data: messages = [], isLoading, error } = useQuery<ContactMessage[]>({
     queryKey: ["/api/contact"],
     retry: false,
   });
@@ -29,8 +29,6 @@ export function ContactMessages() {
       });
     }
   }, [error, toast]);
-
-  const messages = messagesData?.data || [];
 
   if (isLoading) {
     return (

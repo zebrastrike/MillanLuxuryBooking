@@ -26,7 +26,7 @@ export function GalleryManagement() {
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
-  const { data: galleryData, isLoading, error } = useQuery<{ success: boolean; data: GalleryItem[] }>({
+  const { data: items = [], isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"],
     retry: false,
   });
@@ -43,8 +43,6 @@ export function GalleryManagement() {
       });
     }
   }, [error, toast]);
-
-  const items = galleryData?.data || [];
 
   const addForm = useForm<GalleryFormData>({
     resolver: zodResolver(insertGalleryItemSchema),

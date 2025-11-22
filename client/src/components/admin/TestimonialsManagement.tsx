@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 export function TestimonialsManagement() {
   const { toast } = useToast();
   
-  const { data: testimonialsData, isLoading, error } = useQuery<{ success: boolean; data: Testimonial[] }>({
+  const { data: testimonials = [], isLoading, error } = useQuery<Testimonial[]>({
     queryKey: ["/api/testimonials"],
     retry: false,
   });
@@ -27,8 +27,6 @@ export function TestimonialsManagement() {
       });
     }
   }, [error, toast]);
-
-  const testimonials = testimonialsData?.data || [];
 
   if (isLoading) {
     return (

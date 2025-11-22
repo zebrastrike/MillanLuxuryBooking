@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 export function ServicesManagement() {
   const { toast } = useToast();
   
-  const { data: servicesData, isLoading, error} = useQuery<{ success: boolean; data: Service[] }>({
+  const { data: services = [], isLoading, error} = useQuery<Service[]>({
     queryKey: ["/api/services"],
     retry: false,
   });
@@ -27,8 +27,6 @@ export function ServicesManagement() {
       });
     }
   }, [error, toast]);
-
-  const services = servicesData?.data || [];
 
   if (isLoading) {
     return (
