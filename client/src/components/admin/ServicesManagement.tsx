@@ -54,6 +54,11 @@ export function ServicesManagement() {
 
   const editForm = useForm<ServiceFormData>({
     resolver: zodResolver(insertServiceSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      features: [""],
+    },
   });
 
   const addFieldArray = useFieldArray({

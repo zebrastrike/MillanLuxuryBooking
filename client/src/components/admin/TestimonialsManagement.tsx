@@ -230,10 +230,10 @@ export function TestimonialsManagement() {
                   name="rating"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Rating: {field.value} / 5</FormLabel>
+                      <FormLabel>Rating: {field.value ?? 5} / 5</FormLabel>
                       <FormControl>
                         <Slider
-                          value={[field.value]}
+                          value={[field.value ?? 5]}
                           onValueChange={(val) => field.onChange(val[0])}
                           min={1}
                           max={5}
@@ -372,10 +372,10 @@ export function TestimonialsManagement() {
                 name="rating"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Rating: {field.value} / 5</FormLabel>
+                    <FormLabel>Rating: {field.value ?? 5} / 5</FormLabel>
                     <FormControl>
                       <Slider
-                        value={[field.value]}
+                        value={[field.value ?? 5]}
                         onValueChange={(val) => field.onChange(val[0])}
                         min={1}
                         max={5}
