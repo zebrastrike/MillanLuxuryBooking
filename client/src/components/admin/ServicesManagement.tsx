@@ -63,12 +63,12 @@ export function ServicesManagement() {
 
   const addFieldArray = useFieldArray({
     control: addForm.control,
-    name: "features",
+    name: "features" as const,
   });
 
   const editFieldArray = useFieldArray({
     control: editForm.control,
-    name: "features",
+    name: "features" as const,
   });
 
   const addMutation = useMutation({
