@@ -1,15 +1,31 @@
-import { useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Star } from "lucide-react";
-import type { Testimonial } from "@shared/schema";
-import { handleUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
+import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
+import { Star, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import type { Testimonial, InsertTestimonial } from "@shared/schema";
+import { insertTestimonialSchema } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+
+type TestimonialFormData = InsertTestimonial;
 
 export function TestimonialsManagement() {
   const { toast } = useToast();
-  
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Testimonial | null>(null);
+  const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+
   const { data: testimonials = [], isLoading, error } = useQuery<Testimonial[]>({
     queryKey: ["/api/testimonials"],
     retry: false,
@@ -27,6 +43,122 @@ export function TestimonialsManagement() {
       });
     }
   }, [error, toast]);
+
+  const addForm = useForm<TestimonialFormData>({
+    resolver: zodResolver(insertTestimonialSchema),
+    defaultValues: {
+      name: "",
+      review: "",
+      rating: 5,
+    },
+  });
+
+  const editForm = useForm<TestimonialFormData>({
+    resolver: zodResolver(insertTestimonialSchema),
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async (data: TestimonialFormData) => {
+      return await apiRequest("POST", "/api/testimonials", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
+      toast({
+        title: "Success",
+        description: "Testimonial created successfully",
+      });
+      setIsAddDialogOpen(false);
+      addForm.reset();
+    },
+    onError: (error) => {
+      if (handleUnauthorizedError(error, toast)) {
+        return;
+      }
+      const message = getErrorMessage(error) || "Failed to create testimonial";
+      addForm.setError("root", { message });
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<TestimonialFormData> }) => {
+      return await apiRequest("PATCH", `/api/testimonials/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
+      toast({
+        title: "Success",
+        description: "Testimonial updated successfully",
+      });
+      setEditingItem(null);
+      editForm.reset();
+    },
+    onError: (error) => {
+      if (handleUnauthorizedError(error, toast)) {
+        return;
+      }
+      const message = getErrorMessage(error) || "Failed to update testimonial";
+      editForm.setError("root", { message });
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return await apiRequest("DELETE", `/api/testimonials/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
+      toast({
+        title: "Success",
+        description: "Testimonial deleted successfully",
+      });
+      setDeletingItemId(null);
+    },
+    onError: (error) => {
+      if (handleUnauthorizedError(error, toast)) {
+        return;
+      }
+      const message = getErrorMessage(error) || "Failed to delete testimonial";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleEdit = (item: Testimonial) => {
+    editForm.reset({
+      name: item.name,
+      review: item.review,
+      rating: item.rating,
+    });
+    setEditingItem(item);
+  };
+
+  const onAddSubmit = (data: TestimonialFormData) => {
+    addMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: TestimonialFormData) => {
+    if (!editingItem) return;
+    updateMutation.mutate({ id: editingItem.id, data });
+  };
+
+  const handleDeleteConfirm = () => {
+    if (deletingItemId) {
+      deleteMutation.mutate(deletingItemId);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -46,54 +178,254 @@ export function TestimonialsManagement() {
     );
   }
 
-  if (testimonials.length === 0) {
-    return (
-      <Card>
-        <CardContent className="pt-6">
-          <div className="text-center text-muted-foreground py-8">
-            <Star className="mx-auto h-12 w-12 mb-3 opacity-50" />
-            <p>No testimonials yet.</p>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      {testimonials.map((testimonial) => (
-        <Card key={testimonial.id} data-testid={`card-testimonial-${testimonial.id}`} className="hover-elevate">
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h3 className="font-semibold" data-testid={`text-name-${testimonial.id}`}>
-                  {testimonial.name}
-                </h3>
-                <div className="flex items-center gap-1 mt-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className={`h-4 w-4 ${
-                        i < testimonial.rating
-                          ? "fill-primary text-primary"
-                          : "fill-muted text-muted"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                Order: {testimonial.order}
-              </span>
+      <div className="flex items-center justify-between">
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-testimonial">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Testimonial
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add Testimonial</DialogTitle>
+              <DialogDescription>
+                Add a new customer testimonial.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...addForm}>
+              <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                <FormField
+                  control={addForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Customer Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} placeholder="John Doe" data-testid="input-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="review"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Review</FormLabel>
+                      <FormControl>
+                        <Textarea {...field} placeholder="Enter the testimonial..." data-testid="textarea-review" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="rating"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Rating: {field.value} / 5</FormLabel>
+                      <FormControl>
+                        <Slider
+                          value={[field.value]}
+                          onValueChange={(val) => field.onChange(val[0])}
+                          min={1}
+                          max={5}
+                          step={1}
+                          data-testid="slider-rating"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {addForm.formState.errors.root?.message && (
+                  <p className="text-sm text-destructive">{addForm.formState.errors.root.message}</p>
+                )}
+
+                <DialogFooter>
+                  <Button type="submit" disabled={addMutation.isPending} data-testid="button-submit">
+                    {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {addMutation.isPending ? "Saving..." : "Save"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {testimonials.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center text-muted-foreground py-8">
+              <Star className="mx-auto h-12 w-12 mb-3 opacity-50" />
+              <p className="mb-4">No testimonials yet.</p>
+              <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Your First Testimonial
+              </Button>
             </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground" data-testid={`text-review-${testimonial.id}`}>
-              {testimonial.review}
-            </p>
           </CardContent>
         </Card>
-      ))}
+      ) : (
+        <div className="space-y-4">
+          {testimonials.map((testimonial) => (
+            <Card key={testimonial.id} data-testid={`card-testimonial-${testimonial.id}`} className="hover-elevate">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <h3 className="font-semibold" data-testid={`text-name-${testimonial.id}`}>
+                      {testimonial.name}
+                    </h3>
+                    <div className="flex items-center gap-1 mt-1">
+                      {[...Array(5)].map((_, i) => (
+                        <Star
+                          key={i}
+                          className={`h-4 w-4 ${
+                            i < testimonial.rating
+                              ? "fill-primary text-primary"
+                              : "fill-muted text-muted"
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(testimonial)}
+                      data-testid={`button-edit-${testimonial.id}`}
+                    >
+                      <Edit className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDeletingItemId(testimonial.id)}
+                      disabled={deleteMutation.isPending}
+                      data-testid={`button-delete-${testimonial.id}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground" data-testid={`text-review-${testimonial.id}`}>
+                  {testimonial.review}
+                </p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Testimonial</DialogTitle>
+            <DialogDescription>
+              Update the testimonial details.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Customer Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="review"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Review</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} data-testid="textarea-edit-review" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="rating"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Rating: {field.value} / 5</FormLabel>
+                    <FormControl>
+                      <Slider
+                        value={[field.value]}
+                        onValueChange={(val) => field.onChange(val[0])}
+                        min={1}
+                        max={5}
+                        step={1}
+                        data-testid="slider-edit-rating"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {editForm.formState.errors.root?.message && (
+                <p className="text-sm text-destructive">{editForm.formState.errors.root.message}</p>
+              )}
+
+              <DialogFooter>
+                <Button type="submit" disabled={updateMutation.isPending} data-testid="button-update">
+                  {updateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {updateMutation.isPending ? "Updating..." : "Update"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={deletingItemId !== null} onOpenChange={(open) => !open && setDeletingItemId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Testimonial</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this testimonial? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending} data-testid="button-cancel-delete">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete"
+            >
+              {deleteMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
