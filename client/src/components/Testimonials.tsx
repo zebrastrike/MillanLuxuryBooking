@@ -6,11 +6,9 @@ import { Star, ExternalLink } from "lucide-react";
 import type { Testimonial } from "@shared/schema";
 
 export function Testimonials() {
-  const { data: testimonialsData, isLoading } = useQuery<{ success: boolean; data: Testimonial[] }>({
+  const { data: testimonials = [], isLoading } = useQuery<Testimonial[]>({
     queryKey: ["/api/testimonials"]
   });
-
-  const testimonials = testimonialsData?.data || [];
 
   return (
     <section id="testimonials" className="py-20 md:py-32 bg-card">

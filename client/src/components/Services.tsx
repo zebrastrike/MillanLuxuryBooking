@@ -24,11 +24,9 @@ const bookingLinks: Record<string, string> = {
 };
 
 export function Services() {
-  const { data: servicesData, isLoading } = useQuery<{ success: boolean; data: Service[] }>({
+  const { data: services = [], isLoading } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
-
-  const services = servicesData?.data || [];
 
   return (
     <section 
