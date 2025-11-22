@@ -3,15 +3,37 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
-import { setupAuth, isAuthenticated, isAdmin } from "./clerkAuth";
+import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
 import { put } from "@vercel/blob";
 import multer from "multer";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup authentication middleware
+  // Setup Replit Auth middleware
   await setupAuth(app);
+
+  // Auth routes - Get current user (returns 401 if not authenticated)
+  app.get('/api/auth/user', async (req: any, res) => {
+    try {
+      // Check if user is authenticated
+      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
 
   // Gallery endpoints
   app.get("/api/gallery", async (req, res) => {

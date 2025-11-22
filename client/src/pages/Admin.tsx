@@ -1,6 +1,5 @@
-import { useEffect } from "react";
-import { useAuth } from "@clerk/clerk-react";
-import { SignIn } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,75 +9,23 @@ import { ContactMessages } from "@/components/admin/ContactMessages";
 import { GalleryManagement } from "@/components/admin/GalleryManagement";
 import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
-import { useQuery } from "@tanstack/react-query";
 
 export default function Admin() {
   const { toast } = useToast();
-  const { userId, isLoaded, signOut } = useAuth();
-  
-  // Debug logging
+  const { user, isLoading, isAuthenticated, isAdmin } = useAuth();
+  const [hasRedirected, setHasRedirected] = useState(false);
+
+  // Redirect to login if not authenticated (only once)
   useEffect(() => {
-    console.log('[Admin] Clerk Auth State:', { 
-      userId, 
-      isLoaded, 
-      isAuthenticated: isLoaded && !!userId 
-    });
-  }, [userId, isLoaded]);
-  
-  // Fetch current user from database to check admin status
-  const { data: userResponse, isLoading: isUserLoading, error: userError } = useQuery<any>({
-    queryKey: ['/api/auth/user'],
-    enabled: isLoaded && !!userId,
-    retry: false,
-  });
-
-  // Debug logging for user query
-  useEffect(() => {
-    if (userResponse) {
-      console.log('[Admin] User data:', userResponse);
+    if (!isLoading && !isAuthenticated && !hasRedirected) {
+      setHasRedirected(true);
+      window.location.href = "/api/login?returnTo=/admin";
     }
-    if (userError) {
-      console.error('[Admin] User query error:', userError);
-    }
-  }, [userResponse, userError]);
-
-  const user = userResponse as any;
-  const isLoading = !isLoaded || isUserLoading;
-  const isAuthenticated = isLoaded && !!userId;
-  const isAdmin = user?.isAdmin ?? false;
-
-  // Show Clerk sign-in page if not authenticated
-  if (isLoaded && !userId) {
-    console.log('[Admin] Showing SignIn - user not authenticated');
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="w-full max-w-md">
-          <Card>
-            <CardHeader>
-              <CardTitle>Admin Login Required</CardTitle>
-              <CardDescription>Please sign in to access the admin dashboard</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <SignIn 
-                redirectUrl="/admin" 
-                appearance={{
-                  elements: {
-                    rootBox: "w-full",
-                    card: "shadow-none border-0"
-                  }
-                }}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  }, [isLoading, isAuthenticated, hasRedirected]);
 
   // Check if user is admin after login
   useEffect(() => {
-    if (!isUserLoading && isAuthenticated && user && !isAdmin) {
-      console.log('[Admin] Access denied - user is not admin:', user);
+    if (!isLoading && isAuthenticated && user && !isAdmin) {
       toast({
         title: "Access Denied",
         description: "You do not have admin privileges.",
@@ -86,55 +33,18 @@ export default function Admin() {
       });
       setTimeout(() => {
         window.location.href = "/";
-      }, 2000);
+      }, 1500);
     }
-  }, [isAuthenticated, isAdmin, isUserLoading, user, toast]);
+  }, [isLoading, isAuthenticated, user, isAdmin, toast]);
 
-  // Loading state
-  if (isLoading) {
-    console.log('[Admin] Loading...');
+  // Show loading spinner while checking auth
+  if (isLoading || !isAuthenticated || !isAdmin) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading admin dashboard...</p>
+          <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
-      </div>
-    );
-  }
-
-  // Error state - user loaded but not admin
-  if (isAuthenticated && user && !isAdmin) {
-    console.log('[Admin] Redirecting - not admin');
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>You do not have admin privileges</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">Redirecting to home page...</p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // Fallback for any other state
-  if (!isAuthenticated || !isAdmin) {
-    console.log('[Admin] Unexpected state - showing fallback');
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Authentication Required</CardTitle>
-            <CardDescription>Please wait while we verify your access</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto" />
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -152,7 +62,7 @@ export default function Admin() {
           </div>
           <Button 
             variant="outline"
-            onClick={() => signOut({ redirectUrl: "/" })}
+            onClick={() => window.location.href = "/api/logout"}
             data-testid="button-logout"
           >
             <LogOut className="mr-2 h-4 w-4" />
