@@ -182,10 +182,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/gallery", async (req, res) => {
     try {
       const items = await storage.getGalleryItems();
-      res.json({
-        success: true,
-        data: items
-      });
+      res.json(items);
     } catch (error) {
       res.status(500).json({
         success: false,

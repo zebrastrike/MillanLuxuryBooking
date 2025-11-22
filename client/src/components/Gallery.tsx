@@ -8,24 +8,24 @@ import ReactCompareImage from "react-compare-image";
 import type { GalleryItem } from "@shared/schema";
 
 export function Gallery() {
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
-  const { data: galleryData, isLoading } = useQuery<{ success: boolean; data: GalleryItem[] }>({
+  const { data: galleryItems, isLoading } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"]
   });
 
-  const galleryItems = galleryData?.data || [];
+  const items = galleryItems || [];
   
   const filteredImages = filter === "all" 
-    ? galleryItems 
-    : galleryItems.filter(img => img.category === filter);
+    ? items 
+    : items.filter(img => img.category === filter);
 
   const selectedIndex = selectedItemId !== null 
     ? filteredImages.findIndex(img => img.id === selectedItemId)
     : -1;
 
-  const openLightbox = (itemId: string) => {
+  const openLightbox = (itemId: number) => {
     setSelectedItemId(itemId);
   };
 
@@ -65,7 +65,7 @@ export function Gallery() {
     }
     return (
       <img
-        src={item.imageUrl}
+        src={item.imageUrl ?? ""}
         alt={item.title}
         className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
         data-testid={`img-gallery-${item.id}`}
@@ -91,7 +91,7 @@ export function Gallery() {
     }
     return (
       <img
-        src={item.imageUrl}
+        src={item.imageUrl ?? ""}
         alt={item.title}
         className="w-full h-auto max-h-[80vh] object-contain"
         data-testid="img-lightbox-current"
