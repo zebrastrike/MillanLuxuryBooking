@@ -3,34 +3,91 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
-import { setupAuth, isAuthenticated, isAdmin } from "./replitAuth";
+import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
 import multer from "multer";
+import type { RequestHandler } from "express";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // Setup Replit Auth middleware
-  await setupAuth(app);
+// Middleware to check if user is admin
+const isAdmin: RequestHandler = async (req, res, next) => {
+  try {
+    const auth = getAuth(req);
+    
+    if (!auth.userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
 
-  // Auth routes - Get current user (returns 401 if not authenticated)
-  app.get('/api/auth/user', async (req: any, res) => {
+    const user = await storage.getUser(auth.userId);
+    
+    if (!user?.isAdmin) {
+      return res.status(403).json({ message: "Forbidden - admin access required" });
+    }
+
+    next();
+  } catch (error) {
+    console.error("Admin check error:", error);
+    res.status(500).json({ message: "Failed to verify admin status" });
+  }
+};
+
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Setup Clerk middleware with configuration
+  app.use(clerkMiddleware({
+    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+    secretKey: process.env.CLERK_SECRET_KEY,
+  }));
+
+  // Auth routes - Get current user (with auto-provisioning)
+  app.get('/api/auth/user', requireAuth(), async (req: any, res) => {
     try {
-      // Check if user is authenticated
-      if (!req.isAuthenticated() || !req.user?.claims?.sub) {
+      const auth = getAuth(req);
+      
+      if (!auth.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
       
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
+      // Try to get existing user from database
+      let user = await storage.getUser(auth.userId);
       
+      // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
-        return res.status(404).json({ message: "User not found" });
+        // Fetch full user data from Clerk
+        const clerkUser = await clerkClient.users.getUser(auth.userId);
+        
+        // Validate required email field
+        const email = clerkUser.primaryEmailAddress?.emailAddress;
+        if (!email) {
+          return res.status(400).json({ 
+            message: "User account must have a verified email address" 
+          });
+        }
+        
+        // Check if this is the first user (auto-promote to admin)
+        const existingUsers = await storage.getAllUsers();
+        const isFirstUser = existingUsers.length === 0;
+        
+        // Create user record from Clerk data
+        user = await storage.upsertUser({
+          id: auth.userId,
+          email: email,
+          firstName: clerkUser.firstName || null,
+          lastName: clerkUser.lastName || null,
+          profileImageUrl: clerkUser.imageUrl || null,
+          isAdmin: isFirstUser, // First user becomes admin
+        });
+        
+        if (isFirstUser) {
+          console.log(`[INFO] First user created with admin privileges: ${user.email}`);
+        } else {
+          console.log(`[INFO] New user created: ${user.email}`);
+        }
       }
       
       res.json(user);
     } catch (error) {
-      console.error("Error fetching user:", error);
+      console.error("Error fetching/creating user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
     }
   });

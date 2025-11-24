@@ -1,33 +1,24 @@
+import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery<User>({
+  const { isSignedIn, isLoaded: clerkLoaded } = useClerkAuth();
+  const { user: clerkUser } = useUser();
+  
+  // Fetch user data from our database (only if signed in with Clerk)
+  const { data: dbUser, isLoading: dbLoading } = useQuery<User>({
     queryKey: ["/api/auth/user"],
+    enabled: !!isSignedIn && !!clerkUser,
     retry: false,
-    // Don't throw on errors - we'll handle them gracefully
-    throwOnError: false,
   });
 
-  // Check if error is a 401 Unauthorized response
-  const is401Error = error && 
-    ((error instanceof Response && error.status === 401) ||
-     (error as any).message?.includes('401'));
-
-  // If 401, user is not authenticated (not an error, just not logged in)
-  if (is401Error) {
-    return {
-      user: null,
-      isLoading: false,
-      isAuthenticated: false,
-      isAdmin: false,
-    };
-  }
+  const isLoading = !clerkLoaded || (isSignedIn && dbLoading);
 
   return {
-    user: user ?? null,
+    user: dbUser ?? null,
     isLoading,
-    isAuthenticated: !!user,
-    isAdmin: user?.isAdmin ?? false,
+    isAuthenticated: isSignedIn ?? false,
+    isAdmin: dbUser?.isAdmin ?? false,
   };
 }

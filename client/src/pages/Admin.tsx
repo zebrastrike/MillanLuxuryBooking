@@ -1,75 +1,68 @@
-import { useEffect, useState } from "react";
+import { SignedIn, SignedOut, RedirectToSignIn, UserButton } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, LogOut, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
+import { Loader2, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
 import { ContactMessages } from "@/components/admin/ContactMessages";
 import { GalleryManagement } from "@/components/admin/GalleryManagement";
 import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
 
 export default function Admin() {
-  const { toast } = useToast();
-  const { user, isLoading, isAuthenticated, isAdmin } = useAuth();
-  const [hasRedirected, setHasRedirected] = useState(false);
+  const { user, isLoading, isAdmin } = useAuth();
 
-  // Redirect to login if not authenticated (only once)
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated && !hasRedirected) {
-      setHasRedirected(true);
-      window.location.href = "/api/login?returnTo=/admin";
-    }
-  }, [isLoading, isAuthenticated, hasRedirected]);
-
-  // Check if user is admin after login
-  useEffect(() => {
-    if (!isLoading && isAuthenticated && user && !isAdmin) {
-      toast({
-        title: "Access Denied",
-        description: "You do not have admin privileges.",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/";
-      }, 1500);
-    }
-  }, [isLoading, isAuthenticated, user, isAdmin, toast]);
-
-  // Show loading spinner while checking auth
-  if (isLoading || !isAuthenticated || !isAdmin) {
+  // Show loading spinner while checking user permissions
+  if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" data-testid="loader-admin" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
       </div>
     );
   }
 
+  // Check admin permission after data is loaded
+  if (user && !isAdmin) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You do not have admin privileges to access this page.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <a href="/" className="text-sm text-primary hover:underline">
+              Return to homepage
+            </a>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Welcome, {user?.firstName || user?.email}
-            </p>
-          </div>
-          <Button 
-            variant="outline"
-            onClick={() => window.location.href = "/api/logout"}
-            data-testid="button-logout"
-          >
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
-      </header>
+    <>
+      <SignedOut>
+        <RedirectToSignIn />
+      </SignedOut>
+      <SignedIn>
+        <div className="min-h-screen bg-background">
+          {/* Header */}
+          <header className="border-b">
+            <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
+                <p className="text-sm text-muted-foreground">
+                  Welcome, {user?.firstName || user?.email}
+                </p>
+              </div>
+              <UserButton afterSignOutUrl="/" data-testid="button-user" />
+            </div>
+          </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
@@ -134,6 +127,8 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
+        </div>
+      </SignedIn>
+    </>
   );
 }

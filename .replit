@@ -57,3 +57,8 @@ waitForPort = 5000
 
 [agent]
 integrations = ["javascript_log_in_with_replit:1.0.0"]
+
+[userenv]
+
+[userenv.shared]
+CLERK_PUBLISHABLE_KEY = "pk_test_ZmFpci1zbHVnLTUxLmNsZXJrLmFjY291bnRzLmRldiQ"

@@ -3,10 +3,10 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 // Millan Luxury Cleaning - Express Server
-// Production-ready application with Replit Auth and Vercel Blob storage
+// Production-ready application with Clerk authentication and Vercel Blob storage
 
 console.log('[INFO] Starting Millan Luxury Cleaning server...');
-console.log('[INFO] Using Replit Auth for authentication');
+console.log('[INFO] Using Clerk for authentication');
 
 const app = express();
 
