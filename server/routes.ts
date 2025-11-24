@@ -56,11 +56,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Fetch full user data from Clerk
         const clerkUser = await clerkClient.users.getUser(auth.userId);
         
-        // Validate required email field
-        const email = clerkUser.primaryEmailAddress?.emailAddress;
+        // Extract email with robust fallback logic for OAuth providers
+        let email: string | null = null;
+        
+        // Try primaryEmailAddress first (works for most OAuth providers)
+        if (clerkUser.primaryEmailAddress?.emailAddress) {
+          email = clerkUser.primaryEmailAddress.emailAddress;
+        } 
+        // Fallback: find first non-revoked email (handles OAuth with null verification status)
+        else if (clerkUser.emailAddresses?.length > 0) {
+          const usableEmail = clerkUser.emailAddresses.find(
+            e => e.emailAddress && e.verification?.status !== 'revoked'
+          );
+          if (usableEmail?.emailAddress) {
+            email = usableEmail.emailAddress;
+          }
+        }
+        
+        // Reject if no usable email found
         if (!email) {
           return res.status(400).json({ 
-            message: "User account must have a verified email address" 
+            message: "Your account must have an email address. Please add an email in your Clerk account settings and try again." 
           });
         }
         

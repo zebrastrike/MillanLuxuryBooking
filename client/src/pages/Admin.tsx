@@ -9,7 +9,7 @@ import { TestimonialsManagement } from "@/components/admin/TestimonialsManagemen
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
 
 export default function Admin() {
-  const { user, isLoading, isAdmin } = useAuth();
+  const { user, isLoading, isAdmin, error } = useAuth();
 
   // Show loading spinner while checking user permissions
   if (isLoading) {
@@ -19,6 +19,31 @@ export default function Admin() {
           <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" data-testid="loader-admin" />
           <p className="text-sm text-muted-foreground">Loading...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Show error state if authentication failed
+  if (error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Authentication Error</CardTitle>
+            <CardDescription>
+              Failed to load your account. {error.message || 'Please try again.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <button 
+              onClick={() => window.location.reload()} 
+              className="text-sm text-primary hover:underline"
+              data-testid="button-retry"
+            >
+              Retry
+            </button>
+          </CardContent>
+        </Card>
       </div>
     );
   }

@@ -30,9 +30,12 @@ The project follows a luxury hospitality brand aesthetic inspired by Airbnb's tr
 
 ### Environment Variables Required
 - `DATABASE_URL` - Neon PostgreSQL connection string
-- `CLERK_SECRET_KEY` - Clerk backend secret
-- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk frontend key
+- `CLERK_SECRET_KEY` - Clerk backend secret (used by Express middleware)
+- `CLERK_PUBLISHABLE_KEY` - Clerk publishable key for backend (used by Express middleware)
+- `VITE_CLERK_PUBLISHABLE_KEY` - Clerk publishable key for frontend (used by React app)
 - `BLOB_READ_WRITE_TOKEN` - Vercel Blob storage token
+
+**Note**: Both `CLERK_PUBLISHABLE_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` should have the same value. The backend needs `CLERK_PUBLISHABLE_KEY` (without VITE_ prefix), while the frontend uses `VITE_CLERK_PUBLISHABLE_KEY` (with VITE_ prefix for Vite environment variable exposure).
 
 ## Deployment Status
 

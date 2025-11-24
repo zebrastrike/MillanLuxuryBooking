@@ -7,10 +7,10 @@ export function useAuth() {
   const { user: clerkUser } = useUser();
   
   // Fetch user data from our database (only if signed in with Clerk)
-  const { data: dbUser, isLoading: dbLoading } = useQuery<User>({
+  const { data: dbUser, isLoading: dbLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     enabled: !!isSignedIn && !!clerkUser,
-    retry: false,
+    retry: 2, // Retry failed requests twice
   });
 
   const isLoading = !clerkLoaded || (isSignedIn && dbLoading);
@@ -20,5 +20,6 @@ export function useAuth() {
     isLoading,
     isAuthenticated: isSignedIn ?? false,
     isAdmin: dbUser?.isAdmin ?? false,
+    error: error as Error | null,
   };
 }
