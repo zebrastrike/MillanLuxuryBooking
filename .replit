@@ -65,4 +65,4 @@ integrations = ["javascript_log_in_with_replit:1.0.0"]
 [userenv]
 
 [userenv.shared]
-CLERK_PUBLISHABLE_KEY = "pk_test_ZmFpci1zbHVnLTUxLmNsZXJrLmFjY291bnRzLmRldiQ"
+CLERK_PUBLISHABLE_KEY = "pk_live_Y2xlcmsubWlsbGFubHV4dXJ5Y2xlYW5pbmcuY29tJA"
