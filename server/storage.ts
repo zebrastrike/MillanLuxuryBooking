@@ -73,6 +73,14 @@ function assertDb() {
   return db;
 }
 
+function assertDb() {
+  if (!db) {
+    throw new Error("Database connection is not configured. Set DATABASE_URL to enable Postgres storage.");
+  }
+
+  return db;
+}
+
 export class DatabaseStorage implements IStorage {
   private db = assertDb();
 
@@ -87,18 +95,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const updateSet: Record<string, unknown> = {
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      profileImageUrl: userData.profileImageUrl,
-      updatedAt: new Date(),
-    };
-
-    if (typeof userData.isAdmin === "boolean") {
-      updateSet.isAdmin = userData.isAdmin;
-    }
-
     const [user] = await this.db
       .insert(users)
       .values(userData)
@@ -601,6 +597,216 @@ class InMemoryStorage implements IStorage {
 
   async getSiteAssetByKey(key: string): Promise<SiteAsset | undefined> {
     return this.siteAssetsData.find((asset) => asset.key === key);
+  }
+}
+
+const storageImpl = hasDatabaseUrl ? new DatabaseStorage() : new InMemoryStorage();
+
+if (!hasDatabaseUrl) {
+  console.warn("[WARN] DATABASE_URL not set. Using in-memory storage; data will reset on restart.");
+}
+
+class InMemoryStorage implements IStorage {
+  private galleryId = 1;
+  private testimonialId = 1;
+  private serviceId = 1;
+  private contactId = 1;
+  private users: User[] = [];
+  private gallery: GalleryItem[] = [];
+  private testimonialsData: Testimonial[] = [];
+  private servicesData: Service[] = [];
+  private contactMessagesData: ContactMessage[] = [];
+
+  // User operations (required for Replit Auth)
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.find((u) => u.id === id);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return [...this.users];
+  }
+
+  async upsertUser(userData: UpsertUser): Promise<User> {
+    const existing = this.users.find((u) => u.id === userData.id);
+    if (existing) {
+      Object.assign(existing, {
+        ...userData,
+        updatedAt: new Date(),
+      });
+      return existing;
+    }
+
+    const newUser: User = {
+      ...userData,
+      email: userData.email ?? null,
+      firstName: userData.firstName ?? null,
+      lastName: userData.lastName ?? null,
+      profileImageUrl: userData.profileImageUrl ?? null,
+      isAdmin: userData.isAdmin ?? false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.users.push(newUser);
+    return newUser;
+  }
+
+  // Contact messages
+  async createContactMessage(messageData: InsertContactMessage): Promise<ContactMessage> {
+    const message: ContactMessage = {
+      ...messageData,
+      id: this.contactId++,
+      timestamp: new Date(),
+    };
+    this.contactMessagesData.push(message);
+    return message;
+  }
+
+  async getContactMessages(): Promise<ContactMessage[]> {
+    return [...this.contactMessagesData].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  async getContactMessage(id: number): Promise<ContactMessage | undefined> {
+    return this.contactMessagesData.find((m) => m.id === id);
+  }
+
+  // Gallery items
+  async createGalleryItem(itemData: InsertGalleryItem): Promise<GalleryItem> {
+    const maxOrder = this.gallery.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
+    const nextOrder = maxOrder + 1;
+
+    const item: GalleryItem = {
+      ...itemData,
+      id: this.galleryId++,
+      order: nextOrder,
+      createdAt: new Date(),
+      imageUrl: itemData.imageUrl ?? null,
+      beforeImageUrl: itemData.beforeImageUrl ?? null,
+      afterImageUrl: itemData.afterImageUrl ?? null,
+    };
+
+    this.gallery.push(item);
+    return item;
+  }
+
+  async getGalleryItems(): Promise<GalleryItem[]> {
+    return [...this.gallery].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  async getGalleryItem(id: number): Promise<GalleryItem | undefined> {
+    return this.gallery.find((item) => item.id === id);
+  }
+
+  async updateGalleryItem(id: number, itemData: UpdateGalleryItem): Promise<GalleryItem | undefined> {
+    const existing = await this.getGalleryItem(id);
+    if (!existing) return undefined;
+
+    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
+      throw new Error("Order must be a non-negative number");
+    }
+
+    const updated: GalleryItem = {
+      ...existing,
+      ...itemData,
+    };
+
+    const hasValidImageUrl = updated.imageUrl && updated.imageUrl.trim().length > 0;
+    const hasValidBeforeAfter =
+      updated.beforeImageUrl && updated.beforeImageUrl.trim().length > 0 &&
+      updated.afterImageUrl && updated.afterImageUrl.trim().length > 0;
+
+    if (!hasValidImageUrl && !hasValidBeforeAfter) {
+      throw new Error("Gallery item must have either imageUrl or both beforeImageUrl and afterImageUrl");
+    }
+
+    Object.assign(existing, updated);
+    return existing;
+  }
+
+  async deleteGalleryItem(id: number): Promise<boolean> {
+    const before = this.gallery.length;
+    this.gallery = this.gallery.filter((item) => item.id !== id);
+    return this.gallery.length < before;
+  }
+
+  // Testimonials
+  async createTestimonial(itemData: InsertTestimonial): Promise<Testimonial> {
+    const maxOrder = this.testimonialsData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
+    const nextOrder = maxOrder + 1;
+
+    const item: Testimonial = {
+      ...itemData,
+      id: this.testimonialId++,
+      order: nextOrder,
+      createdAt: new Date(),
+      rating: itemData.rating ?? 5,
+    };
+
+    this.testimonialsData.push(item);
+    return item;
+  }
+
+  async getTestimonials(): Promise<Testimonial[]> {
+    return [...this.testimonialsData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  async getTestimonial(id: number): Promise<Testimonial | undefined> {
+    return this.testimonialsData.find((item) => item.id === id);
+  }
+
+  async updateTestimonial(id: number, itemData: UpdateTestimonial): Promise<Testimonial | undefined> {
+    const existing = await this.getTestimonial(id);
+    if (!existing) return undefined;
+
+    Object.assign(existing, itemData);
+    return existing;
+  }
+
+  async deleteTestimonial(id: number): Promise<boolean> {
+    const before = this.testimonialsData.length;
+    this.testimonialsData = this.testimonialsData.filter((item) => item.id !== id);
+    return this.testimonialsData.length < before;
+  }
+
+  // Services
+  async createService(itemData: InsertService): Promise<Service> {
+    const maxOrder = this.servicesData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
+    const nextOrder = maxOrder + 1;
+
+    const item: Service = {
+      ...itemData,
+      id: this.serviceId++,
+      order: nextOrder,
+      createdAt: new Date(),
+    };
+
+    this.servicesData.push(item);
+    return item;
+  }
+
+  async getServices(): Promise<Service[]> {
+    return [...this.servicesData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
+
+  async getService(id: number): Promise<Service | undefined> {
+    return this.servicesData.find((item) => item.id === id);
+  }
+
+  async updateService(id: number, itemData: UpdateService): Promise<Service | undefined> {
+    const existing = await this.getService(id);
+    if (!existing) return undefined;
+
+    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
+      throw new Error("Order must be a non-negative number");
+    }
+
+    Object.assign(existing, itemData);
+    return existing;
+  }
+
+  async deleteService(id: number): Promise<boolean> {
+    const before = this.servicesData.length;
+    this.servicesData = this.servicesData.filter((item) => item.id !== id);
+    return this.servicesData.length < before;
   }
 }
 

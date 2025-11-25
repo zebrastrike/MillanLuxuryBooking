@@ -16,7 +16,7 @@ export function Gallery() {
     queryKey: ["/api/gallery"]
   });
 
-  const { items, isValid, reason } = normalizeArrayData<GalleryItem>(galleryItems, "gallery");
+  const { items, isValid } = normalizeArrayData<GalleryItem>(galleryItems);
   const hasShapeError = !isLoading && !error && !isValid;
   
   const filteredImages = filter === "all" 
@@ -149,7 +149,7 @@ export function Gallery() {
         )}
 
         {/* Gallery Grid */}
-        {!isLoading && !error && isValid && (
+        {!isLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredImages.map((item) => (
               <div
@@ -184,21 +184,10 @@ export function Gallery() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && isValid && filteredImages.length === 0 && (
+        {!isLoading && !error && filteredImages.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               No gallery items found for this category.
-            </p>
-          </div>
-        )}
-
-        {hasShapeError && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">
-              We received unexpected gallery data. Please refresh the page.
-              {reason && (
-                <span className="block text-xs text-muted-foreground/80 mt-2">Details: {reason}</span>
-              )}
             </p>
           </div>
         )}

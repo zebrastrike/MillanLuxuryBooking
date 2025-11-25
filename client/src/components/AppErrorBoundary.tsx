@@ -48,19 +48,9 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
               </Button>
             </div>
             {this.state.error && (
-              <div className="text-left space-y-2">
-                <pre className="bg-muted text-left text-sm p-3 rounded-md overflow-auto max-h-40" data-testid="text-app-error-message">
-                  {this.state.error.message}
-                </pre>
-                {this.state.error.stack && (
-                  <details className="bg-muted text-left text-xs p-3 rounded-md overflow-auto max-h-52" open>
-                    <summary className="cursor-pointer font-semibold">Stack trace</summary>
-                    <pre className="whitespace-pre-wrap" data-testid="text-app-error-stack">
-                      {this.state.error.stack}
-                    </pre>
-                  </details>
-                )}
-              </div>
+              <pre className="bg-muted text-left text-sm p-3 rounded-md overflow-auto max-h-48">
+                {this.state.error.message}
+              </pre>
             )}
           </div>
         </div>

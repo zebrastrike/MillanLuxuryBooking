@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/schema";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
 
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
@@ -31,12 +30,12 @@ export function Services() {
   });
   const { data: assets } = useSiteAssets();
 
-  const normalizedServices = normalizeArrayData<Service>(services, "services");
-  const serviceList = normalizedServices.items;
-  const servicesAreValid = normalizedServices.isValid;
-  const reason = normalizedServices.reason;
-  const hasShapeError = !isLoading && !error && !servicesAreValid;
+  const { items: serviceList, isValid, reason } = normalizeArrayData<Service>(services, "services");
+  const hasShapeError = !isLoading && !error && !isValid;
   const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
+
+  const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
+  const hasShapeError = !isLoading && !error && !isValid;
 
   return (
     <section 
@@ -166,7 +165,7 @@ export function Services() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && serviceList.length === 0 && (
+        {!isLoading && !error && services.length === 0 && (
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               No services available yet.
@@ -179,9 +178,6 @@ export function Services() {
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               We encountered unexpected data while loading services. Please refresh the page.
-              {reason && (
-                <span className="block text-xs text-white/60 mt-2">Details: {reason}</span>
-              )}
             </p>
           </div>
         )}

@@ -1,5 +1,5 @@
 import { db, hasDatabaseUrl } from "./db";
-import { galleryItems, testimonials, services, siteAssets } from "@shared/schema";
+import { galleryItems, testimonials, services } from "@shared/schema";
 
 if (!hasDatabaseUrl || !db) {
   console.error("DATABASE_URL must be set to seed the database. Aborting.");

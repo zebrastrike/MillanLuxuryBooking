@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Briefcase, Plus, Edit, Trash2, X, Loader2 } from "lucide-react";
+import type { FieldValues } from "react-hook-form";
 import type { Service } from "@shared/schema";
 import { insertServiceSchema } from "@shared/schema";
 import { z } from "zod";
