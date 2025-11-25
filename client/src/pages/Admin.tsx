@@ -1,4 +1,6 @@
 import { RedirectToSignIn, UserButton } from "@clerk/clerk-react";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,14 +13,21 @@ import { ServicesManagement } from "@/components/admin/ServicesManagement";
 import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
 
 export default function Admin() {
-  const { user, isLoading, isAuthenticated, isAdmin, error, adminEmailMismatch } = useAuth();
+  const { user, isLoading, isLoaded, isSignedIn, isAdmin, error } = useAuth();
+  const [, setLocation] = useLocation();
 
-  if (CLERK_ENABLED && !isAuthenticated) {
-    return <RedirectToSignIn />;
+  useEffect(() => {
+    if (isLoaded && isSignedIn && !isAdmin) {
+      setLocation("/");
+    }
+  }, [isAdmin, isLoaded, isSignedIn, setLocation]);
+
+  if (CLERK_ENABLED && !isLoading && isLoaded && !isSignedIn) {
+    return <RedirectToSignIn redirectUrl="/admin" />;
   }
 
   // Show loading spinner while checking user permissions
-  if (isLoading) {
+  if (isLoading || !isLoaded) {
     return (
       <div className="flex h-screen items-center justify-center">
         <div className="text-center">
@@ -54,32 +63,9 @@ export default function Admin() {
     );
   }
 
-  // Check admin permission after data is loaded
-  if (user && (!isAdmin || adminEmailMismatch)) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <Card className="max-w-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-            <CardDescription>
-              {adminEmailMismatch
-                ? "You're signed in, but this account is not the designated admin for this site."
-                : "You do not have admin privileges to access this page."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {adminEmailMismatch && (
-              <p className="text-sm text-muted-foreground mb-4" data-testid="text-admin-email-mismatch">
-                Please sign in with the owner account ({import.meta.env.VITE_CLERK_ADMIN_EMAIL ?? "admin"}).
-              </p>
-            )}
-            <a href="/" className="text-sm text-primary hover:underline">
-              Return to homepage
-            </a>
-          </CardContent>
-        </Card>
-      </div>
-    );
+  // Redirect non-admins once loaded
+  if (isLoaded && isSignedIn && !isAdmin) {
+    return null;
   }
 
   return (

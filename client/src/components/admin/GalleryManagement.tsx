@@ -19,6 +19,7 @@ import { insertGalleryItemSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
 type GalleryFormData = InsertGalleryItem;
+const placeholderImage = "https://placehold.co/600x600?text=Image+coming+soon";
 
 export function GalleryManagement() {
   const { toast } = useToast();
@@ -162,8 +163,14 @@ export function GalleryManagement() {
     editForm.reset({
       title: item.title,
       ...(item.imageUrl && { imageUrl: item.imageUrl }),
+      ...(item as any).imagePublicId && { imagePublicId: (item as any).imagePublicId },
+      ...(item as any).imageFilename && { imageFilename: (item as any).imageFilename },
       ...(item.beforeImageUrl && { beforeImageUrl: item.beforeImageUrl }),
+      ...(item as any).beforeImagePublicId && { beforeImagePublicId: (item as any).beforeImagePublicId },
+      ...(item as any).beforeImageFilename && { beforeImageFilename: (item as any).beforeImageFilename },
       ...(item.afterImageUrl && { afterImageUrl: item.afterImageUrl }),
+      ...(item as any).afterImagePublicId && { afterImagePublicId: (item as any).afterImagePublicId },
+      ...(item as any).afterImageFilename && { afterImageFilename: (item as any).afterImageFilename },
       category: item.category as "deep-cleaning" | "move-in-out" | "all",
     });
   };
@@ -220,6 +227,22 @@ export function GalleryManagement() {
         
         const { data } = await response.json();
         form.setValue(fieldName, data.url);
+
+        const metaMap = {
+          imageUrl: { publicId: 'imagePublicId', filename: 'imageFilename' },
+          beforeImageUrl: { publicId: 'beforeImagePublicId', filename: 'beforeImageFilename' },
+          afterImageUrl: { publicId: 'afterImagePublicId', filename: 'afterImageFilename' },
+        } as const;
+
+        const mapping = metaMap[fieldName];
+        if (mapping) {
+          if (data.publicId) {
+            form.setValue(mapping.publicId as keyof GalleryFormData, data.publicId);
+          }
+          if (data.filename) {
+            form.setValue(mapping.filename as keyof GalleryFormData, data.filename);
+          }
+        }
         
         toast({
           title: "Success",
@@ -434,15 +457,15 @@ export function GalleryManagement() {
                 {item.beforeImageUrl && item.afterImageUrl ? (
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className="aspect-square rounded overflow-hidden bg-muted">
-                      <img 
-                        src={item.beforeImageUrl} 
+                      <img
+                        src={item.beforeImageUrl || placeholderImage}
                         alt={`${item.title} - Before`}
                         className="w-full h-full object-cover"
                       />
                     </div>
                     <div className="aspect-square rounded overflow-hidden bg-muted">
-                      <img 
-                        src={item.afterImageUrl} 
+                      <img
+                        src={item.afterImageUrl || placeholderImage}
                         alt={`${item.title} - After`}
                         className="w-full h-full object-cover"
                       />
@@ -450,8 +473,8 @@ export function GalleryManagement() {
                   </div>
                 ) : item.imageUrl ? (
                   <div className="aspect-square rounded overflow-hidden bg-muted mb-3">
-                    <img 
-                      src={item.imageUrl} 
+                    <img
+                      src={item.imageUrl || placeholderImage}
                       alt={item.title}
                       className="w-full h-full object-cover"
                     />
