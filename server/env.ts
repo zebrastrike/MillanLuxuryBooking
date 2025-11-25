@@ -5,7 +5,12 @@ const envSchema = z.object({
   PORT: z.string().optional(),
   CLERK_PUBLISHABLE_KEY: z.string().trim().optional(),
   CLERK_SECRET_KEY: z.string().trim().optional(),
+  /**
+   * Vercel dashboard currently exposes the blob token as `Blob_Evans_READ_WRITE_TOKEN`.
+   * Keep supporting the previous `BLOB_READ_WRITE_TOKEN` name to avoid breaking local dev.
+   */
   BLOB_READ_WRITE_TOKEN: z.string().trim().optional(),
+  Blob_Evans_READ_WRITE_TOKEN: z.string().trim().optional(),
   DATABASE_URL: z.string().trim().optional(),
 });
 
@@ -26,12 +31,15 @@ export function loadEnv() {
     }
   };
 
+  const blobToken = env.BLOB_READ_WRITE_TOKEN ?? env.Blob_Evans_READ_WRITE_TOKEN;
+
   requireInProduction(env.DATABASE_URL, "DATABASE_URL");
   requireInProduction(env.CLERK_SECRET_KEY, "CLERK_SECRET_KEY");
-  requireInProduction(env.BLOB_READ_WRITE_TOKEN, "BLOB_READ_WRITE_TOKEN");
+  requireInProduction(env.CLERK_PUBLISHABLE_KEY, "CLERK_PUBLISHABLE_KEY");
+  requireInProduction(blobToken, "BLOB_READ_WRITE_TOKEN");
 
-  const clerkEnabled = Boolean(env.CLERK_SECRET_KEY);
-  const blobEnabled = Boolean(env.BLOB_READ_WRITE_TOKEN);
+  const clerkEnabled = Boolean(env.CLERK_SECRET_KEY && env.CLERK_PUBLISHABLE_KEY);
+  const blobEnabled = Boolean(blobToken);
 
   const port = Number.parseInt(env.PORT || "5000", 10);
 
@@ -45,7 +53,7 @@ export function loadEnv() {
       secretKey: env.CLERK_SECRET_KEY,
     },
     blob: {
-      token: env.BLOB_READ_WRITE_TOKEN,
+      token: blobToken,
     },
     databaseUrl: env.DATABASE_URL,
   } as const;

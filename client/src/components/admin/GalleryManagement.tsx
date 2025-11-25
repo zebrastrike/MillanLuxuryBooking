@@ -17,6 +17,7 @@ import { ImageIcon, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import type { GalleryItem, InsertGalleryItem } from "@shared/schema";
 import { insertGalleryItemSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 type GalleryFormData = InsertGalleryItem;
 const placeholderImage = "https://placehold.co/600x600?text=Image+coming+soon";
@@ -27,10 +28,13 @@ export function GalleryManagement() {
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
-  const { data: items = [], isLoading, error } = useQuery<GalleryItem[]>({
+  const { data: galleryPayload, isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"],
     retry: false,
   });
+
+  const { items, isValid } = normalizeArrayData<GalleryItem>(galleryPayload);
+  const normalizeCachedItems = (value: unknown) => normalizeArrayData<GalleryItem>(value).items;
 
   useEffect(() => {
     if (error) {
@@ -44,6 +48,13 @@ export function GalleryManagement() {
       });
     }
   }, [error, toast]);
+
+  useEffect(() => {
+    if (!isValid && !isLoading && !error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Admin] Unexpected gallery payload shape.", galleryPayload);
+    }
+  }, [galleryPayload, isValid, isLoading, error]);
 
   const addForm = useForm<GalleryFormData>({
     resolver: zodResolver(insertGalleryItemSchema),
@@ -66,7 +77,8 @@ export function GalleryManagement() {
     onSuccess: (createdItem) => {
       if (createdItem) {
         queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) => {
-          const next = [...prev, createdItem];
+          const normalizedPrev = normalizeCachedItems(prev);
+          const next = [...normalizedPrev, createdItem];
           return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         });
       }
@@ -101,7 +113,7 @@ export function GalleryManagement() {
     onSuccess: (updatedItem) => {
       if (updatedItem) {
         queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) =>
-          prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+          normalizeCachedItems(prev).map((item) => (item.id === updatedItem.id ? updatedItem : item))
         );
       }
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
@@ -133,7 +145,7 @@ export function GalleryManagement() {
     },
     onSuccess: (id) => {
       queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) =>
-        prev.filter((item) => item.id !== id)
+        normalizeCachedItems(prev).filter((item) => item.id !== id)
       );
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
       toast({

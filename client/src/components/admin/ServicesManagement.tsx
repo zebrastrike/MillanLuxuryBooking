@@ -17,6 +17,7 @@ import type { Service } from "@shared/schema";
 import { insertServiceSchema } from "@shared/schema";
 import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 type ServiceFormData = z.infer<typeof insertServiceSchema> & FieldValues;
 
@@ -26,10 +27,14 @@ export function ServicesManagement() {
   const [editingItem, setEditingItem] = useState<Service | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
-  const { data: services = [], isLoading, error } = useQuery<Service[]>({
+  const { data: servicesPayload, isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"],
     retry: false,
   });
+
+  const { items: services = [], isValid: servicesValid } = normalizeArrayData<Service>(servicesPayload);
+
+  const normalizeCachedServices = (value: unknown) => normalizeArrayData<Service>(value).items;
 
   useEffect(() => {
     if (error) {
@@ -43,6 +48,13 @@ export function ServicesManagement() {
       });
     }
   }, [error, toast]);
+
+  useEffect(() => {
+    if (!servicesValid && !isLoading && !error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Admin] Unexpected services payload shape.", servicesPayload);
+    }
+  }, [servicesPayload, servicesValid, isLoading, error]);
 
   const addForm = useForm<ServiceFormData>({
     resolver: zodResolver(insertServiceSchema),
@@ -81,7 +93,8 @@ export function ServicesManagement() {
     onSuccess: (service) => {
       if (service) {
         queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) => {
-          const next = [...prev, service];
+          const normalizedPrev = normalizeCachedServices(prev);
+          const next = [...normalizedPrev, service];
           return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         });
       }
@@ -116,7 +129,7 @@ export function ServicesManagement() {
     onSuccess: (service) => {
       if (service) {
         queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
-          prev.map((item) => (item.id === service.id ? service : item))
+          normalizeCachedServices(prev).map((item) => (item.id === service.id ? service : item))
         );
       }
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
@@ -148,7 +161,7 @@ export function ServicesManagement() {
     },
     onSuccess: (id) => {
       queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
-        prev.filter((item) => item.id !== id)
+        normalizeCachedServices(prev).filter((item) => item.id !== id)
       );
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
