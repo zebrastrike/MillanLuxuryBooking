@@ -27,11 +27,10 @@ export function loadEnv() {
   };
 
   requireInProduction(env.DATABASE_URL, "DATABASE_URL");
-  requireInProduction(env.CLERK_PUBLISHABLE_KEY, "CLERK_PUBLISHABLE_KEY");
   requireInProduction(env.CLERK_SECRET_KEY, "CLERK_SECRET_KEY");
   requireInProduction(env.BLOB_READ_WRITE_TOKEN, "BLOB_READ_WRITE_TOKEN");
 
-  const clerkEnabled = Boolean(env.CLERK_PUBLISHABLE_KEY && env.CLERK_SECRET_KEY);
+  const clerkEnabled = Boolean(env.CLERK_SECRET_KEY);
   const blobEnabled = Boolean(env.BLOB_READ_WRITE_TOKEN);
 
   const port = Number.parseInt(env.PORT || "5000", 10);

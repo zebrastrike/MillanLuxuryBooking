@@ -31,7 +31,7 @@ function useClerkBackedAuth() {
   });
 
   const resolvedUser = dbUser ?? null;
-  const isAdmin = isAdminUser(clerkUser);
+  const isAdmin = isAdminUser(clerkUser) || Boolean(dbUser?.isAdmin);
   const isAuthenticated = Boolean(clerkLoaded && isSignedIn);
   const isLoaded = clerkLoaded && (!isSignedIn || !dbLoading);
   const isLoading = !isLoaded;
