@@ -5,7 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/schema";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
 
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
@@ -31,12 +30,12 @@ export function Services() {
   });
   const { data: assets } = useSiteAssets();
 
-  const normalizedServices = normalizeArrayData<Service>(services, "services");
-  const serviceItems = normalizedServices.items;
-  const servicesShapeValid = normalizedServices.isValid;
-  const servicesShapeReason = normalizedServices.reason;
-  const hasShapeError = !isLoading && !error && !servicesShapeValid;
+  const { items: serviceList, isValid, reason } = normalizeArrayData<Service>(services, "services");
+  const hasShapeError = !isLoading && !error && !isValid;
   const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
+
+  const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
+  const hasShapeError = !isLoading && !error && !isValid;
 
   return (
     <section 
@@ -97,7 +96,7 @@ export function Services() {
         {/* Services Grid */}
         {!isLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {serviceItems.map((service) => {
+            {serviceList.map((service) => {
               const Icon = iconMap[service.name] || Sparkles;
               const isFeatured = service.name === "Deep Cleaning";
               const bookingLink = bookingLinks[service.name] || "https://millanluxurycleaning.square.site/";
@@ -166,7 +165,7 @@ export function Services() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && serviceItems.length === 0 && (
+        {!isLoading && !error && services.length === 0 && (
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               No services available yet.
@@ -179,9 +178,6 @@ export function Services() {
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               We encountered unexpected data while loading services. Please refresh the page.
-              {servicesShapeReason && (
-                <span className="block text-xs text-white/60 mt-2">Details: {servicesShapeReason}</span>
-              )}
             </p>
           </div>
         )}

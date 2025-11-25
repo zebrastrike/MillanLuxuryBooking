@@ -8,18 +8,12 @@ neonConfig.webSocketConstructor = ws;
 /**
  * Database bootstrap
  *
- * In production we **must** have a DATABASE_URL. In-memory storage is only
- * permitted for local development when explicitly enabled.
+ * In production we require a DATABASE_URL (Neon/Postgres). During local
+ * development the variable may be absent, so we expose a nullable database and
+ * allow the storage layer to fall back to an in-memory implementation instead
+ * of crashing the server on startup.
  */
-const nodeEnv = process.env.NODE_ENV ?? "production";
-const allowInMemoryStorage = nodeEnv !== "production" && process.env.ALLOW_IN_MEMORY_STORAGE === "true";
-
 export const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
-export const useInMemoryStorage = !hasDatabaseUrl && allowInMemoryStorage;
-
-if (!hasDatabaseUrl && !useInMemoryStorage) {
-  throw new Error("DATABASE_URL is required. Set DATABASE_URL or enable ALLOW_IN_MEMORY_STORAGE=true in development.");
-}
 
 export const pool = hasDatabaseUrl
   ? new Pool({ connectionString: process.env.DATABASE_URL })

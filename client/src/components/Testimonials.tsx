@@ -11,7 +11,7 @@ export function Testimonials() {
     queryKey: ["/api/testimonials"]
   });
 
-  const { items: testimonialList, isValid, reason } = normalizeArrayData<Testimonial>(testimonials, "testimonials");
+  const { items: testimonialList, isValid } = normalizeArrayData<Testimonial>(testimonials);
   const hasShapeError = !isLoading && !isValid;
 
   return (
@@ -90,9 +90,6 @@ export function Testimonials() {
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               We ran into unexpected data while loading testimonials. Please refresh and try again.
-              {reason && (
-                <span className="block text-xs text-muted-foreground/80 mt-2">Details: {reason}</span>
-              )}
             </p>
           </div>
         )}
