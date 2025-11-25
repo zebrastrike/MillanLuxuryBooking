@@ -19,6 +19,7 @@ import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset } from "@shared/schema";
+import type { EnvConfig } from "./env";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
@@ -82,23 +83,21 @@ const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => 
   };
 };
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  const clerkEnabled = Boolean(process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
-
-  if (!clerkEnabled) {
+export async function registerRoutes(app: Express, env: EnvConfig): Promise<Server> {
+  if (!env.clerkEnabled) {
     console.warn("[WARN] Clerk keys not configured. Admin access will be denied.");
   }
 
-  const requireAdmin = createRequireAdminMiddleware(clerkEnabled);
-  const requireAuthMiddleware: RequestHandler = clerkEnabled
+  const requireAdmin = createRequireAdminMiddleware(env.clerkEnabled);
+  const requireAuthMiddleware: RequestHandler = env.clerkEnabled
     ? requireAuth()
     : respondAuthUnavailable;
 
   // Setup Clerk middleware with configuration
-  if (clerkEnabled) {
+  if (env.clerkEnabled) {
     app.use(clerkMiddleware({
-      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-      secretKey: process.env.CLERK_SECRET_KEY,
+      publishableKey: env.clerk.publishableKey,
+      secretKey: env.clerk.secretKey,
     }));
   }
 
@@ -180,7 +179,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
-      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      if (!env.blob.token) {
         res.status(400).json({
           success: false,
           message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads."
@@ -192,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const blob = await put(filename, req.file.buffer, {
         access: 'public',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
+        token: env.blob.token,
       });
 
       res.json({
@@ -269,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         })
         .parse(req.body);
 
-      if (req.file && !process.env.BLOB_READ_WRITE_TOKEN) {
+      if (req.file && !env.blob.token) {
         res.status(400).json({
           success: false,
           message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
@@ -280,7 +279,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const blob = req.file
         ? await put(`site-assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
             access: 'public',
-            token: process.env.BLOB_READ_WRITE_TOKEN,
+            token: env.blob.token,
           })
         : null;
 
@@ -560,10 +559,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ].filter((path): path is string => Boolean(path));
 
       if (blobTargets.length > 0) {
-        if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        if (!env.blob.token) {
           console.warn("BLOB_READ_WRITE_TOKEN missing - skipped blob deletion for gallery item", id);
         } else {
-          await del(blobTargets, { token: process.env.BLOB_READ_WRITE_TOKEN });
+          await del(blobTargets, { token: env.blob.token });
         }
       }
 
