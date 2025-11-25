@@ -74,9 +74,17 @@ export function ServicesManagement() {
 
   const addMutation = useMutation({
     mutationFn: async (data: ServiceFormData) => {
-      return await apiRequest("POST", "/api/services", data);
+      const res = await apiRequest("POST", "/api/services", data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as Service | null;
     },
-    onSuccess: () => {
+    onSuccess: (service) => {
+      if (service) {
+        queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) => {
+          const next = [...prev, service];
+          return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Success",
@@ -101,9 +109,16 @@ export function ServicesManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ServiceFormData> }) => {
-      return await apiRequest("PATCH", `/api/services/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/services/${id}`, data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as Service | null;
     },
-    onSuccess: () => {
+    onSuccess: (service) => {
+      if (service) {
+        queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
+          prev.map((item) => (item.id === service.id ? service : item))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Success",
@@ -128,9 +143,13 @@ export function ServicesManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/services/${id}`);
+      await apiRequest("DELETE", `/api/services/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
+        prev.filter((item) => item.id !== id)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/services"] });
       toast({
         title: "Success",
@@ -155,7 +174,7 @@ export function ServicesManagement() {
     editForm.reset({
       name: item.name,
       description: item.description,
-      features: item.features,
+      features: (item.features && item.features.length > 0) ? item.features : [""],
     });
     setEditingItem(item);
   };

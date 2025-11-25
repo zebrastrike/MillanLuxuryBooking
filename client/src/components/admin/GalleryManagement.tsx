@@ -59,9 +59,17 @@ export function GalleryManagement() {
 
   const addMutation = useMutation({
     mutationFn: async (data: GalleryFormData) => {
-      return await apiRequest("POST", "/api/gallery", data);
+      const res = await apiRequest("POST", "/api/gallery", data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as GalleryItem | null;
     },
-    onSuccess: () => {
+    onSuccess: (createdItem) => {
+      if (createdItem) {
+        queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) => {
+          const next = [...prev, createdItem];
+          return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
       toast({
         title: "Success",
@@ -86,9 +94,16 @@ export function GalleryManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<GalleryFormData> }) => {
-      return await apiRequest("PATCH", `/api/gallery/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/gallery/${id}`, data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as GalleryItem | null;
     },
-    onSuccess: () => {
+    onSuccess: (updatedItem) => {
+      if (updatedItem) {
+        queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) =>
+          prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
       toast({
         title: "Success",
@@ -113,9 +128,13 @@ export function GalleryManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/gallery/${id}`);
+      await apiRequest("DELETE", `/api/gallery/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      queryClient.setQueryData<GalleryItem[]>(["/api/gallery"], (prev = []) =>
+        prev.filter((item) => item.id !== id)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/gallery"] });
       toast({
         title: "Success",
@@ -163,14 +182,14 @@ export function GalleryManagement() {
     editForm.reset({
       title: item.title,
       ...(item.imageUrl && { imageUrl: item.imageUrl }),
-      ...(item as any).imagePublicId && { imagePublicId: (item as any).imagePublicId },
-      ...(item as any).imageFilename && { imageFilename: (item as any).imageFilename },
+      ...(item.imagePublicId && { imagePublicId: item.imagePublicId }),
+      ...(item.imageFilename && { imageFilename: item.imageFilename }),
       ...(item.beforeImageUrl && { beforeImageUrl: item.beforeImageUrl }),
-      ...(item as any).beforeImagePublicId && { beforeImagePublicId: (item as any).beforeImagePublicId },
-      ...(item as any).beforeImageFilename && { beforeImageFilename: (item as any).beforeImageFilename },
+      ...(item.beforeImagePublicId && { beforeImagePublicId: item.beforeImagePublicId }),
+      ...(item.beforeImageFilename && { beforeImageFilename: item.beforeImageFilename }),
       ...(item.afterImageUrl && { afterImageUrl: item.afterImageUrl }),
-      ...(item as any).afterImagePublicId && { afterImagePublicId: (item as any).afterImagePublicId },
-      ...(item as any).afterImageFilename && { afterImageFilename: (item as any).afterImageFilename },
+      ...(item.afterImagePublicId && { afterImagePublicId: item.afterImagePublicId }),
+      ...(item.afterImageFilename && { afterImageFilename: item.afterImageFilename }),
       category: item.category as "deep-cleaning" | "move-in-out" | "all",
     });
   };

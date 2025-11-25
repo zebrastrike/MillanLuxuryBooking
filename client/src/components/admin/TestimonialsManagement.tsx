@@ -59,9 +59,17 @@ export function TestimonialsManagement() {
 
   const addMutation = useMutation({
     mutationFn: async (data: TestimonialFormData) => {
-      return await apiRequest("POST", "/api/testimonials", data);
+      const res = await apiRequest("POST", "/api/testimonials", data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as Testimonial | null;
     },
-    onSuccess: () => {
+    onSuccess: (item) => {
+      if (item) {
+        queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) => {
+          const next = [...prev, item];
+          return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        });
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
       toast({
         title: "Success",
@@ -86,9 +94,16 @@ export function TestimonialsManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<TestimonialFormData> }) => {
-      return await apiRequest("PATCH", `/api/testimonials/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/testimonials/${id}`, data);
+      const body = await res.json().catch(() => null);
+      return (body?.data ?? body) as Testimonial | null;
     },
-    onSuccess: () => {
+    onSuccess: (item) => {
+      if (item) {
+        queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) =>
+          prev.map((existing) => (existing.id === item.id ? item : existing))
+        );
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
       toast({
         title: "Success",
@@ -113,9 +128,13 @@ export function TestimonialsManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return await apiRequest("DELETE", `/api/testimonials/${id}`);
+      await apiRequest("DELETE", `/api/testimonials/${id}`);
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: (id) => {
+      queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) =>
+        prev.filter((item) => item.id !== id)
+      );
       queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
       toast({
         title: "Success",

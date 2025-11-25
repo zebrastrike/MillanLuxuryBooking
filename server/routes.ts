@@ -8,6 +8,8 @@ import {
   insertServiceSchema,
   insertSiteAssetSchema,
   updateGalleryItemSchema,
+  updateServiceSchema,
+  updateTestimonialSchema,
   updateSiteAssetSchema,
 } from "@shared/schema";
 import { z, ZodError } from "zod";
@@ -586,65 +588,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/testimonials", requireAdmin, async (req, res) => {
-    try {
-      const validatedData = insertTestimonialSchema.parse(req.body);
-      const item = await storage.createTestimonial(validatedData);
-      
-      res.status(201).json({
-        success: true,
-        message: "Testimonial created successfully",
-        data: item
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "ZodError") {
-        res.status(400).json({
-          success: false,
-          message: "Invalid testimonial data",
-          errors: error
+    app.post("/api/testimonials", requireAdmin, async (req, res) => {
+      try {
+        const validatedData = insertTestimonialSchema.parse(req.body);
+        const item = await storage.createTestimonial(validatedData);
+
+        res.status(201).json({
+          success: true,
+          message: "Testimonial created successfully",
+          data: item
         });
-      } else {
+      } catch (error) {
+        if (error instanceof ZodError) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid testimonial data",
+            errors: error.issues
+          });
+        } else {
+          console.error("Failed to create testimonial", error);
+          res.status(500).json({
+            success: false,
+            message: "Failed to create testimonial"
+          });
+        }
+      }
+    });
+
+    app.patch("/api/testimonials/:id", requireAdmin, async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid ID"
+          });
+          return;
+        }
+
+        const updates = updateTestimonialSchema.parse(req.body);
+        const item = await storage.updateTestimonial(id, updates);
+
+        if (!item) {
+          res.status(404).json({
+            success: false,
+            message: "Testimonial not found"
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          message: "Testimonial updated successfully",
+          data: item
+        });
+      } catch (error) {
+        if (error instanceof ZodError) {
+          res.status(400).json({ success: false, message: "Invalid testimonial data", errors: error.issues });
+          return;
+        }
+        console.error("Failed to update testimonial", error);
         res.status(500).json({
           success: false,
-          message: "Failed to create testimonial"
+          message: "Failed to update testimonial"
         });
       }
-    }
-  });
-
-  app.patch("/api/testimonials/:id", requireAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid ID"
-        });
-        return;
-      }
-      
-      const item = await storage.updateTestimonial(id, req.body);
-      
-      if (!item) {
-        res.status(404).json({
-          success: false,
-          message: "Testimonial not found"
-        });
-        return;
-      }
-      
-      res.json({
-        success: true,
-        message: "Testimonial updated successfully",
-        data: item
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to update testimonial"
-      });
-    }
-  });
+    });
 
   app.delete("/api/testimonials/:id", requireAdmin, async (req, res) => {
     try {
@@ -692,65 +701,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", requireAdmin, async (req, res) => {
-    try {
-      const validatedData = insertServiceSchema.parse(req.body);
-      const item = await storage.createService(validatedData);
-      
-      res.status(201).json({
-        success: true,
-        message: "Service created successfully",
-        data: item
-      });
-    } catch (error) {
-      if (error instanceof Error && error.name === "ZodError") {
-        res.status(400).json({
-          success: false,
-          message: "Invalid service data",
-          errors: error
+    app.post("/api/services", requireAdmin, async (req, res) => {
+      try {
+        const validatedData = insertServiceSchema.parse(req.body);
+        const item = await storage.createService(validatedData);
+
+        res.status(201).json({
+          success: true,
+          message: "Service created successfully",
+          data: item
         });
-      } else {
+      } catch (error) {
+        if (error instanceof ZodError) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid service data",
+            errors: error.issues
+          });
+        } else {
+          console.error("Failed to create service", error);
+          res.status(500).json({
+            success: false,
+            message: "Failed to create service"
+          });
+        }
+      }
+    });
+
+    app.patch("/api/services/:id", requireAdmin, async (req, res) => {
+      try {
+        const id = parseInt(req.params.id);
+        if (isNaN(id)) {
+          res.status(400).json({
+            success: false,
+            message: "Invalid ID"
+          });
+          return;
+        }
+
+        const updates = updateServiceSchema.parse(req.body);
+        const item = await storage.updateService(id, updates);
+
+        if (!item) {
+          res.status(404).json({
+            success: false,
+            message: "Service not found"
+          });
+          return;
+        }
+
+        res.json({
+          success: true,
+          message: "Service updated successfully",
+          data: item
+        });
+      } catch (error) {
+        if (error instanceof ZodError) {
+          res.status(400).json({ success: false, message: "Invalid service data", errors: error.issues });
+          return;
+        }
+        console.error("Failed to update service", error);
         res.status(500).json({
           success: false,
-          message: "Failed to create service"
+          message: "Failed to update service"
         });
       }
-    }
-  });
-
-  app.patch("/api/services/:id", requireAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      if (isNaN(id)) {
-        res.status(400).json({
-          success: false,
-          message: "Invalid ID"
-        });
-        return;
-      }
-      
-      const item = await storage.updateService(id, req.body);
-      
-      if (!item) {
-        res.status(404).json({
-          success: false,
-          message: "Service not found"
-        });
-        return;
-      }
-      
-      res.json({
-        success: true,
-        message: "Service updated successfully",
-        data: item
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: "Failed to update service"
-      });
-    }
-  });
+    });
 
   app.delete("/api/services/:id", requireAdmin, async (req, res) => {
     try {
