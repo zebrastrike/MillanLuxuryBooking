@@ -11,7 +11,7 @@ export function Gallery() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
-  const { data: galleryItems, isLoading } = useQuery<GalleryItem[]>({
+  const { data: galleryItems, isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"]
   });
 
@@ -147,7 +147,7 @@ export function Gallery() {
         )}
 
         {/* Gallery Grid */}
-        {!isLoading && (
+        {!isLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredImages.map((item) => (
               <div
@@ -182,10 +182,19 @@ export function Gallery() {
         )}
 
         {/* Empty State */}
-        {!isLoading && filteredImages.length === 0 && (
+        {!isLoading && !error && filteredImages.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               No gallery items found for this category.
+            </p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!isLoading && error && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              We couldn't load the gallery right now. Please refresh the page.
             </p>
           </div>
         )}

@@ -115,7 +115,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if this is the first user (auto-promote to admin)
         const existingUsers = await storage.getAllUsers();
         const isFirstUser = existingUsers.length === 0;
-        
+        const emailLower = email.toLowerCase();
+        const inAllowlist = adminAllowlist.includes(emailLower);
+        const shouldBeAdmin = isFirstUser || inAllowlist;
+
         // Create user record from Clerk data
         user = await storage.upsertUser({
           id: auth.userId,
@@ -123,13 +126,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: clerkUser.firstName || null,
           lastName: clerkUser.lastName || null,
           profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: isFirstUser, // First user becomes admin
+          isAdmin: shouldBeAdmin,
         });
-        
+
         if (isFirstUser) {
           console.log(`[INFO] First user created with admin privileges: ${user.email}`);
+        } else if (inAllowlist) {
+          console.log(`[INFO] User marked admin via ADMIN_EMAILS allowlist: ${user.email}`);
         } else {
           console.log(`[INFO] New user created: ${user.email}`);
+        }
+      } else {
+        const emailLower = (user.email ?? "").toLowerCase();
+        if (!user.isAdmin && adminAllowlist.includes(emailLower)) {
+          user = await storage.upsertUser({ ...user, isAdmin: true });
+          console.log(`[INFO] Existing user promoted to admin via ADMIN_EMAILS allowlist: ${user.email}`);
         }
       }
       

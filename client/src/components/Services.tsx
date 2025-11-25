@@ -24,7 +24,7 @@ const bookingLinks: Record<string, string> = {
 };
 
 export function Services() {
-  const { data: services = [], isLoading } = useQuery<Service[]>({
+  const { data: services = [], isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
 
@@ -75,8 +75,17 @@ export function Services() {
           </div>
         )}
         
+        {/* Error State */}
+        {!isLoading && error && (
+          <div className="text-center py-6">
+            <p className="text-white/80 text-sm md:text-base">
+              We couldn't load services right now. Please refresh the page.
+            </p>
+          </div>
+        )}
+
         {/* Services Grid */}
-        {!isLoading && (
+        {!isLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
             {services.map((service) => {
               const Icon = iconMap[service.name] || Sparkles;
@@ -147,7 +156,7 @@ export function Services() {
         )}
 
         {/* Empty State */}
-        {!isLoading && services.length === 0 && (
+        {!isLoading && !error && services.length === 0 && (
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               No services available yet.

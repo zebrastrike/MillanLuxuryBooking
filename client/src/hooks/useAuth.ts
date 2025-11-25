@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";

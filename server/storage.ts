@@ -83,14 +83,7 @@ export class DatabaseStorage implements IStorage {
       .values(userData)
       .onConflictDoUpdate({
         target: users.id,
-        set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          // Preserve isAdmin on updates - only set on first insert
-          updatedAt: new Date(),
-        },
+        set: updateSet,
       })
       .returning();
     return user;
