@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/schema";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 const darkBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
@@ -27,6 +28,9 @@ export function Services() {
   const { data: services = [], isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
+
+  const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
+  const hasShapeError = !isLoading && !error && !isValid;
 
   return (
     <section 
@@ -87,7 +91,7 @@ export function Services() {
         {/* Services Grid */}
         {!isLoading && !error && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {services.map((service) => {
+            {serviceList.map((service) => {
               const Icon = iconMap[service.name] || Sparkles;
               const isFeatured = service.name === "Deep Cleaning";
               const bookingLink = bookingLinks[service.name] || "https://millanluxurycleaning.square.site/";
@@ -160,6 +164,15 @@ export function Services() {
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               No services available yet.
+            </p>
+          </div>
+        )}
+
+        {/* Shape error state */}
+        {hasShapeError && (
+          <div className="text-center py-12">
+            <p className="text-white/70 text-lg">
+              We encountered unexpected data while loading services. Please refresh the page.
             </p>
           </div>
         )}

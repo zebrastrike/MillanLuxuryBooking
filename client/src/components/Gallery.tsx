@@ -6,6 +6,7 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactCompareImage from "react-compare-image";
 import type { GalleryItem } from "@shared/schema";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 export function Gallery() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
@@ -15,7 +16,8 @@ export function Gallery() {
     queryKey: ["/api/gallery"]
   });
 
-  const items = Array.isArray(galleryItems) ? galleryItems : [];
+  const { items, isValid } = normalizeArrayData<GalleryItem>(galleryItems);
+  const hasShapeError = !isLoading && !error && !isValid;
   
   const filteredImages = filter === "all" 
     ? items 
