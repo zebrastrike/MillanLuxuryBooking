@@ -13,11 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Briefcase, Plus, Edit, Trash2, X, Loader2 } from "lucide-react";
-import type { Service, InsertService } from "@shared/schema";
+import type { Service } from "@shared/schema";
 import { insertServiceSchema } from "@shared/schema";
+import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-type ServiceFormData = InsertService & FieldValues;
+type ServiceFormData = z.infer<typeof insertServiceSchema> & FieldValues;
 
 export function ServicesManagement() {
   const { toast } = useToast();
