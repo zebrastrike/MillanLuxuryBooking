@@ -58,11 +58,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Auth routes - Get current user (with auto-provisioning)
-  const adminAllowlist = (process.env.ADMIN_EMAILS ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     if (!clerkEnabled) {
       const existing = await storage.getUser("dev-admin");
@@ -101,11 +96,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
         // Fallback: find first non-revoked email (handles OAuth with null verification status)
         else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find(e => {
-            if (!e.emailAddress) return false;
-
-            const verificationStatus = e.verification?.status as string | undefined;
-            return verificationStatus !== "revoked";
+          const usableEmail = clerkUser.emailAddresses.find((e) => {
+            const status = e.verification?.status as string | undefined;
+            return e.emailAddress && status !== "revoked";
           });
           if (usableEmail?.emailAddress) {
             email = usableEmail.emailAddress;

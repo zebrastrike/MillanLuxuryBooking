@@ -78,18 +78,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {
-    const updateSet: Record<string, unknown> = {
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      profileImageUrl: userData.profileImageUrl,
-      updatedAt: new Date(),
-    };
-
-    if (typeof userData.isAdmin === "boolean") {
-      updateSet.isAdmin = userData.isAdmin;
-    }
-
     const [user] = await this.db
       .insert(users)
       .values(userData)
