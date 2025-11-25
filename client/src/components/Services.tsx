@@ -29,7 +29,7 @@ export function Services() {
   const { data: services = [], isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
-  const { data: assets } = useSiteAssets();
+  const { data: assets = {} } = useSiteAssets();
 
   const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
   const hasShapeError = !isLoading && !error && !isValid;

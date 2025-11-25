@@ -7,7 +7,7 @@ import { useSiteAssets } from "@/hooks/useSiteAssets";
 const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
 
 export function Navigation() {
-  const { data: assets } = useSiteAssets();
+  const { data: assets = {} } = useSiteAssets();
   const [isScrolled, setIsScrolled] = useState(false);
   const logo = assets?.logo ?? fallbackLogo;
 

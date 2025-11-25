@@ -318,16 +318,21 @@ export class DatabaseStorage implements IStorage {
 
   // Site assets
   async upsertSiteAsset(assetData: InsertSiteAsset): Promise<SiteAsset> {
+    const updatePayload: Partial<InsertSiteAsset> & { updatedAt: Date } = {
+      updatedAt: new Date(),
+    };
+
+    if (assetData.url !== undefined) updatePayload.url = assetData.url;
+    if (assetData.name !== undefined) updatePayload.name = assetData.name;
+    if (assetData.publicId !== undefined) updatePayload.publicId = assetData.publicId;
+    if (assetData.description !== undefined) updatePayload.description = assetData.description;
+
     const [asset] = await this.db
       .insert(siteAssets)
       .values(assetData)
       .onConflictDoUpdate({
         target: siteAssets.key,
-        set: {
-          url: assetData.url,
-          description: assetData.description,
-          updatedAt: new Date(),
-        },
+        set: updatePayload,
       })
       .returning();
     return asset;
@@ -357,11 +362,41 @@ class InMemoryStorage implements IStorage {
 
   constructor() {
     const defaultAssets: Array<Omit<SiteAsset, "id" | "createdAt" | "updatedAt">> = [
-      { key: "logo", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png", description: "Primary logo" },
-      { key: "heroBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Hero botanical background" },
-      { key: "servicesBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Services background" },
-      { key: "aboutBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png", description: "About background" },
-      { key: "aboutPortrait", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg", description: "Owner portrait" },
+      {
+        key: "logo",
+        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png",
+        name: "Millan Logo",
+        publicId: "static/millan-logo.png",
+        description: "Primary logo"
+      },
+      {
+        key: "heroBackground",
+        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+        name: "Hero Botanical Background",
+        publicId: "static/dark-botanical-bg.png",
+        description: "Hero botanical background"
+      },
+      {
+        key: "servicesBackground",
+        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+        name: "Services Background",
+        publicId: "static/dark-botanical-bg.png",
+        description: "Services background"
+      },
+      {
+        key: "aboutBackground",
+        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png",
+        name: "About Background",
+        publicId: "static/light-botanical-bg.png",
+        description: "About background"
+      },
+      {
+        key: "aboutPortrait",
+        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg",
+        name: "Owner Portrait",
+        publicId: "static/owner-photo.jpg",
+        description: "Owner portrait"
+      },
     ];
 
     let seedId = 1;
@@ -571,16 +606,24 @@ class InMemoryStorage implements IStorage {
   async upsertSiteAsset(assetData: InsertSiteAsset): Promise<SiteAsset> {
     const existing = this.siteAssetsData.find((asset) => asset.key === assetData.key);
     if (existing) {
-      Object.assign(existing, {
-        ...assetData,
-        updatedAt: new Date(),
-      });
+      Object.assign(
+        existing,
+        {
+          updatedAt: new Date(),
+        },
+        assetData.url !== undefined ? { url: assetData.url } : {},
+        assetData.name !== undefined ? { name: assetData.name } : {},
+        assetData.publicId !== undefined ? { publicId: assetData.publicId } : {},
+        assetData.description !== undefined ? { description: assetData.description ?? null } : {},
+      );
       return existing;
     }
 
     const asset: SiteAsset = {
       ...assetData,
       id: this.siteAssetsData.length + 1,
+      name: assetData.name ?? assetData.key,
+      publicId: assetData.publicId ?? null,
       description: assetData.description ?? null,
       createdAt: new Date(),
       updatedAt: new Date(),
