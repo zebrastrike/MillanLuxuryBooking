@@ -4,10 +4,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useSiteAssets, type SiteAssetMap } from "@/hooks/useSiteAssets";
 import { Loader2, Upload } from "lucide-react";
+import { BlobBrowserModal } from "./BlobBrowserModal";
 
 const assetFields = [
   { key: "logo", label: "Logo URL", description: "Shown in navigation and hero." },
@@ -22,6 +24,8 @@ export function SiteAssetsManagement() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [blobBrowserOpen, setBlobBrowserOpen] = useState(false);
+  const [blobTargetKey, setBlobTargetKey] = useState<string | null>(null);
   const assetValues = useMemo(() => data ?? {}, [data]);
 
   const updateMutation = useMutation({
@@ -89,61 +93,87 @@ export function SiteAssetsManagement() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Brand Assets</CardTitle>
-        <CardDescription>Manage logo and background images stored in Vercel Blob.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {assetFields.map((field) => {
-          const currentAsset = assetValues[field.key];
-          const currentValue = currentAsset?.url ?? "";
-          return (
-            <div key={field.key} className="space-y-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <Label htmlFor={`asset-${field.key}`} className="text-base">{field.label}</Label>
-                  <p className="text-sm text-muted-foreground">{field.description}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                    <Upload className="h-4 w-4" />
-                    <span>Upload</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleUpload(field.key, e.target.files?.[0])}
-                    />
-                  </label>
-                  {uploadingKey === field.key && <Loader2 className="h-4 w-4 animate-spin" />}
-                </div>
-              </div>
-              <div className="flex flex-col md:flex-row gap-3">
-                <Input
-                  id={`asset-${field.key}`}
-                  defaultValue={currentValue}
-                  placeholder="https://..."
-                  onBlur={(e) => {
-                    const value = e.target.value.trim();
-                    if (value && value !== currentValue) {
-                      updateMutation.mutate({ key: field.key, url: value });
-                    }
-                  }}
-                />
-                {currentValue && (
-                  <div className="flex-shrink-0 w-24 h-16 rounded border overflow-hidden bg-muted">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={currentValue} alt={`${field.label} preview`} className="w-full h-full object-cover" />
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Brand Assets</CardTitle>
+          <CardDescription>Manage logo and background images stored in Vercel Blob.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {assetFields.map((field) => {
+            const currentAsset = assetValues[field.key];
+            const currentValue = currentAsset?.url ?? "";
+            return (
+              <div key={field.key} className="space-y-3">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <Label htmlFor={`asset-${field.key}`} className="text-base">{field.label}</Label>
+                    <p className="text-sm text-muted-foreground">{field.description}</p>
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <Upload className="h-4 w-4" />
+                      <span>Upload</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleUpload(field.key, e.target.files?.[0])}
+                      />
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setBlobTargetKey(field.key);
+                        setBlobBrowserOpen(true);
+                      }}
+                    >
+                      Choose Existing
+                    </Button>
+                    {uploadingKey === field.key && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                </div>
+                <div className="flex flex-col md:flex-row gap-3">
+                  <Input
+                    id={`asset-${field.key}`}
+                    defaultValue={currentValue}
+                    placeholder="https://..."
+                    onBlur={(e) => {
+                      const value = e.target.value.trim();
+                      if (value && value !== currentValue) {
+                        updateMutation.mutate({ key: field.key, url: value });
+                      }
+                    }}
+                  />
+                  {currentValue && (
+                    <div className="flex-shrink-0 w-24 h-16 rounded border overflow-hidden bg-muted">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={currentValue} alt={`${field.label} preview`} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                </div>
+                <Separator />
               </div>
-              <Separator />
-            </div>
-          );
-        })}
-        {assetsLoading && <p className="text-sm text-muted-foreground">Loading assets...</p>}
-      </CardContent>
-    </Card>
+            );
+          })}
+          {assetsLoading && <p className="text-sm text-muted-foreground">Loading assets...</p>}
+        </CardContent>
+      </Card>
+
+      <BlobBrowserModal
+        open={blobBrowserOpen}
+        prefix="assets/"
+        onClose={() => {
+          setBlobBrowserOpen(false);
+          setBlobTargetKey(null);
+        }}
+        onSelect={(url) => {
+          if (blobTargetKey) {
+            updateMutation.mutate({ key: blobTargetKey, url });
+          }
+        }}
+      />
+    </>
   );
 }
