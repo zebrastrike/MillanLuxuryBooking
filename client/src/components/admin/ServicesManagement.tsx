@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, type FieldValues } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Briefcase, Plus, Edit, Trash2, X, Loader2 } from "lucide-react";
-import type { Service, InsertService } from "@shared/schema";
+import type { Service } from "@shared/schema";
 import { insertServiceSchema } from "@shared/schema";
+import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
-type ServiceFormData = InsertService;
+type ServiceFormData = z.infer<typeof insertServiceSchema> & FieldValues;
 
 export function ServicesManagement() {
   const { toast } = useToast();
@@ -61,14 +62,14 @@ export function ServicesManagement() {
     },
   });
 
-  const addFieldArray = useFieldArray({
+  const addFieldArray = useFieldArray<ServiceFormData>({
     control: addForm.control,
-    name: "features" as const,
+    name: "features",
   });
 
-  const editFieldArray = useFieldArray({
+  const editFieldArray = useFieldArray<ServiceFormData>({
     control: editForm.control,
-    name: "features" as const,
+    name: "features",
   });
 
   const addMutation = useMutation({

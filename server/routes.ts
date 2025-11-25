@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
@@ -10,37 +10,73 @@ import type { RequestHandler } from "express";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware to check if user is admin
-const isAdmin: RequestHandler = async (req, res, next) => {
-  try {
-    const auth = getAuth(req);
-    
-    if (!auth.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
+const createIsAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+  return async (req, res, next) => {
+    if (!clerkEnabled) {
+      return next();
     }
 
-    const user = await storage.getUser(auth.userId);
-    
-    if (!user?.isAdmin) {
-      return res.status(403).json({ message: "Forbidden - admin access required" });
-    }
+    try {
+      const auth = getAuth(req);
+      
+      if (!auth.userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    next();
-  } catch (error) {
-    console.error("Admin check error:", error);
-    res.status(500).json({ message: "Failed to verify admin status" });
-  }
+      const user = await storage.getUser(auth.userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - admin access required" });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Admin check error:", error);
+      res.status(500).json({ message: "Failed to verify admin status" });
+    }
+  };
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const clerkEnabled = Boolean(process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+
+  if (!clerkEnabled) {
+    console.warn("[WARN] Clerk keys not configured. Running without authentication.");
+  }
+
+  const isAdmin = createIsAdminMiddleware(clerkEnabled);
+  const requireAuthMiddleware: RequestHandler = clerkEnabled
+    ? requireAuth()
+    : (_req, _res, next) => next();
+
   // Setup Clerk middleware with configuration
-  app.use(clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
-  }));
+  if (clerkEnabled) {
+    app.use(clerkMiddleware({
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      secretKey: process.env.CLERK_SECRET_KEY,
+    }));
+  }
 
   // Auth routes - Get current user (with auto-provisioning)
-  app.get('/api/auth/user', requireAuth(), async (req: any, res) => {
+  const adminAllowlist = (process.env.ADMIN_EMAILS ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+
+  app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
+    if (!clerkEnabled) {
+      const existing = await storage.getUser("dev-admin");
+      const user = existing ?? await storage.upsertUser({
+        id: "dev-admin",
+        email: "dev@example.com",
+        firstName: "Dev",
+        lastName: "Admin",
+        profileImageUrl: null,
+        isAdmin: true,
+      });
+      return res.json(user);
+    }
+
     try {
       const auth = getAuth(req);
       
@@ -65,9 +101,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
         // Fallback: find first non-revoked email (handles OAuth with null verification status)
         else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find(
-            e => e.emailAddress && e.verification?.status !== 'revoked'
-          );
+          const usableEmail = clerkUser.emailAddresses.find(e => {
+            if (!e.emailAddress) return false;
+
+            const verificationStatus = e.verification?.status as string | undefined;
+            return verificationStatus !== "revoked";
+          });
           if (usableEmail?.emailAddress) {
             email = usableEmail.emailAddress;
           }
@@ -83,7 +122,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if this is the first user (auto-promote to admin)
         const existingUsers = await storage.getAllUsers();
         const isFirstUser = existingUsers.length === 0;
-        
+        const emailLower = email.toLowerCase();
+        const inAllowlist = adminAllowlist.includes(emailLower);
+        const shouldBeAdmin = isFirstUser || inAllowlist;
+
         // Create user record from Clerk data
         user = await storage.upsertUser({
           id: auth.userId,
@@ -91,13 +133,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: clerkUser.firstName || null,
           lastName: clerkUser.lastName || null,
           profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: isFirstUser, // First user becomes admin
+          isAdmin: shouldBeAdmin,
         });
-        
+
         if (isFirstUser) {
           console.log(`[INFO] First user created with admin privileges: ${user.email}`);
+        } else if (inAllowlist) {
+          console.log(`[INFO] User marked admin via ADMIN_EMAILS allowlist: ${user.email}`);
         } else {
           console.log(`[INFO] New user created: ${user.email}`);
+        }
+      } else {
+        const emailLower = (user.email ?? "").toLowerCase();
+        if (!user.isAdmin && adminAllowlist.includes(emailLower)) {
+          user = await storage.upsertUser({ ...user, isAdmin: true });
+          console.log(`[INFO] Existing user promoted to admin via ADMIN_EMAILS allowlist: ${user.email}`);
         }
       }
       
@@ -105,59 +155,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching/creating user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // Gallery endpoints
-  app.get("/api/gallery", async (req, res) => {
-    try {
-      const items = await storage.getGalleryItems();
-      res.json(items);
-    } catch (error) {
-      console.error("Error fetching gallery:", error);
-      res.status(500).json({ message: "Failed to fetch gallery" });
-    }
-  });
-
-  app.post("/api/gallery", isAdmin, async (req, res) => {
-    try {
-      const validatedData = insertGalleryItemSchema.parse(req.body);
-      const item = await storage.createGalleryItem(validatedData);
-      res.status(201).json(item);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
-      } else {
-        console.error("Error creating gallery item:", error);
-        res.status(500).json({ message: "Failed to create gallery item" });
-      }
-    }
-  });
-
-  app.put("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const validatedData = updateGalleryItemSchema.parse(req.body);
-      const item = await storage.updateGalleryItem(id, validatedData);
-      res.json(item);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
-      } else {
-        console.error("Error updating gallery item:", error);
-        res.status(500).json({ message: "Failed to update gallery item" });
-      }
-    }
-  });
-
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.deleteGalleryItem(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting gallery item:", error);
-      res.status(500).json({ message: "Failed to delete gallery item" });
     }
   });
 

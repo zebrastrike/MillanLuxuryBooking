@@ -6,16 +6,18 @@ import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactCompareImage from "react-compare-image";
 import type { GalleryItem } from "@shared/schema";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 export function Gallery() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>("all");
 
-  const { data: galleryItems, isLoading } = useQuery<GalleryItem[]>({
+  const { data: galleryItems, isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"]
   });
 
-  const items = Array.isArray(galleryItems) ? galleryItems : [];
+  const { items, isValid } = normalizeArrayData<GalleryItem>(galleryItems);
+  const hasShapeError = !isLoading && !error && !isValid;
   
   const filteredImages = filter === "all" 
     ? items 
@@ -147,7 +149,7 @@ export function Gallery() {
         )}
 
         {/* Gallery Grid */}
-        {!isLoading && (
+        {!isLoading && !error && isValid && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredImages.map((item) => (
               <div
@@ -182,10 +184,27 @@ export function Gallery() {
         )}
 
         {/* Empty State */}
-        {!isLoading && filteredImages.length === 0 && (
+        {!isLoading && !error && isValid && filteredImages.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               No gallery items found for this category.
+            </p>
+          </div>
+        )}
+
+        {hasShapeError && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              We received unexpected gallery data. Please refresh the page.
+            </p>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!isLoading && error && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              We couldn't load the gallery right now. Please refresh the page.
             </p>
           </div>
         )}
