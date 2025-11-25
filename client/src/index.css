@@ -184,6 +184,45 @@
   }
 }
 
+/* Subtle shimmer for hero crown */
+.crown-shimmer {
+  position: relative;
+  isolation: isolate;
+}
+
+.crown-shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.12) 55%, transparent 100%);
+  transform: translateX(-120%);
+  animation: crown-gleam 4s ease-in-out infinite;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+@keyframes crown-gleam {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.85;
+  }
+  50% {
+    transform: translateX(110%);
+    opacity: 0.75;
+  }
+  70% {
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(110%);
+    opacity: 0;
+  }
+}
+
 /**
  * Using the elevate system.
  * Automatic contrast adjustment.

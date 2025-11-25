@@ -29,11 +29,13 @@ export function Hero() {
       <div className="relative z-10 container mx-auto px-6 md:px-8 text-center">
         {/* Logo */}
         <div className="flex justify-center mb-8 mt-10 md:mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <img
-            src={crown}
-            alt="Gold Crown"
-            className="w-64 mx-auto drop-shadow-xl object-contain"
-          />
+          <div className="relative inline-block crown-shimmer">
+            <img
+              src={crown}
+              alt="Gold Crown"
+              className="w-64 mx-auto drop-shadow-xl object-contain"
+            />
+          </div>
         </div>
         
         {/* Brand Name */}
