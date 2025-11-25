@@ -70,8 +70,10 @@ const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => 
       }
 
       const clerkUser = await clerkClient.users.getUser(auth.userId);
+      const userRecord = await storage.getUser(auth.userId);
+      const isAdmin = isAdminUser(clerkUser) || Boolean(userRecord?.isAdmin);
 
-      if (!isAdminUser(clerkUser)) {
+      if (!isAdmin) {
         return res.status(403).json({ message: "Forbidden - admin access required" });
       }
 
@@ -118,7 +120,10 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       if (!user) {
         // Fetch full user data from Clerk
         const clerkUser = await clerkClient.users.getUser(auth.userId);
-        
+
+        const existingUsers = await storage.getAllUsers();
+        const isFirstUser = existingUsers.length === 0;
+
         // Extract email with robust fallback logic for OAuth providers
         let email: string | null = null;
         
@@ -143,7 +148,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
             message: "Your account must have an email address. Please add an email in your Clerk account settings and try again." 
           });
         }
-        
+
         // Create user record from Clerk data
         user = await storage.upsertUser({
           id: auth.userId,
@@ -151,11 +156,11 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           firstName: clerkUser.firstName || null,
           lastName: clerkUser.lastName || null,
           profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: isAdminUser(clerkUser),
+          isAdmin: isFirstUser || isAdminUser(clerkUser),
         });
       } else {
         const clerkUser = await clerkClient.users.getUser(auth.userId);
-        const isAdmin = isAdminUser(clerkUser);
+        const isAdmin = isAdminUser(clerkUser) || user.isAdmin;
         if (user.isAdmin !== isAdmin) {
           user = await storage.upsertUser({ ...user, isAdmin });
         }
@@ -350,10 +355,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.get("/api/contact", requireAdmin, async (req, res) => {
     try {
       const messages = await storage.getContactMessages();
-      res.json({
-        success: true,
-        data: messages
-      });
+      res.json(messages);
     } catch (error) {
       res.status(500).json({
         success: false,
