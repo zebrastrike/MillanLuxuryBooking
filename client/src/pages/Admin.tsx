@@ -16,13 +16,13 @@ import { FaqManagement } from "@/components/admin/FaqManagement";
 
 export default function Admin() {
   const { user, isLoading, isLoaded, isSignedIn, isAdmin, error } = useAuth();
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
 
   useEffect(() => {
-    if (isLoaded && isSignedIn && !isAdmin) {
+    if (location === "/admin" && isLoaded && isSignedIn && !isAdmin) {
       setLocation("/");
     }
-  }, [isAdmin, isLoaded, isSignedIn, setLocation]);
+  }, [isAdmin, isLoaded, isSignedIn, location, setLocation]);
 
   if (CLERK_ENABLED && !isLoading && isLoaded && !isSignedIn) {
     return <RedirectToSignIn redirectUrl="/admin" />;
@@ -67,7 +67,25 @@ export default function Admin() {
 
   // Redirect non-admins once loaded
   if (isLoaded && isSignedIn && !isAdmin) {
-    return null;
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Card className="max-w-md">
+          <CardHeader>
+            <CardTitle>Admin Access Required</CardTitle>
+            <CardDescription>You need admin permissions to view this dashboard.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <button
+              onClick={() => setLocation("/")}
+              className="text-sm text-primary hover:underline"
+              data-testid="button-go-home"
+            >
+              Go back home
+            </button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

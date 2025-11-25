@@ -18,7 +18,7 @@ import {
 } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
-import { del, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
@@ -248,6 +248,39 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
+  app.get("/api/blob/list", requireAdmin, async (req, res) => {
+    if (!env.blob.token) {
+      res.status(503).json({ message: "Blob storage is not configured." });
+      return;
+    }
+
+    const parsed = z
+      .object({
+        prefix: z.enum(["assets/", "gallery/"]),
+      })
+      .safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ message: "Invalid blob prefix. Use assets/ or gallery/." });
+      return;
+    }
+
+    try {
+      const { blobs } = await list({ prefix: parsed.data.prefix, limit: 100, token: env.blob.token });
+      const files = (blobs ?? []).map((blob) => ({
+        url: blob.url,
+        pathname: blob.pathname,
+        size: blob.size,
+        uploadedAt: blob.uploadedAt,
+      }));
+
+      res.json(files);
+    } catch (error) {
+      console.error("Failed to list blobs", error);
+      res.status(500).json({ message: "Failed to load blob files" });
+    }
+  });
+
   // Site assets endpoints (Vercel Blob backed)
   app.get("/api/assets", async (_req, res) => {
     try {
@@ -286,7 +319,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const blob = req.file
-        ? await put(`site-assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
+        ? await put(`assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
             access: 'public',
             token: env.blob.token,
           })

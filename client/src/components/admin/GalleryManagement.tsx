@@ -18,6 +18,7 @@ import type { GalleryItem, InsertGalleryItem } from "@shared/schema";
 import { insertGalleryItemSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
+import { BlobBrowserModal } from "./BlobBrowserModal";
 
 type GalleryFormData = InsertGalleryItem;
 const placeholderImage = "https://placehold.co/600x600?text=Image+coming+soon";
@@ -27,6 +28,8 @@ export function GalleryManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<GalleryItem | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [blobBrowserOpen, setBlobBrowserOpen] = useState(false);
+  const [blobTargetField, setBlobTargetField] = useState<"imageUrl" | "beforeImageUrl" | "afterImageUrl">("imageUrl");
 
   const { data: galleryPayload, isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"],
@@ -341,16 +344,29 @@ export function GalleryManagement() {
                 <FormLabel>Single Image</FormLabel>
                 <FormControl>
                   <div className="space-y-2">
-                    <Input 
-                      type="file" 
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleFileUpload(file, 'imageUrl');
-                      }}
-                      disabled={uploading}
-                      data-testid="input-imageUrl-file"
-                    />
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload(file, 'imageUrl');
+                        }}
+                        disabled={uploading}
+                        data-testid="input-imageUrl-file"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setBlobTargetField("imageUrl");
+                          setBlobBrowserOpen(true);
+                        }}
+                      >
+                        Choose Existing Image
+                      </Button>
+                    </div>
                     {field.value && (
                       <div className="text-sm text-muted-foreground truncate">
                         Uploaded: {field.value}
@@ -374,16 +390,29 @@ export function GalleryManagement() {
                   <FormLabel>Before Image</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
-                      <Input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(file, 'beforeImageUrl');
-                        }}
-                        disabled={uploading}
-                        data-testid="input-beforeImageUrl-file"
-                      />
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file, 'beforeImageUrl');
+                          }}
+                          disabled={uploading}
+                          data-testid="input-beforeImageUrl-file"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setBlobTargetField("beforeImageUrl");
+                            setBlobBrowserOpen(true);
+                          }}
+                        >
+                          Choose Existing Image
+                        </Button>
+                      </div>
                       {field.value && (
                         <div className="text-xs text-muted-foreground truncate">
                           Uploaded
@@ -404,16 +433,29 @@ export function GalleryManagement() {
                   <FormLabel>After Image</FormLabel>
                   <FormControl>
                     <div className="space-y-2">
-                      <Input 
-                        type="file" 
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) handleFileUpload(file, 'afterImageUrl');
-                        }}
-                        disabled={uploading}
-                        data-testid="input-afterImageUrl-file"
-                      />
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleFileUpload(file, 'afterImageUrl');
+                          }}
+                          disabled={uploading}
+                          data-testid="input-afterImageUrl-file"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setBlobTargetField("afterImageUrl");
+                            setBlobBrowserOpen(true);
+                          }}
+                        >
+                          Choose Existing Image
+                        </Button>
+                      </div>
                       {field.value && (
                         <div className="text-xs text-muted-foreground truncate">
                           Uploaded
@@ -584,6 +626,16 @@ export function GalleryManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BlobBrowserModal
+        open={blobBrowserOpen}
+        prefix="gallery/"
+        onClose={() => setBlobBrowserOpen(false)}
+        onSelect={(url) => {
+          addForm.setValue(blobTargetField, url);
+          editForm.setValue(blobTargetField, url);
+        }}
+      />
     </div>
   );
 }
