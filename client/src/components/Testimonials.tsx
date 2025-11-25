@@ -4,11 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Star, ExternalLink } from "lucide-react";
 import type { Testimonial } from "@shared/schema";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 export function Testimonials() {
   const { data: testimonials = [], isLoading } = useQuery<Testimonial[]>({
     queryKey: ["/api/testimonials"]
   });
+
+  const { items: testimonialList, isValid, reason } = normalizeArrayData<Testimonial>(testimonials, "testimonials");
+  const hasShapeError = !isLoading && !isValid;
 
   return (
     <section id="testimonials" className="py-20 md:py-32 bg-card">
@@ -39,9 +43,9 @@ export function Testimonials() {
         )}
 
         {/* Testimonials Grid */}
-        {!isLoading && (
+        {!isLoading && !hasShapeError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
-            {testimonials.map((testimonial) => (
+            {testimonialList.map((testimonial) => (
               <Card 
                 key={testimonial.id} 
                 className="hover-elevate transition-all duration-300"
@@ -74,10 +78,21 @@ export function Testimonials() {
         )}
 
         {/* Empty State */}
-        {!isLoading && testimonials.length === 0 && (
+        {!isLoading && testimonialList.length === 0 && !hasShapeError && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               No testimonials available yet.
+            </p>
+          </div>
+        )}
+
+        {hasShapeError && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              We ran into unexpected data while loading testimonials. Please refresh and try again.
+              {reason && (
+                <span className="block text-xs text-muted-foreground/80 mt-2">Details: {reason}</span>
+              )}
             </p>
           </div>
         )}

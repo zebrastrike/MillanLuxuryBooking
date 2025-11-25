@@ -1,5 +1,6 @@
-import { SignedIn, SignedOut, RedirectToSignIn, UserButton } from "@clerk/clerk-react";
+import { RedirectToSignIn, UserButton } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
+import { CLERK_ENABLED } from "@/lib/clerkConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
@@ -7,9 +8,25 @@ import { ContactMessages } from "@/components/admin/ContactMessages";
 import { GalleryManagement } from "@/components/admin/GalleryManagement";
 import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
+import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
 
 export default function Admin() {
-  const { user, isLoading, isAdmin, error } = useAuth();
+  const { user, email, clerkLoaded, isLoading, isAuthenticated, isAdmin, error, adminEmailMismatch } = useAuth();
+
+  if (CLERK_ENABLED && !clerkLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" data-testid="loader-admin" />
+          <p className="text-sm text-muted-foreground">Loading authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (CLERK_ENABLED && clerkLoaded && !isAuthenticated) {
+    return <RedirectToSignIn redirectUrl="/admin" />;
+  }
 
   // Show loading spinner while checking user permissions
   if (isLoading) {
@@ -49,17 +66,24 @@ export default function Admin() {
   }
 
   // Check admin permission after data is loaded
-  if (user && !isAdmin) {
+  if (user && (!isAdmin || adminEmailMismatch)) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You do not have admin privileges to access this page.
+              {adminEmailMismatch
+                ? "You're signed in, but this account is not the designated admin for this site."
+                : "You do not have admin privileges to access this page."}
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {adminEmailMismatch && (
+              <p className="text-sm text-muted-foreground mb-4" data-testid="text-admin-email-mismatch">
+                Please sign in with the owner account ({import.meta.env.VITE_CLERK_ADMIN_EMAIL ?? "admin"}).
+              </p>
+            )}
             <a href="/" className="text-sm text-primary hover:underline">
               Return to homepage
             </a>
@@ -70,32 +94,37 @@ export default function Admin() {
   }
 
   return (
-    <>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
-      <SignedIn>
-        <div className="min-h-screen bg-background">
-          {/* Header */}
-          <header className="border-b">
-            <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
-                <p className="text-sm text-muted-foreground">
-                  Welcome, {user?.firstName || user?.email}
-                </p>
-              </div>
-              <UserButton afterSignOutUrl="/" data-testid="button-user" />
-            </div>
-          </header>
+    <div className="min-h-screen bg-background">
+      {!CLERK_ENABLED && (
+        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 px-6 py-3 text-sm">
+          Authentication is disabled. You're viewing the admin dashboard in development mode with a local admin account.
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="border-b">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
+            <p className="text-sm text-muted-foreground">
+              Welcome, {user?.firstName || email || "Admin"}
+            </p>
+          </div>
+          {CLERK_ENABLED && <UserButton afterSignOutUrl="/" data-testid="button-user" />}
+        </div>
+      </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs defaultValue="gallery" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 max-w-2xl">
+          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
             <TabsTrigger value="gallery" data-testid="tab-gallery">
               <ImageIcon className="mr-2 h-4 w-4" />
               Gallery
+            </TabsTrigger>
+            <TabsTrigger value="branding" data-testid="tab-branding">
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Branding
             </TabsTrigger>
             <TabsTrigger value="testimonials" data-testid="tab-testimonials">
               <Star className="mr-2 h-4 w-4" />
@@ -119,6 +148,16 @@ export default function Admin() {
               </p>
             </div>
             <GalleryManagement />
+          </TabsContent>
+
+          <TabsContent value="branding" className="mt-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Branding Assets</h2>
+              <p className="text-muted-foreground">
+                Update logo and background images stored in Vercel Blob.
+              </p>
+            </div>
+            <SiteAssetsManagement />
           </TabsContent>
 
           <TabsContent value="testimonials" className="mt-6">
@@ -152,8 +191,6 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </main>
-        </div>
-      </SignedIn>
-    </>
+    </div>
   );
 }
