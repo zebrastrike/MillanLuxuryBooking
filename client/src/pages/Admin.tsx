@@ -11,21 +11,10 @@ import { ServicesManagement } from "@/components/admin/ServicesManagement";
 import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
 
 export default function Admin() {
-  const { user, email, clerkLoaded, isLoading, isAuthenticated, isAdmin, error, adminEmailMismatch } = useAuth();
+  const { user, isLoading, isAuthenticated, isAdmin, error } = useAuth();
 
-  if (CLERK_ENABLED && !clerkLoaded) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" data-testid="loader-admin" />
-          <p className="text-sm text-muted-foreground">Loading authentication...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (CLERK_ENABLED && clerkLoaded && !isAuthenticated) {
-    return <RedirectToSignIn redirectUrl="/admin" />;
+  if (CLERK_ENABLED && !isAuthenticated) {
+    return <RedirectToSignIn />;
   }
 
   // Show loading spinner while checking user permissions
@@ -107,7 +96,7 @@ export default function Admin() {
           <div>
             <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
             <p className="text-sm text-muted-foreground">
-              Welcome, {user?.firstName || email || "Admin"}
+              Welcome, {user?.firstName || user?.email || "Admin"}
             </p>
           </div>
           {CLERK_ENABLED && <UserButton afterSignOutUrl="/" data-testid="button-user" />}
