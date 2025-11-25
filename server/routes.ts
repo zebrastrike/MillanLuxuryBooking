@@ -65,9 +65,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
         // Fallback: find first non-revoked email (handles OAuth with null verification status)
         else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find(
-            e => e.emailAddress && e.verification?.status !== 'revoked'
-          );
+          const usableEmail = clerkUser.emailAddresses.find((e) => {
+            const status = e.verification?.status as string | undefined;
+            return e.emailAddress && status !== "revoked";
+          });
           if (usableEmail?.emailAddress) {
             email = usableEmail.emailAddress;
           }
