@@ -1,5 +1,12 @@
-import { db } from "./db";
+import { db, hasDatabaseUrl } from "./db";
 import { galleryItems, testimonials, services } from "@shared/schema";
+
+if (!hasDatabaseUrl || !db) {
+  console.error("DATABASE_URL must be set to seed the database. Aborting.");
+  process.exit(1);
+}
+
+const database = db;
 
 async function seed() {
   console.log("Seeding database...");
@@ -45,7 +52,7 @@ async function seed() {
   ];
 
   for (const item of initialGallery) {
-    await db.insert(galleryItems).values(item);
+    await database.insert(galleryItems).values(item);
   }
   console.log("Gallery items seeded");
 
@@ -84,7 +91,7 @@ async function seed() {
   ];
 
   for (const item of initialTestimonials) {
-    await db.insert(testimonials).values(item);
+    await database.insert(testimonials).values(item);
   }
   console.log("Testimonials seeded");
 
@@ -145,7 +152,7 @@ async function seed() {
   ];
 
   for (const item of initialServices) {
-    await db.insert(services).values(item);
+    await database.insert(services).values(item);
   }
   console.log("Services seeded");
 

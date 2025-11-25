@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
@@ -106,59 +106,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching/creating user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // Gallery endpoints
-  app.get("/api/gallery", async (req, res) => {
-    try {
-      const items = await storage.getGalleryItems();
-      res.json(items);
-    } catch (error) {
-      console.error("Error fetching gallery:", error);
-      res.status(500).json({ message: "Failed to fetch gallery" });
-    }
-  });
-
-  app.post("/api/gallery", isAdmin, async (req, res) => {
-    try {
-      const validatedData = insertGalleryItemSchema.parse(req.body);
-      const item = await storage.createGalleryItem(validatedData);
-      res.status(201).json(item);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
-      } else {
-        console.error("Error creating gallery item:", error);
-        res.status(500).json({ message: "Failed to create gallery item" });
-      }
-    }
-  });
-
-  app.put("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const validatedData = updateGalleryItemSchema.parse(req.body);
-      const item = await storage.updateGalleryItem(id, validatedData);
-      res.json(item);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
-      } else {
-        console.error("Error updating gallery item:", error);
-        res.status(500).json({ message: "Failed to update gallery item" });
-      }
-    }
-  });
-
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.deleteGalleryItem(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting gallery item:", error);
-      res.status(500).json({ message: "Failed to delete gallery item" });
     }
   });
 
