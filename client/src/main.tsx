@@ -9,8 +9,7 @@ const app = (
   <StrictMode>
     {CLERK_ENABLED ? (
       <ClerkProvider
-        publishableKey={CLERK_PUBLISHABLE_KEY}
-        frontendApi={CLERK_FRONTEND_API || undefined}
+        publishableKey={CLERK_PUBLISHABLE_KEY || CLERK_FRONTEND_API || ""}
         afterSignOutUrl="/"
       >
         <App />

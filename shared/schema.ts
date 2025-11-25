@@ -76,6 +76,8 @@ export const testimonials = pgTable("testimonials", {
   name: varchar("name", { length: 255 }).notNull(),
   review: text("review").notNull(),
   rating: integer("rating").notNull().default(5),
+  source: varchar("source", { length: 20 }).notNull().default("manual"),
+  sourceUrl: varchar("source_url", { length: 500 }),
   order: integer("order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull()
 });
@@ -158,6 +160,8 @@ const imageUrlValidator = z.string().min(1, "Image URL is required").refine(
   { message: "Image URL must be a valid URL or absolute path" }
 );
 
+export const testimonialSourceSchema = z.enum(["manual", "google", "thumbtack"]);
+
 export const insertGalleryItemSchema = createInsertSchema(galleryItems, {
   title: z.string().min(1, "Title is required"),
   imageUrl: emptyToUndefined(imageUrlValidator.optional()),
@@ -186,7 +190,9 @@ export const insertGalleryItemSchema = createInsertSchema(galleryItems, {
 export const insertTestimonialSchema = createInsertSchema(testimonials, {
   name: z.string().min(1, "Name is required"),
   review: z.string().min(10, "Review must be at least 10 characters"),
-  rating: z.number().min(1).max(5)
+  rating: z.number().min(1).max(5),
+  source: testimonialSourceSchema.default("manual"),
+  sourceUrl: emptyToUndefined(z.string().url("Source URL must be valid").optional())
 }).omit({ id: true, createdAt: true, order: true });
 
 export const insertServiceSchema = createInsertSchema(services, {
@@ -213,7 +219,9 @@ export const updateGalleryItemSchema = z.object({
 export const updateTestimonialSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
   review: z.string().min(10, "Review must be at least 10 characters").optional(),
-  rating: z.number().min(1).max(5).optional()
+  rating: z.number().min(1).max(5).optional(),
+  source: testimonialSourceSchema.optional(),
+  sourceUrl: emptyToUndefined(z.string().url("Source URL must be valid").optional())
 });
 
 export const updateServiceSchema = z.object({

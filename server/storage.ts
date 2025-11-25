@@ -209,12 +209,17 @@ export class DatabaseStorage implements IStorage {
       .from(testimonials)
       .orderBy(desc(testimonials.order))
       .limit(1);
-    
+
     const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
-    
+
     const [item] = await this.db
       .insert(testimonials)
-      .values({ ...itemData, order: nextOrder })
+      .values({
+        ...itemData,
+        source: itemData.source ?? "manual",
+        sourceUrl: itemData.sourceUrl ?? null,
+        order: nextOrder,
+      })
       .returning();
     return item;
   }
@@ -540,10 +545,12 @@ class InMemoryStorage implements IStorage {
 
     const item: Testimonial = {
       ...itemData,
+      source: itemData.source ?? "manual",
       id: this.testimonialId++,
       order: nextOrder,
       createdAt: new Date(),
       rating: itemData.rating ?? 5,
+      sourceUrl: itemData.sourceUrl ?? null,
     };
 
     this.testimonialsData.push(item);
