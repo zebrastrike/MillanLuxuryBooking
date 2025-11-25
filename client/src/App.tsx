@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
+import { Analytics } from "@/components/Analytics";
 
 // Main router component
 function Router() {
@@ -25,6 +26,7 @@ function App() {
       <TooltipProvider>
         <AppErrorBoundary>
           <Toaster />
+          <Analytics />
           <Router />
         </AppErrorBoundary>
       </TooltipProvider>
