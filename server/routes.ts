@@ -16,7 +16,7 @@ import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { del, put } from "@vercel/blob";
 import multer from "multer";
-import type { RequestHandler } from "express";
+import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset } from "@shared/schema";
 
@@ -48,6 +48,8 @@ const buildAssetPayload = (asset: SiteAsset): Asset & { key: string; path: strin
   };
 };
 
+type AuthedRequest = Request & { auth?: ReturnType<typeof getAuth> | null };
+
 const respondAuthUnavailable: RequestHandler = (_req, res) => {
   res.status(503).json({ message: "Authentication is not configured." });
 };
@@ -59,9 +61,10 @@ const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => 
 
   return async (req, res, next) => {
     try {
-      const auth = getAuth(req);
+      const authRequest = req as AuthedRequest;
+      const auth = authRequest.auth ?? getAuth(authRequest);
 
-      if (!auth.userId) {
+      if (!auth?.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
@@ -102,9 +105,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes - Get current user (with auto-provisioning)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     try {
-      const auth = getAuth(req);
+      const authRequest = req as AuthedRequest;
+      const auth = authRequest.auth ?? getAuth(authRequest);
 
-      if (!auth.userId) {
+      if (!auth?.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 

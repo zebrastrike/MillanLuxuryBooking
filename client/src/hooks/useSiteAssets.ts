@@ -25,7 +25,7 @@ export function useSiteAssets() {
   return useQuery<SiteAssetMap>({
     queryKey: ["/api/assets"],
     queryFn: async () => {
-      const res = await fetch("/api/assets");
+      const res = await fetch("/api/assets", { credentials: "include" });
       if (!res.ok) {
         throw new Error("Failed to load site assets");
       }
