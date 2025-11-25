@@ -41,15 +41,15 @@ export function Navigation() {
       <div className="container mx-auto px-6 md:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
-          <a 
-            href="#hero" 
+          <a
+            href="#hero"
             className="transition-opacity hover:opacity-80"
             data-testid="link-logo"
           >
             <img
               src={logo}
               alt="Millan Luxury Cleaning Logo"
-              className="h-12 w-auto object-contain"
+              className="h-14 w-auto object-contain md:h-16"
             />
           </a>
           

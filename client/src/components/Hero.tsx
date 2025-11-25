@@ -28,7 +28,7 @@ export function Hero() {
       {/* Content */}
       <div className="relative z-10 container mx-auto px-6 md:px-8 text-center">
         {/* Logo */}
-        <div className="flex justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+        <div className="flex justify-center mb-8 mt-10 md:mt-12 animate-in fade-in slide-in-from-bottom-4 duration-1000">
           <img
             src={crown}
             alt="Gold Crown"
