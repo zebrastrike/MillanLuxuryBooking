@@ -8,11 +8,13 @@ import {
   insertServiceSchema,
   insertSiteAssetSchema,
   insertPostSchema,
+  insertFaqSchema,
   updateGalleryItemSchema,
   updateServiceSchema,
   updateTestimonialSchema,
   updateSiteAssetSchema,
   updatePostSchema,
+  updateFaqSchema,
 } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
@@ -692,6 +694,84 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         success: false,
         message: "Failed to delete testimonial"
       });
+    }
+  });
+
+  // FAQs endpoints
+  app.get("/api/faqs", async (_req, res) => {
+    try {
+      const items = await storage.getFaqs();
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to retrieve FAQs" });
+    }
+  });
+
+  app.post("/api/faqs", requireAdmin, async (req, res) => {
+    try {
+      const validatedData = insertFaqSchema.parse(req.body);
+      const item = await storage.createFaq(validatedData);
+
+      res.status(201).json({ success: true, message: "FAQ created successfully", data: item });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid FAQ data", errors: error.issues });
+        return;
+      }
+      console.error("Failed to create FAQ", error);
+      res.status(500).json({ success: false, message: "Failed to create FAQ" });
+    }
+  });
+
+  app.patch("/api/faqs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: "Invalid ID" });
+        return;
+      }
+
+      const updates = updateFaqSchema.parse(req.body);
+      const item = await storage.updateFaq(id, updates);
+
+      if (!item) {
+        res.status(404).json({ success: false, message: "FAQ not found" });
+        return;
+      }
+
+      res.json({ success: true, message: "FAQ updated successfully", data: item });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid FAQ data", errors: error.issues });
+        return;
+      }
+      if (error instanceof Error && error.message.includes("Order")) {
+        res.status(400).json({ success: false, message: error.message });
+        return;
+      }
+      console.error("Failed to update FAQ", error);
+      res.status(500).json({ success: false, message: "Failed to update FAQ" });
+    }
+  });
+
+  app.delete("/api/faqs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: "Invalid ID" });
+        return;
+      }
+
+      const deleted = await storage.deleteFaq(id);
+
+      if (!deleted) {
+        res.status(404).json({ success: false, message: "FAQ not found" });
+        return;
+      }
+
+      res.json({ success: true, message: "FAQ deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to delete FAQ" });
     }
   });
 

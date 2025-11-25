@@ -13,6 +13,8 @@ import {
   type InsertSiteAsset,
   type Post,
   type InsertPost,
+  type Faq,
+  type InsertFaq,
   posts,
   siteAssets,
   contactMessages,
@@ -20,6 +22,7 @@ import {
   testimonials,
   services,
   users,
+  faqs,
 } from "@shared/schema";
 import { db, hasDatabaseUrl } from "./db";
 import { eq, desc, asc, and } from "drizzle-orm";
@@ -30,6 +33,7 @@ export type UpdateTestimonial = Partial<Omit<Testimonial, 'id' | 'createdAt'>>;
 export type UpdateService = Partial<Omit<Service, 'id' | 'createdAt'>>;
 export type UpdateSiteAsset = Partial<Omit<SiteAsset, 'id' | 'createdAt' | 'updatedAt'>>;
 export type UpdatePost = Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt'>>;
+export type UpdateFaq = Partial<Omit<Faq, 'id' | 'createdAt'>>;
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -55,6 +59,13 @@ export interface IStorage {
   getTestimonial(id: number): Promise<Testimonial | undefined>;
   updateTestimonial(id: number, item: UpdateTestimonial): Promise<Testimonial | undefined>;
   deleteTestimonial(id: number): Promise<boolean>;
+
+  // FAQs
+  createFaq(item: InsertFaq): Promise<Faq>;
+  getFaqs(): Promise<Faq[]>;
+  getFaq(id: number): Promise<Faq | undefined>;
+  updateFaq(id: number, item: UpdateFaq): Promise<Faq | undefined>;
+  deleteFaq(id: number): Promise<boolean>;
   
   // Services
   createService(item: InsertService): Promise<Service>;
@@ -276,6 +287,53 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // FAQs
+  async createFaq(itemData: InsertFaq): Promise<Faq> {
+    const maxOrder = await this.db
+      .select()
+      .from(faqs)
+      .orderBy(desc(faqs.order))
+      .limit(1);
+
+    const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
+    const [item] = await this.db
+      .insert(faqs)
+      .values({ ...itemData, order: itemData.order ?? nextOrder })
+      .returning();
+    return item;
+  }
+
+  async getFaqs(): Promise<Faq[]> {
+    return await this.db.select().from(faqs).orderBy(asc(faqs.order), asc(faqs.id));
+  }
+
+  async getFaq(id: number): Promise<Faq | undefined> {
+    const [item] = await this.db.select().from(faqs).where(eq(faqs.id, id));
+    return item || undefined;
+  }
+
+  async updateFaq(id: number, itemData: UpdateFaq): Promise<Faq | undefined> {
+    const existing = await this.getFaq(id);
+    if (!existing) return undefined;
+
+    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
+      throw new Error("Order must be a non-negative number");
+    }
+
+    const [result] = await this.db
+      .update(faqs)
+      .set(itemData)
+      .where(eq(faqs.id, id))
+      .returning();
+
+    return result || undefined;
+  }
+
+  async deleteFaq(id: number): Promise<boolean> {
+    const result = await this.db.delete(faqs).where(eq(faqs.id, id)).returning();
+    return result.length > 0;
+  }
+
   // Services
   async createService(itemData: InsertService): Promise<Service> {
     const maxOrder = await this.db
@@ -415,12 +473,14 @@ class InMemoryStorage implements IStorage {
   private galleryId = 1;
   private testimonialId = 1;
   private serviceId = 1;
+  private faqId = 1;
   private contactId = 1;
   private postId = 1;
   private users: User[] = [];
   private gallery: GalleryItem[] = [];
   private testimonialsData: Testimonial[] = [];
   private servicesData: Service[] = [];
+  private faqsData: Faq[] = [];
   private contactMessagesData: ContactMessage[] = [];
   private siteAssetsData: SiteAsset[] = [];
   private postsData: Post[] = [];
@@ -477,6 +537,43 @@ class InMemoryStorage implements IStorage {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+    }
+
+    const defaultFaqs: Array<Omit<Faq, "id" | "createdAt">> = [
+      {
+        question: "What's included in a deep cleaning?",
+        answer:
+          "Our deep cleaning includes a full top-to-bottom refresh: baseboards, ceiling corners, vents, detailed kitchen and bath sanitizing, inside appliances (by request), and more—all finished with Millan's signature sparkle touch.",
+        order: 0,
+      },
+      {
+        question: "Are your services pet-friendly?",
+        answer:
+          "Yes! We love furry family members. We use non-toxic, pet-safe products to ensure a safe, clean environment for all household residents.",
+        order: 1,
+      },
+      {
+        question: "What is your cancellation policy?",
+        answer:
+          "We kindly ask for 24 hours' notice for any cancellations or reschedules. Cancellations with less than 24 hours' notice may be subject to a fee.",
+        order: 2,
+      },
+      {
+        question: "How do I book a cleaning?",
+        answer:
+          "Booking is easy! You can call, email, or request a quote directly through our website or social media. We'll guide you through a quick intake to match you with the right service.",
+        order: 3,
+      },
+      {
+        question: "What areas do you service?",
+        answer:
+          "We proudly serve high-end residential and boutique commercial spaces throughout Phoenix, AZ. Not sure if you're in our range? Reach out — we're happy to check!",
+        order: 4,
+      },
+    ];
+
+    for (const faq of defaultFaqs) {
+      this.faqsData.push({ ...faq, id: this.faqId++, createdAt: new Date() });
     }
   }
 
@@ -636,6 +733,51 @@ class InMemoryStorage implements IStorage {
     const before = this.testimonialsData.length;
     this.testimonialsData = this.testimonialsData.filter((item) => item.id !== id);
     return this.testimonialsData.length < before;
+  }
+
+  // FAQs
+  async createFaq(itemData: InsertFaq): Promise<Faq> {
+    const maxOrder = this.faqsData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
+    const nextOrder = maxOrder + 1;
+
+    const item: Faq = {
+      ...itemData,
+      id: this.faqId++,
+      order: itemData.order ?? nextOrder,
+      createdAt: new Date(),
+    };
+
+    this.faqsData.push(item);
+    return item;
+  }
+
+  async getFaqs(): Promise<Faq[]> {
+    return [...this.faqsData].sort((a, b) => {
+      if ((a.order ?? 0) === (b.order ?? 0)) return a.id - b.id;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+  }
+
+  async getFaq(id: number): Promise<Faq | undefined> {
+    return this.faqsData.find((item) => item.id === id);
+  }
+
+  async updateFaq(id: number, itemData: UpdateFaq): Promise<Faq | undefined> {
+    const existing = await this.getFaq(id);
+    if (!existing) return undefined;
+
+    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
+      throw new Error("Order must be a non-negative number");
+    }
+
+    Object.assign(existing, itemData);
+    return existing;
+  }
+
+  async deleteFaq(id: number): Promise<boolean> {
+    const before = this.faqsData.length;
+    this.faqsData = this.faqsData.filter((item) => item.id !== id);
+    return this.faqsData.length < before;
   }
 
   // Services

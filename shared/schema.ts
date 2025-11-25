@@ -85,6 +85,18 @@ export const testimonials = pgTable("testimonials", {
 export type Testimonial = typeof testimonials.$inferSelect;
 export type InsertTestimonial = typeof testimonials.$inferInsert;
 
+// FAQs table
+export const faqs = pgTable("faqs", {
+  id: serial("id").primaryKey(),
+  question: text("question").notNull(),
+  answer: text("answer").notNull(),
+  order: integer("order").default(0),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Faq = typeof faqs.$inferSelect;
+export type InsertFaq = typeof faqs.$inferInsert;
+
 // Services table
 export const services = pgTable("services", {
   id: serial("id").primaryKey(),
@@ -220,6 +232,12 @@ export const insertTestimonialSchema = createInsertSchema(testimonials, {
   sourceUrl: emptyToUndefined(z.string().url("Source URL must be valid").optional())
 }).omit({ id: true, createdAt: true, order: true });
 
+export const insertFaqSchema = createInsertSchema(faqs, {
+  question: z.string().min(1, "Question is required"),
+  answer: z.string().min(1, "Answer is required"),
+  order: z.number().min(0).optional(),
+}).omit({ id: true, createdAt: true });
+
 export const insertServiceSchema = createInsertSchema(services, {
   name: z.string().min(1, "Name is required"),
   description: z.string().min(10, "Description must be at least 10 characters"),
@@ -255,6 +273,12 @@ export const updateTestimonialSchema = z.object({
   rating: z.number().min(1).max(5).optional(),
   source: testimonialSourceSchema.optional(),
   sourceUrl: emptyToUndefined(z.string().url("Source URL must be valid").optional())
+});
+
+export const updateFaqSchema = z.object({
+  question: z.string().min(1, "Question is required").optional(),
+  answer: z.string().min(1, "Answer is required").optional(),
+  order: z.number().min(0).optional(),
 });
 
 export const updateServiceSchema = z.object({
