@@ -10,37 +10,68 @@ import type { RequestHandler } from "express";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware to check if user is admin
-const isAdmin: RequestHandler = async (req, res, next) => {
-  try {
-    const auth = getAuth(req);
-    
-    if (!auth.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
+const createIsAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+  return async (req, res, next) => {
+    if (!clerkEnabled) {
+      return next();
     }
 
-    const user = await storage.getUser(auth.userId);
-    
-    if (!user?.isAdmin) {
-      return res.status(403).json({ message: "Forbidden - admin access required" });
-    }
+    try {
+      const auth = getAuth(req);
+      
+      if (!auth.userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    next();
-  } catch (error) {
-    console.error("Admin check error:", error);
-    res.status(500).json({ message: "Failed to verify admin status" });
-  }
+      const user = await storage.getUser(auth.userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - admin access required" });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Admin check error:", error);
+      res.status(500).json({ message: "Failed to verify admin status" });
+    }
+  };
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const clerkEnabled = Boolean(process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+
+  if (!clerkEnabled) {
+    console.warn("[WARN] Clerk keys not configured. Running without authentication.");
+  }
+
+  const isAdmin = createIsAdminMiddleware(clerkEnabled);
+  const requireAuthMiddleware: RequestHandler = clerkEnabled
+    ? requireAuth()
+    : (_req, _res, next) => next();
+
   // Setup Clerk middleware with configuration
-  app.use(clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
-  }));
+  if (clerkEnabled) {
+    app.use(clerkMiddleware({
+      publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
+      secretKey: process.env.CLERK_SECRET_KEY,
+    }));
+  }
 
   // Auth routes - Get current user (with auto-provisioning)
-  app.get('/api/auth/user', requireAuth(), async (req: any, res) => {
+  app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
+    if (!clerkEnabled) {
+      const existing = await storage.getUser("dev-admin");
+      const user = existing ?? await storage.upsertUser({
+        id: "dev-admin",
+        email: "dev@example.com",
+        firstName: "Dev",
+        lastName: "Admin",
+        profileImageUrl: null,
+        isAdmin: true,
+      });
+      return res.json(user);
+    }
+
     try {
       const auth = getAuth(req);
       
