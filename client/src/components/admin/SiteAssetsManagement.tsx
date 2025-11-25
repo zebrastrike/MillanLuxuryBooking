@@ -55,7 +55,7 @@ export function SiteAssetsManagement() {
       formData.append("file", file);
       formData.append("name", file.name);
 
-      const res = await fetch("/api/assets", { method: "POST", body: formData });
+      const res = await fetch("/api/assets", { method: "POST", body: formData, credentials: "include" });
       const body = await res.json();
 
       if (!res.ok || !body?.data?.url) {
