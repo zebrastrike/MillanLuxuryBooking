@@ -20,7 +20,10 @@ This usually means that your Clerk instance keys do not match
 Go to **Vercel Project → Settings → Environment Variables** and check:
 
 - [ ] `VITE_CLERK_PUBLISHABLE_KEY` is set to your publishable key (format: `pk_test_...` or `pk_live_...`)
+- [ ] `VITE_CLERK_FRONTEND_API` is set when using a custom Clerk domain (e.g., `clerk.millanluxurycleaning.com`) to avoid hydration issues
 - [ ] `CLERK_SECRET_KEY` is set to your secret key (format: `sk_test_...` or `sk_live_...`)
+- [ ] `VITE_CLERK_ADMIN_EMAIL` matches the single owner email for the Clerk instance (client-side guard)
+- [ ] `ADMIN_EMAIL` or `ADMIN_EMAILS` includes the same owner email on the server
 - [ ] Both keys are from the **same Clerk environment** (test or production)
 - Optional: set `ADMIN_EMAILS` to a comma-separated list (e.g., `owner@example.com,manager@example.com`) to automatically grant admin access to those accounts even if they were not the first signup.
 

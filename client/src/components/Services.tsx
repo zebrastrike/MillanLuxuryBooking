@@ -6,7 +6,7 @@ import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/schema";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 
-const darkBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
+const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 // Icon mapping for services
 const iconMap: Record<string, any> = {
@@ -28,16 +28,21 @@ export function Services() {
   const { data: services = [], isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
+  const { data: assets } = useSiteAssets();
+
+  const { items: serviceList, isValid, reason } = normalizeArrayData<Service>(services, "services");
+  const hasShapeError = !isLoading && !error && !isValid;
+  const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
 
   const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
   const hasShapeError = !isLoading && !error && !isValid;
 
   return (
     <section 
-      id="services" 
+      id="services"
       className="relative py-20 md:py-32 overflow-hidden"
       style={{
-        backgroundImage: `url(${darkBotanicalBg})`,
+        backgroundImage: `url(${background})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundAttachment: 'fixed'

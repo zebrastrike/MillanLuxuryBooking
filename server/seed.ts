@@ -156,6 +156,19 @@ async function seed() {
   }
   console.log("Services seeded");
 
+  const initialAssets = [
+    { key: "logo", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png", description: "Primary logo" },
+    { key: "heroBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Hero background" },
+    { key: "servicesBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Services background" },
+    { key: "aboutBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png", description: "About background" },
+    { key: "aboutPortrait", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg", description: "Owner portrait" },
+  ];
+
+  for (const asset of initialAssets) {
+    await database.insert(siteAssets).values(asset);
+  }
+  console.log("Site assets seeded");
+
   console.log("Database seeded successfully!");
   process.exit(0);
 }

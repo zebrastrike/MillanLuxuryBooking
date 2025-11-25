@@ -26,18 +26,23 @@ function useClerkBackedAuth() {
   // Fetch user data from our database (only if signed in with Clerk)
   const { data: dbUser, isLoading: dbLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/user"],
-    enabled: !!isSignedIn && !!clerkUser,
+    enabled: Boolean(isSignedIn && clerkLoaded),
     retry: 2, // Retry failed requests twice
   });
 
   const isLoading = !clerkLoaded || (isSignedIn && dbLoading);
+  const allowedByEmail = isAllowedAdminEmail(primaryEmail || dbUser?.email || "");
+  const resolvedUser = dbUser ?? null;
 
   return {
-    user: dbUser ?? null,
+    user: resolvedUser,
+    email: primaryEmail || resolvedUser?.email || null,
+    clerkLoaded,
     isLoading,
-    isAuthenticated: isSignedIn ?? false,
-    isAdmin: dbUser?.isAdmin ?? false,
+    isAuthenticated: Boolean(isSignedIn && resolvedUser),
+    isAdmin: Boolean(resolvedUser?.isAdmin && allowedByEmail),
     error: error as Error | null,
+    adminEmailMismatch: Boolean(clerkLoaded && CLERK_ADMIN_EMAIL && !allowedByEmail),
   };
 }
 
