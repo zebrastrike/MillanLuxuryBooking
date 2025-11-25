@@ -8,14 +8,17 @@ import type { ContactMessage } from "@shared/schema";
 import { handleUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 export function ContactMessages() {
   const { toast } = useToast();
   
-  const { data: messages = [], isLoading, error } = useQuery<ContactMessage[]>({
+  const { data: messagesPayload, isLoading, error } = useQuery<ContactMessage[]>({
     queryKey: ["/api/contact"],
     retry: false,
   });
+
+  const { items: messages = [], isValid: messagesValid } = normalizeArrayData<ContactMessage>(messagesPayload);
 
   useEffect(() => {
     if (error) {
@@ -29,6 +32,13 @@ export function ContactMessages() {
       });
     }
   }, [error, toast]);
+
+  useEffect(() => {
+    if (!messagesValid && !isLoading && !error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Admin] Unexpected contact messages response shape.", messagesPayload);
+    }
+  }, [messagesPayload, messagesValid, isLoading, error]);
 
   if (isLoading) {
     return (

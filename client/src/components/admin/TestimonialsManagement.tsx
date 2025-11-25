@@ -17,6 +17,7 @@ import { Star, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import type { Testimonial, InsertTestimonial } from "@shared/schema";
 import { insertTestimonialSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { normalizeArrayData } from "@/lib/arrayUtils";
 
 type TestimonialFormData = InsertTestimonial;
 
@@ -26,10 +27,13 @@ export function TestimonialsManagement() {
   const [editingItem, setEditingItem] = useState<Testimonial | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
-  const { data: testimonials = [], isLoading, error } = useQuery<Testimonial[]>({
+  const { data: testimonialsPayload, isLoading, error } = useQuery<Testimonial[]>({
     queryKey: ["/api/testimonials"],
     retry: false,
   });
+
+  const { items: testimonials = [], isValid: testimonialsValid } = normalizeArrayData<Testimonial>(testimonialsPayload);
+  const normalizeCachedTestimonials = (value: unknown) => normalizeArrayData<Testimonial>(value).items;
 
   useEffect(() => {
     if (error) {
@@ -43,6 +47,13 @@ export function TestimonialsManagement() {
       });
     }
   }, [error, toast]);
+
+  useEffect(() => {
+    if (!testimonialsValid && !isLoading && !error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Admin] Unexpected testimonials payload shape.", testimonialsPayload);
+    }
+  }, [testimonialsPayload, testimonialsValid, isLoading, error]);
 
   const addForm = useForm<TestimonialFormData>({
     resolver: zodResolver(insertTestimonialSchema),
@@ -66,7 +77,8 @@ export function TestimonialsManagement() {
     onSuccess: (item) => {
       if (item) {
         queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) => {
-          const next = [...prev, item];
+          const normalizedPrev = normalizeCachedTestimonials(prev);
+          const next = [...normalizedPrev, item];
           return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         });
       }
@@ -101,7 +113,7 @@ export function TestimonialsManagement() {
     onSuccess: (item) => {
       if (item) {
         queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) =>
-          prev.map((existing) => (existing.id === item.id ? item : existing))
+          normalizeCachedTestimonials(prev).map((existing) => (existing.id === item.id ? item : existing))
         );
       }
       queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
@@ -133,7 +145,7 @@ export function TestimonialsManagement() {
     },
     onSuccess: (id) => {
       queryClient.setQueryData<Testimonial[]>(["/api/testimonials"], (prev = []) =>
-        prev.filter((item) => item.id !== id)
+        normalizeCachedTestimonials(prev).filter((item) => item.id !== id)
       );
       queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
       toast({
