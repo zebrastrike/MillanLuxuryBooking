@@ -1,5 +1,6 @@
-import { SignedIn, SignedOut, RedirectToSignIn, UserButton } from "@clerk/clerk-react";
+import { RedirectToSignIn, UserButton } from "@clerk/clerk-react";
 import { useAuth } from "@/hooks/useAuth";
+import { CLERK_ENABLED } from "@/lib/clerkConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
@@ -9,7 +10,11 @@ import { TestimonialsManagement } from "@/components/admin/TestimonialsManagemen
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
 
 export default function Admin() {
-  const { user, isLoading, isAdmin, error } = useAuth();
+  const { user, isLoading, isAuthenticated, isAdmin, error } = useAuth();
+
+  if (CLERK_ENABLED && !isAuthenticated) {
+    return <RedirectToSignIn />;
+  }
 
   // Show loading spinner while checking user permissions
   if (isLoading) {
@@ -70,24 +75,25 @@ export default function Admin() {
   }
 
   return (
-    <>
-      <SignedOut>
-        <RedirectToSignIn />
-      </SignedOut>
-      <SignedIn>
-        <div className="min-h-screen bg-background">
-          {/* Header */}
-          <header className="border-b">
-            <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
-                <p className="text-sm text-muted-foreground">
-                  Welcome, {user?.firstName || user?.email}
-                </p>
-              </div>
-              <UserButton afterSignOutUrl="/" data-testid="button-user" />
-            </div>
-          </header>
+    <div className="min-h-screen bg-background">
+      {!CLERK_ENABLED && (
+        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 px-6 py-3 text-sm">
+          Authentication is disabled. You're viewing the admin dashboard in development mode with a local admin account.
+        </div>
+      )}
+
+      {/* Header */}
+      <header className="border-b">
+        <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-serif font-semibold">Admin Dashboard</h1>
+            <p className="text-sm text-muted-foreground">
+              Welcome, {user?.firstName || user?.email || "Admin"}
+            </p>
+          </div>
+          {CLERK_ENABLED && <UserButton afterSignOutUrl="/" data-testid="button-user" />}
+        </div>
+      </header>
 
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
@@ -152,8 +158,6 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
       </main>
-        </div>
-      </SignedIn>
-    </>
+    </div>
   );
 }
