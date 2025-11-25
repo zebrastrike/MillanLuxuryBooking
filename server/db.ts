@@ -5,11 +5,18 @@ import * as schema from "@shared/schema";
 
 neonConfig.webSocketConstructor = ws;
 
-if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
-}
+/**
+ * Database bootstrap
+ *
+ * In production we require a DATABASE_URL (Neon/Postgres). During local
+ * development the variable may be absent, so we expose a nullable database and
+ * allow the storage layer to fall back to an in-memory implementation instead
+ * of crashing the server on startup.
+ */
+export const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
 
-export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-export const db = drizzle({ client: pool, schema });
+export const pool = hasDatabaseUrl
+  ? new Pool({ connectionString: process.env.DATABASE_URL })
+  : null;
+
+export const db = pool ? drizzle({ client: pool, schema }) : null;
