@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, insertSiteAssetSchema, updateSiteAssetSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
@@ -58,16 +58,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Auth routes - Get current user (with auto-provisioning)
-  const adminAllowlist = (process.env.ADMIN_EMAILS ?? process.env.ADMIN_EMAIL ?? "")
-    .split(",")
-    .map((email) => email.trim().toLowerCase())
-    .filter(Boolean);
-  const hasAdminAllowlist = adminAllowlist.length > 0;
-
-  if (clerkEnabled && !hasAdminAllowlist) {
-    console.warn("[Clerk] ADMIN_EMAILS/ADMIN_EMAIL not set. Only the first signed-in user will be promoted to admin.");
-  }
-
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     if (!clerkEnabled) {
       const existing = await storage.getUser("dev-admin");
@@ -106,11 +96,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
         // Fallback: find first non-revoked email (handles OAuth with null verification status)
         else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find(e => {
-            if (!e.emailAddress) return false;
-
-            const verificationStatus = e.verification?.status as string | undefined;
-            return verificationStatus !== "revoked";
+          const usableEmail = clerkUser.emailAddresses.find((e) => {
+            const status = e.verification?.status as string | undefined;
+            return e.emailAddress && status !== "revoked";
           });
           if (usableEmail?.emailAddress) {
             email = usableEmail.emailAddress;
@@ -129,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const isFirstUser = existingUsers.length === 0;
         const emailLower = email.toLowerCase();
         const inAllowlist = adminAllowlist.includes(emailLower);
-        const shouldBeAdmin = hasAdminAllowlist ? inAllowlist : isFirstUser;
+        const shouldBeAdmin = isFirstUser || inAllowlist;
 
         // Create user record from Clerk data
         user = await storage.upsertUser({
@@ -141,7 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isAdmin: shouldBeAdmin,
         });
 
-        if (isFirstUser && !hasAdminAllowlist) {
+        if (isFirstUser) {
           console.log(`[INFO] First user created with admin privileges: ${user.email}`);
         } else if (inAllowlist) {
           console.log(`[INFO] User marked admin via ADMIN_EMAILS allowlist: ${user.email}`);
@@ -150,12 +138,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } else {
         const emailLower = (user.email ?? "").toLowerCase();
-        const inAllowlist = adminAllowlist.includes(emailLower);
-
-        if (hasAdminAllowlist && !inAllowlist && user.isAdmin) {
-          user = await storage.upsertUser({ ...user, isAdmin: false });
-          console.warn(`[INFO] User demoted from admin (not in ADMIN_EMAILS): ${user.email}`);
-        } else if (!user.isAdmin && inAllowlist) {
+        if (!user.isAdmin && adminAllowlist.includes(emailLower)) {
           user = await storage.upsertUser({ ...user, isAdmin: true });
           console.log(`[INFO] Existing user promoted to admin via ADMIN_EMAILS allowlist: ${user.email}`);
         }
@@ -165,33 +148,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching/creating user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
-
-  // Site assets (logo/backgrounds)
-  app.get("/api/assets", async (_req, res) => {
-    const assets = await storage.getSiteAssets();
-    res.json(assets);
-  });
-
-  app.put("/api/assets/:key", isAdmin, async (req, res) => {
-    try {
-      const key = req.params.key;
-      const validated = updateSiteAssetSchema.parse(req.body);
-      const existing = await storage.getSiteAssetByKey(key);
-      const asset = await storage.upsertSiteAsset({
-        key,
-        url: validated.url ?? existing?.url ?? "",
-        description: validated.description ?? existing?.description,
-      });
-      res.json(asset);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid asset data", issues: error.issues });
-      } else {
-        console.error("Error updating asset:", error);
-        res.status(500).json({ message: "Failed to update asset" });
-      }
     }
   });
 

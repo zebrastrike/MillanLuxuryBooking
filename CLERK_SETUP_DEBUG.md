@@ -25,7 +25,7 @@ Go to **Vercel Project → Settings → Environment Variables** and check:
 - [ ] `VITE_CLERK_ADMIN_EMAIL` matches the single owner email for the Clerk instance (client-side guard)
 - [ ] `ADMIN_EMAIL` or `ADMIN_EMAILS` includes the same owner email on the server
 - [ ] Both keys are from the **same Clerk environment** (test or production)
-- Optional: if you truly need more than one admin, set `ADMIN_EMAILS` to a comma-separated list (e.g., `owner@example.com,manager@example.com`). Otherwise keep it to a single owner email.
+- Optional: set `ADMIN_EMAILS` to a comma-separated list (e.g., `owner@example.com,manager@example.com`) to automatically grant admin access to those accounts even if they were not the first signup.
 
 **IMPORTANT:** Test keys won't work with production domains and vice versa!
 
