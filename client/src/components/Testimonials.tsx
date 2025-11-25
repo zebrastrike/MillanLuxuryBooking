@@ -13,6 +13,10 @@ export function Testimonials() {
 
   const { items: testimonialList, isValid } = normalizeArrayData<Testimonial>(testimonials);
   const hasShapeError = !isLoading && !isValid;
+  const sourceLabels: Record<string, string> = {
+    google: "View on Google",
+    thumbtack: "View on Thumbtack",
+  };
 
   return (
     <section id="testimonials" className="py-20 md:py-32 bg-card">
@@ -46,8 +50,8 @@ export function Testimonials() {
         {!isLoading && !hasShapeError && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
             {testimonialList.map((testimonial) => (
-              <Card 
-                key={testimonial.id} 
+              <Card
+                key={testimonial.id}
                 className="hover-elevate transition-all duration-300"
                 data-testid={`card-testimonial-${testimonial.id}`}
               >
@@ -66,6 +70,20 @@ export function Testimonials() {
                   <p className="text-base italic text-foreground mb-4 leading-relaxed">
                     "{testimonial.review}"
                   </p>
+
+                  {(testimonial.source === "google" || testimonial.source === "thumbtack") && testimonial.sourceUrl && (
+                    <div className="mb-4">
+                      <a
+                        href={testimonial.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                      >
+                        {sourceLabels[testimonial.source]}
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
+                    </div>
+                  )}
 
                   {/* Reviewer Name */}
                   <p className="font-semibold text-sm text-muted-foreground">

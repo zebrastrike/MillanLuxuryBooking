@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,11 +16,12 @@ import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Star, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import type { Testimonial, InsertTestimonial } from "@shared/schema";
-import { insertTestimonialSchema } from "@shared/schema";
+import { insertTestimonialSchema, testimonialSourceSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 
 type TestimonialFormData = InsertTestimonial;
+const testimonialSources = testimonialSourceSchema.options;
 
 export function TestimonialsManagement() {
   const { toast } = useToast();
@@ -61,11 +63,20 @@ export function TestimonialsManagement() {
       name: "",
       review: "",
       rating: 5,
+      source: "manual",
+      sourceUrl: "",
     },
   });
 
   const editForm = useForm<TestimonialFormData>({
     resolver: zodResolver(insertTestimonialSchema),
+    defaultValues: {
+      name: "",
+      review: "",
+      rating: 5,
+      source: "manual",
+      sourceUrl: "",
+    },
   });
 
   const addMutation = useMutation({
@@ -172,6 +183,8 @@ export function TestimonialsManagement() {
       name: item.name,
       review: item.review,
       rating: item.rating,
+      source: item.source ?? "manual",
+      sourceUrl: item.sourceUrl ?? "",
     });
     setEditingItem(item);
   };
@@ -270,6 +283,50 @@ export function TestimonialsManagement() {
                           max={5}
                           step={1}
                           data-testid="slider-rating"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="source"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Source</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value ?? "manual"}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-source">
+                            <SelectValue placeholder="Select source" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {testimonialSources.map((option) => (
+                            <SelectItem key={option} value={option}>
+                              {option === "manual" ? "Manual" : option.charAt(0).toUpperCase() + option.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="sourceUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Source URL</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          placeholder="https://"
+                          data-testid="input-source-url"
+                          value={field.value ?? ""}
                         />
                       </FormControl>
                       <FormMessage />
@@ -412,6 +469,49 @@ export function TestimonialsManagement() {
                         max={5}
                         step={1}
                         data-testid="slider-edit-rating"
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="source"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Source</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value ?? "manual"}>
+                      <FormControl>
+                        <SelectTrigger data-testid="select-edit-source">
+                          <SelectValue placeholder="Select source" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {testimonialSources.map((option) => (
+                          <SelectItem key={option} value={option}>
+                            {option === "manual" ? "Manual" : option.charAt(0).toUpperCase() + option.slice(1)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="sourceUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Source URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        data-testid="input-edit-source-url"
+                        value={field.value ?? ""}
                       />
                     </FormControl>
                     <FormMessage />
