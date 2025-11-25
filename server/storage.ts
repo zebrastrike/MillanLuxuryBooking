@@ -11,6 +11,9 @@ import {
   type UpsertUser,
   type SiteAsset,
   type InsertSiteAsset,
+  type Post,
+  type InsertPost,
+  posts,
   siteAssets,
   contactMessages,
   galleryItems,
@@ -19,13 +22,14 @@ import {
   users,
 } from "@shared/schema";
 import { db, hasDatabaseUrl } from "./db";
-import { eq, desc, asc } from "drizzle-orm";
+import { eq, desc, asc, and } from "drizzle-orm";
 
 // Update type for gallery items - allows updating any field including order
 export type UpdateGalleryItem = Partial<Omit<GalleryItem, 'id' | 'createdAt'>>;
 export type UpdateTestimonial = Partial<Omit<Testimonial, 'id' | 'createdAt'>>;
 export type UpdateService = Partial<Omit<Service, 'id' | 'createdAt'>>;
 export type UpdateSiteAsset = Partial<Omit<SiteAsset, 'id' | 'createdAt' | 'updatedAt'>>;
+export type UpdatePost = Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt'>>;
 
 export interface IStorage {
   // User operations (required for Replit Auth)
@@ -63,6 +67,14 @@ export interface IStorage {
   upsertSiteAsset(asset: InsertSiteAsset): Promise<SiteAsset>;
   getSiteAssets(): Promise<SiteAsset[]>;
   getSiteAssetByKey(key: string): Promise<SiteAsset | undefined>;
+
+  // Posts
+  createPost(post: InsertPost): Promise<Post>;
+  getPublishedPosts(): Promise<Post[]>;
+  getPublishedPostBySlug(slug: string): Promise<Post | undefined>;
+  getAllPosts(): Promise<Post[]>;
+  updatePost(id: number, updates: UpdatePost): Promise<Post | undefined>;
+  deletePost(id: number): Promise<boolean>;
 }
 
 function assertDb() {
@@ -321,6 +333,51 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
+  // Posts
+  async createPost(postData: InsertPost): Promise<Post> {
+    const [post] = await this.db.insert(posts).values(postData).returning();
+    return post;
+  }
+
+  async getPublishedPosts(): Promise<Post[]> {
+    return await this.db
+      .select()
+      .from(posts)
+      .where(eq(posts.published, true))
+      .orderBy(desc(posts.createdAt));
+  }
+
+  async getPublishedPostBySlug(slug: string): Promise<Post | undefined> {
+    const [post] = await this.db
+      .select()
+      .from(posts)
+      .where(and(eq(posts.slug, slug), eq(posts.published, true)));
+
+    return post || undefined;
+  }
+
+  async getAllPosts(): Promise<Post[]> {
+    return await this.db.select().from(posts).orderBy(desc(posts.createdAt));
+  }
+
+  async updatePost(id: number, updates: UpdatePost): Promise<Post | undefined> {
+    const [existing] = await this.db.select().from(posts).where(eq(posts.id, id));
+    if (!existing) return undefined;
+
+    const [post] = await this.db
+      .update(posts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(posts.id, id))
+      .returning();
+
+    return post || undefined;
+  }
+
+  async deletePost(id: number): Promise<boolean> {
+    const result = await this.db.delete(posts).where(eq(posts.id, id)).returning();
+    return result.length > 0;
+  }
+
   // Site assets
   async upsertSiteAsset(assetData: InsertSiteAsset): Promise<SiteAsset> {
     const updatePayload: Partial<InsertSiteAsset> & { updatedAt: Date } = {
@@ -359,12 +416,14 @@ class InMemoryStorage implements IStorage {
   private testimonialId = 1;
   private serviceId = 1;
   private contactId = 1;
+  private postId = 1;
   private users: User[] = [];
   private gallery: GalleryItem[] = [];
   private testimonialsData: Testimonial[] = [];
   private servicesData: Service[] = [];
   private contactMessagesData: ContactMessage[] = [];
   private siteAssetsData: SiteAsset[] = [];
+  private postsData: Post[] = [];
 
   constructor() {
       const defaultAssets: Array<Omit<SiteAsset, "id" | "createdAt" | "updatedAt">> = [
@@ -619,6 +678,48 @@ class InMemoryStorage implements IStorage {
     const before = this.servicesData.length;
     this.servicesData = this.servicesData.filter((item) => item.id !== id);
     return this.servicesData.length < before;
+  }
+
+  // Posts
+  async createPost(postData: InsertPost): Promise<Post> {
+    const now = new Date();
+    const post: Post = {
+      ...postData,
+      id: this.postId++,
+      createdAt: now,
+      updatedAt: now,
+      published: postData.published ?? false,
+    };
+    this.postsData.push(post);
+    return post;
+  }
+
+  async getPublishedPosts(): Promise<Post[]> {
+    return [...this.postsData]
+      .filter((post) => Boolean(post.published))
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async getPublishedPostBySlug(slug: string): Promise<Post | undefined> {
+    return this.postsData.find((post) => post.slug === slug && post.published === true);
+  }
+
+  async getAllPosts(): Promise<Post[]> {
+    return [...this.postsData].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async updatePost(id: number, updates: UpdatePost): Promise<Post | undefined> {
+    const existing = this.postsData.find((post) => post.id === id);
+    if (!existing) return undefined;
+
+    Object.assign(existing, updates, { updatedAt: new Date() });
+    return existing;
+  }
+
+  async deletePost(id: number): Promise<boolean> {
+    const before = this.postsData.length;
+    this.postsData = this.postsData.filter((post) => post.id !== id);
+    return this.postsData.length < before;
   }
 
   // Site assets

@@ -98,6 +98,21 @@ export const services = pgTable("services", {
 export type Service = typeof services.$inferSelect;
 export type InsertService = typeof services.$inferInsert;
 
+// Blog posts table
+export const posts = pgTable("posts", {
+  id: serial("id").primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  slug: varchar("slug", { length: 255 }).notNull().unique(),
+  excerpt: text("excerpt").notNull(),
+  body: text("body").notNull(),
+  published: boolean("published").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type Post = typeof posts.$inferSelect;
+export type InsertPost = typeof posts.$inferInsert;
+
 // Social Links table
 export const socialLinks = pgTable("social_links", {
   id: serial("id").primaryKey(),
@@ -160,6 +175,16 @@ const imageUrlValidator = z.string().min(1, "Image URL is required").refine(
   { message: "Image URL must be a valid URL or absolute path" }
 );
 
+const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const slugValidator = z
+  .string()
+  .min(1, "Slug is required")
+  .transform((value) => value.trim().toLowerCase())
+  .refine((value) => slugRegex.test(value), {
+    message: "Slug must be URL-safe (lowercase letters, numbers, and hyphens)",
+  });
+
 export const testimonialSourceSchema = z.enum(["manual", "google", "thumbtack"]);
 
 export const insertGalleryItemSchema = createInsertSchema(galleryItems, {
@@ -201,6 +226,14 @@ export const insertServiceSchema = createInsertSchema(services, {
   features: z.array(z.string().min(1))
 }).omit({ id: true, createdAt: true, order: true });
 
+export const insertPostSchema = createInsertSchema(posts, {
+  title: z.string().min(1, "Title is required"),
+  slug: slugValidator,
+  excerpt: z.string().min(1, "Excerpt is required"),
+  body: z.string().min(1, "Body is required"),
+  published: z.boolean().optional().default(false),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
 // Update schemas for partial updates
 export const updateGalleryItemSchema = z.object({
   title: z.string().min(1, "Title is required").optional(),
@@ -228,6 +261,14 @@ export const updateServiceSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
   description: z.string().min(10, "Description must be at least 10 characters").optional(),
   features: z.array(z.string().min(1)).optional()
+});
+
+export const updatePostSchema = z.object({
+  title: z.string().min(1, "Title is required").optional(),
+  slug: slugValidator.optional(),
+  excerpt: z.string().min(1, "Excerpt is required").optional(),
+  body: z.string().min(1, "Body is required").optional(),
+  published: z.boolean().optional(),
 });
 
 export const insertSocialLinksSchema = createInsertSchema(socialLinks, {
