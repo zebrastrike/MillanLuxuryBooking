@@ -2,12 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { useSiteAssets } from "@/hooks/useSiteAssets";
 
-const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
+const fallbackCrown =
+  "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png";
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
   const { data: assets = {} } = useSiteAssets();
-  const logo = assets?.logo?.url ?? fallbackLogo;
+  const crown = assets?.heroCrown?.url ?? assets?.logo?.url ?? fallbackCrown;
   const background = assets?.heroBackground?.url ?? assets?.servicesBackground?.url ?? fallbackBg;
 
   return (
@@ -29,9 +30,9 @@ export function Hero() {
         {/* Logo */}
         <div className="flex justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
           <img
-            src={logo}
-            alt="Millan Luxury Cleaning Logo"
-            className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 drop-shadow-2xl object-contain"
+            src={crown}
+            alt="Gold Crown"
+            className="w-64 mx-auto drop-shadow-xl object-contain"
           />
         </div>
         

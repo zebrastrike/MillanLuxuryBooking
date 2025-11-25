@@ -4,7 +4,8 @@ import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useSiteAssets } from "@/hooks/useSiteAssets";
 
-const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
+const fallbackLogo =
+  "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/IMG_5919%20-%20Millan%20Luxury%20Cleaning%20(1).png";
 
 export function Navigation() {
   const { data: assets = {} } = useSiteAssets();
@@ -47,8 +48,8 @@ export function Navigation() {
           >
             <img
               src={logo}
-              alt="Millan Luxury Cleaning"
-              className="h-12 md:h-14 w-auto object-contain"
+              alt="Millan Luxury Cleaning Logo"
+              className="h-12 w-auto object-contain"
             />
           </a>
           
