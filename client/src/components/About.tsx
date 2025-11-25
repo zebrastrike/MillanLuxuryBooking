@@ -5,7 +5,7 @@ const fallbackBackground = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.
 const fallbackPortrait = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg";
 
 export function About() {
-  const { data: assets } = useSiteAssets();
+  const { data: assets = {} } = useSiteAssets();
   const background = assets?.aboutBackground ?? fallbackBackground;
   const portrait = assets?.aboutPortrait ?? fallbackPortrait;
 

@@ -1,7 +1,14 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema } from "@shared/schema";
+import {
+  insertContactMessageSchema,
+  insertGalleryItemSchema,
+  insertTestimonialSchema,
+  insertServiceSchema,
+  insertSiteAssetSchema,
+  updateSiteAssetSchema,
+} from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
@@ -218,6 +225,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: "Failed to submit contact form"
         });
       }
+    }
+  });
+
+  // Site assets endpoints (Vercel Blob backed)
+  app.get("/api/assets", async (_req, res) => {
+    try {
+      const assets = await storage.getSiteAssets();
+      res.json(assets);
+    } catch (error) {
+      console.error("Failed to load site assets", error);
+      res.status(500).json({ message: "Failed to load site assets" });
+    }
+  });
+
+  app.post("/api/assets", isAdmin, upload.single('file'), async (req, res) => {
+    try {
+      const payload = z
+        .object({
+          key: z.string().min(1),
+          description: z.string().optional(),
+          name: z.string().optional(),
+          publicId: z.string().optional(),
+          url: z.string().url().optional(),
+        })
+        .superRefine((val, ctx) => {
+          if (!req.file && !val.url) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide a file or an existing URL" });
+          }
+        })
+        .parse(req.body);
+
+      if (req.file && !process.env.BLOB_READ_WRITE_TOKEN) {
+        res.status(400).json({
+          success: false,
+          message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
+        });
+        return;
+      }
+
+      const blob = req.file
+        ? await put(`site-assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
+            access: 'public',
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+          })
+        : null;
+
+      const url = blob?.url ?? payload.url;
+      if (!url) {
+        res.status(400).json({ success: false, message: "Unable to resolve upload URL" });
+        return;
+      }
+
+      const asset = await storage.upsertSiteAsset({
+        key: payload.key,
+        url,
+        name: payload.name ?? req.file?.originalname ?? payload.key,
+        publicId: blob?.pathname ?? payload.publicId ?? null,
+        description: payload.description,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Asset saved successfully",
+        data: asset,
+      });
+    } catch (error) {
+      console.error("Asset upload error:", error);
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid asset payload", errors: error.issues });
+        return;
+      }
+      res.status(500).json({ success: false, message: "Failed to save asset" });
+    }
+  });
+
+  app.put("/api/assets/:key", isAdmin, async (req, res) => {
+    try {
+      const key = req.params.key;
+      const updates = updateSiteAssetSchema.parse(req.body);
+      const existing = await storage.getSiteAssetByKey(key);
+
+      if (!existing && !updates.url) {
+        res.status(400).json({ success: false, message: "Provide a URL to create a new asset" });
+        return;
+      }
+
+      const asset = await storage.upsertSiteAsset({
+        key,
+        url: updates.url ?? existing?.url ?? "",
+        name: updates.name ?? existing?.name ?? key,
+        publicId: updates.publicId ?? existing?.publicId ?? null,
+        description: updates.description ?? existing?.description ?? null,
+      });
+
+      res.json({ success: true, data: asset, message: "Asset updated" });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid asset payload", errors: error.issues });
+        return;
+      }
+      console.error("Asset update error:", error);
+      res.status(500).json({ success: false, message: "Failed to update asset" });
     }
   });
 

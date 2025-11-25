@@ -157,11 +157,41 @@ async function seed() {
   console.log("Services seeded");
 
   const initialAssets = [
-    { key: "logo", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png", description: "Primary logo" },
-    { key: "heroBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Hero background" },
-    { key: "servicesBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Services background" },
-    { key: "aboutBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png", description: "About background" },
-    { key: "aboutPortrait", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg", description: "Owner portrait" },
+    {
+      key: "logo",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png",
+      name: "Millan Logo",
+      publicId: "static/millan-logo.png",
+      description: "Primary logo",
+    },
+    {
+      key: "heroBackground",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+      name: "Hero Background",
+      publicId: "static/dark-botanical-bg.png",
+      description: "Hero background",
+    },
+    {
+      key: "servicesBackground",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+      name: "Services Background",
+      publicId: "static/dark-botanical-bg.png",
+      description: "Services background",
+    },
+    {
+      key: "aboutBackground",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png",
+      name: "About Background",
+      publicId: "static/light-botanical-bg.png",
+      description: "About background",
+    },
+    {
+      key: "aboutPortrait",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg",
+      name: "Owner Portrait",
+      publicId: "static/owner-photo.jpg",
+      description: "Owner portrait",
+    },
   ];
 
   for (const asset of initialAssets) {

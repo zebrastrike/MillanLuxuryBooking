@@ -8,6 +8,8 @@ import ReactCompareImage from "react-compare-image";
 import type { GalleryItem } from "@shared/schema";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 
+const placeholderImage = "https://placehold.co/1200x800?text=Image+coming+soon";
+
 export function Gallery() {
   const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>("all");
@@ -54,8 +56,8 @@ export function Gallery() {
       return (
         <div className="w-full h-64">
           <ReactCompareImage
-            leftImage={item.beforeImageUrl}
-            rightImage={item.afterImageUrl}
+            leftImage={item.beforeImageUrl || placeholderImage}
+            rightImage={item.afterImageUrl || placeholderImage}
             sliderLineColor="hsl(var(--primary))"
             sliderLineWidth={3}
             handleSize={40}
@@ -67,8 +69,8 @@ export function Gallery() {
     }
     return (
       <img
-        src={item.imageUrl ?? ""}
-        alt={item.title}
+        src={item.imageUrl || placeholderImage}
+        alt={item.title || "Gallery image"}
         className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
         data-testid={`img-gallery-${item.id}`}
       />
@@ -80,8 +82,8 @@ export function Gallery() {
       return (
         <div className="w-full max-h-[80vh]">
           <ReactCompareImage
-            leftImage={item.beforeImageUrl}
-            rightImage={item.afterImageUrl}
+            leftImage={item.beforeImageUrl || placeholderImage}
+            rightImage={item.afterImageUrl || placeholderImage}
             sliderLineColor="hsl(var(--primary))"
             sliderLineWidth={4}
             handleSize={50}
@@ -93,8 +95,8 @@ export function Gallery() {
     }
     return (
       <img
-        src={item.imageUrl ?? ""}
-        alt={item.title}
+        src={item.imageUrl || placeholderImage}
+        alt={item.title || "Gallery image"}
         className="w-full h-auto max-h-[80vh] object-contain"
         data-testid="img-lightbox-current"
       />
@@ -149,7 +151,7 @@ export function Gallery() {
         )}
 
         {/* Gallery Grid */}
-        {!isLoading && !error && (
+        {!isLoading && !error && isValid && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredImages.map((item) => (
               <div
@@ -184,7 +186,7 @@ export function Gallery() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && filteredImages.length === 0 && (
+        {!isLoading && !error && isValid && filteredImages.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               No gallery items found for this category.
@@ -197,6 +199,14 @@ export function Gallery() {
           <div className="text-center py-12">
             <p className="text-muted-foreground text-lg">
               We couldn't load the gallery right now. Please refresh the page.
+            </p>
+          </div>
+        )}
+
+        {hasShapeError && (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground text-lg">
+              We ran into unexpected data while loading the gallery. Please refresh and try again.
             </p>
           </div>
         )}

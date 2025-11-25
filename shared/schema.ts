@@ -117,6 +117,8 @@ export const siteAssets = pgTable("site_assets", {
   id: serial("id").primaryKey(),
   key: varchar("key", { length: 100 }).notNull().unique(),
   url: varchar("url", { length: 500 }).notNull(),
+  name: varchar("name", { length: 255 }),
+  publicId: varchar("public_id", { length: 500 }),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -213,10 +215,14 @@ export const insertGoogleReviewSchema = createInsertSchema(googleReviews, {
 export const insertSiteAssetSchema = createInsertSchema(siteAssets, {
   key: z.string().min(1),
   url: imageUrlValidator,
+  name: z.string().optional(),
+  publicId: z.string().optional(),
   description: z.string().optional(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
 
 export const updateSiteAssetSchema = z.object({
   url: imageUrlValidator.optional(),
+  name: z.string().optional(),
+  publicId: z.string().optional(),
   description: z.string().optional(),
 });

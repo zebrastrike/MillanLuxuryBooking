@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useSiteAssets, type SiteAssetMap } from "@/hooks/useSiteAssets";
 import { Loader2, Upload } from "lucide-react";
 
 const assetFields = [
@@ -28,7 +28,11 @@ export function SiteAssetsManagement() {
     mutationFn: async ({ key, url }: { key: string; url: string }) => {
       return apiRequest("PUT", `/api/assets/${key}`, { url });
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      queryClient.setQueryData<SiteAssetMap>(["/api/assets"], (prev = {}) => ({
+        ...prev,
+        [variables.key]: variables.url,
+      }));
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({ title: "Updated", description: "Asset saved successfully." });
     },
@@ -37,23 +41,39 @@ export function SiteAssetsManagement() {
     },
   });
 
-  const handleUpload = async (key: string, file?: File | null) => {
-    if (!file) return;
-    setUploadingKey(key);
-    try {
+  const uploadMutation = useMutation({
+    mutationFn: async ({ key, file }: { key: string; file: File }) => {
       const formData = new FormData();
+      formData.append("key", key);
       formData.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body: formData });
+      formData.append("name", file.name);
+
+      const res = await fetch("/api/assets", { method: "POST", body: formData });
       const body = await res.json();
+
       if (!res.ok || !body?.data?.url) {
         throw new Error(body?.message || "Upload failed");
       }
-      await updateMutation.mutateAsync({ key, url: body.data.url });
-    } catch (err) {
-      toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
-    } finally {
-      setUploadingKey(null);
-    }
+
+      return body.data as { key: string; url: string };
+    },
+    onSuccess: (asset) => {
+      queryClient.setQueryData<SiteAssetMap>(["/api/assets"], (prev = {}) => ({
+        ...prev,
+        [asset.key]: asset.url,
+      }));
+      queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
+      toast({ title: "Uploaded", description: "Image uploaded successfully." });
+    },
+    onError: (error: unknown) => {
+      toast({ title: "Upload failed", description: (error as Error).message, variant: "destructive" });
+    },
+  });
+
+  const handleUpload = async (key: string, file?: File | null) => {
+    if (!file) return;
+    setUploadingKey(key);
+    uploadMutation.mutate({ key, file }, { onSettled: () => setUploadingKey(null) });
   };
 
   return (

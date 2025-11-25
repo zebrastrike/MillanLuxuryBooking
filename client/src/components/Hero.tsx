@@ -6,7 +6,7 @@ const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/st
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
-  const { data: assets } = useSiteAssets();
+  const { data: assets = {} } = useSiteAssets();
   const logo = assets?.logo ?? fallbackLogo;
   const background = assets?.heroBackground ?? assets?.servicesBackground ?? fallbackBg;
 
