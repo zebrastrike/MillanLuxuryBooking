@@ -5,12 +5,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ImageIcon, MessageSquare, Star, Briefcase } from "lucide-react";
+import { Loader2, ImageIcon, MessageSquare, Star, Briefcase, BookOpen } from "lucide-react";
 import { ContactMessages } from "@/components/admin/ContactMessages";
 import { GalleryManagement } from "@/components/admin/GalleryManagement";
 import { TestimonialsManagement } from "@/components/admin/TestimonialsManagement";
 import { ServicesManagement } from "@/components/admin/ServicesManagement";
 import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
+import { BlogManagement } from "@/components/admin/BlogManagement";
 
 export default function Admin() {
   const { user, isLoading, isLoaded, isSignedIn, isAdmin, error } = useAuth();
@@ -92,7 +93,7 @@ export default function Admin() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs defaultValue="gallery" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 max-w-3xl">
+          <TabsList className="grid w-full grid-cols-6 max-w-4xl">
             <TabsTrigger value="gallery" data-testid="tab-gallery">
               <ImageIcon className="mr-2 h-4 w-4" />
               Gallery
@@ -108,6 +109,10 @@ export default function Admin() {
             <TabsTrigger value="services" data-testid="tab-services">
               <Briefcase className="mr-2 h-4 w-4" />
               Services
+            </TabsTrigger>
+            <TabsTrigger value="blog" data-testid="tab-blog">
+              <BookOpen className="mr-2 h-4 w-4" />
+              Blog
             </TabsTrigger>
             <TabsTrigger value="messages" data-testid="tab-messages">
               <MessageSquare className="mr-2 h-4 w-4" />
@@ -153,6 +158,16 @@ export default function Admin() {
               </p>
             </div>
             <ServicesManagement />
+          </TabsContent>
+
+          <TabsContent value="blog" className="mt-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Blog Management</h2>
+              <p className="text-muted-foreground">
+                Publish updates and announcements for your clients
+              </p>
+            </div>
+            <BlogManagement />
           </TabsContent>
 
           <TabsContent value="messages" className="mt-6">

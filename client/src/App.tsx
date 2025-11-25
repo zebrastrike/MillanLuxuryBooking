@@ -8,12 +8,16 @@ import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
 import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { Analytics } from "@/components/Analytics";
+import BlogIndex from "@/pages/blog";
+import BlogPost from "@/pages/blog/PostDetail";
 
 // Main router component
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home}/>
+      <Route path="/blog" component={BlogIndex}/>
+      <Route path="/blog/:slug" component={BlogPost}/>
       <Route path="/admin" component={Admin}/>
       <Route component={NotFound} />
     </Switch>

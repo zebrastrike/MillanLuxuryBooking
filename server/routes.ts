@@ -7,10 +7,12 @@ import {
   insertTestimonialSchema,
   insertServiceSchema,
   insertSiteAssetSchema,
+  insertPostSchema,
   updateGalleryItemSchema,
   updateServiceSchema,
   updateTestimonialSchema,
   updateSiteAssetSchema,
+  updatePostSchema,
 } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
@@ -803,6 +805,122 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         success: false,
         message: "Failed to delete service"
       });
+    }
+  });
+
+  // Blog posts endpoints
+  app.get("/api/posts", async (_req, res) => {
+    try {
+      const posts = await storage.getPublishedPosts();
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve posts",
+      });
+    }
+  });
+
+  app.get("/api/posts/admin", requireAdmin, async (_req, res) => {
+    try {
+      const posts = await storage.getAllPosts();
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve posts",
+      });
+    }
+  });
+
+  app.post("/api/posts", requireAdmin, async (req, res) => {
+    try {
+      const validatedData = insertPostSchema.parse(req.body);
+      const post = await storage.createPost(validatedData);
+
+      res.status(201).json({
+        success: true,
+        message: "Post created successfully",
+        data: post,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid post data", errors: error.issues });
+        return;
+      }
+      console.error("Failed to create post", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to create post",
+      });
+    }
+  });
+
+  app.patch("/api/posts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: "Invalid ID" });
+        return;
+      }
+
+      const updates = updatePostSchema.parse(req.body);
+      const post = await storage.updatePost(id, updates);
+
+      if (!post) {
+        res.status(404).json({ success: false, message: "Post not found" });
+        return;
+      }
+
+      res.json({
+        success: true,
+        message: "Post updated successfully",
+        data: post,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid post data", errors: error.issues });
+        return;
+      }
+      console.error("Failed to update post", error);
+      res.status(500).json({ success: false, message: "Failed to update post" });
+    }
+  });
+
+  app.delete("/api/posts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({ success: false, message: "Invalid ID" });
+        return;
+      }
+
+      const deleted = await storage.deletePost(id);
+
+      if (!deleted) {
+        res.status(404).json({ success: false, message: "Post not found" });
+        return;
+      }
+
+      res.json({ success: true, message: "Post deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to delete post" });
+    }
+  });
+
+  app.get("/api/posts/:slug", async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const post = await storage.getPublishedPostBySlug(slug);
+
+      if (!post) {
+        res.status(404).json({ success: false, message: "Post not found" });
+        return;
+      }
+
+      res.json(post);
+    } catch (error) {
+      res.status(500).json({ success: false, message: "Failed to retrieve post" });
     }
   });
 
