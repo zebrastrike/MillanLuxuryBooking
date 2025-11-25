@@ -9,6 +9,10 @@ import multer from "multer";
 import type { RequestHandler } from "express";
 
 const upload = multer({ storage: multer.memoryStorage() });
+const adminAllowlist = (process.env.ADMIN_EMAILS || process.env.CLERK_ADMIN_EMAIL || "")
+  .split(",")
+  .map((email) => email.trim().toLowerCase())
+  .filter(Boolean);
 
 const createIsAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
   return async (req, res, next) => {

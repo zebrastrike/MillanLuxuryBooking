@@ -1,8 +1,14 @@
-import { useEffect } from "react";
 import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
+
+const CLERK_ADMIN_EMAIL = (import.meta.env.VITE_CLERK_ADMIN_EMAIL ?? "").trim().toLowerCase();
+
+function isAllowedAdminEmail(email: string) {
+  if (!CLERK_ADMIN_EMAIL) return true;
+  return email.trim().toLowerCase() === CLERK_ADMIN_EMAIL;
+}
 
 function useDevAuth() {
   const { data: dbUser, isLoading, error } = useQuery<User>({
@@ -16,12 +22,14 @@ function useDevAuth() {
     isAuthenticated: Boolean(dbUser),
     isAdmin: dbUser?.isAdmin ?? false,
     error: error as Error | null,
+    adminEmailMismatch: false,
   };
 }
 
 function useClerkBackedAuth() {
   const { isSignedIn, isLoaded: clerkLoaded } = useClerkAuth();
   const { user: clerkUser } = useUser();
+  const primaryEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
 
   // Fetch user data from our database (only if signed in with Clerk)
   const { data: dbUser, isLoading: dbLoading, error } = useQuery<User>({

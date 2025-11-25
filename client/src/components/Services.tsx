@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/schema";
 import { normalizeArrayData } from "@/lib/arrayUtils";
+import { useSiteAssets } from "@/hooks/useSiteAssets";
 
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
@@ -30,12 +31,9 @@ export function Services() {
   });
   const { data: assets } = useSiteAssets();
 
-  const { items: serviceList, isValid, reason } = normalizeArrayData<Service>(services, "services");
-  const hasShapeError = !isLoading && !error && !isValid;
-  const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
-
   const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
   const hasShapeError = !isLoading && !error && !isValid;
+  const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
 
   return (
     <section 

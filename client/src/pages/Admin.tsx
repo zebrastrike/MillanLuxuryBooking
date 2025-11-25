@@ -11,7 +11,7 @@ import { ServicesManagement } from "@/components/admin/ServicesManagement";
 import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
 
 export default function Admin() {
-  const { user, isLoading, isAuthenticated, isAdmin, error } = useAuth();
+  const { user, isLoading, isAuthenticated, isAdmin, error, adminEmailMismatch } = useAuth();
 
   if (CLERK_ENABLED && !isAuthenticated) {
     return <RedirectToSignIn />;
