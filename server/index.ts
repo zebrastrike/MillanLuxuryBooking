@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { loadEnv } from "./env";
 
 // Millan Luxury Cleaning - Express Server
 // Production-ready application with Clerk authentication and Vercel Blob storage
@@ -53,7 +54,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const env = loadEnv();
+
+  const server = await registerRoutes(app, env);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -76,7 +79,7 @@ app.use((req, res, next) => {
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
-  const port = parseInt(process.env.PORT || '5000', 10);
+  const port = env.port;
   server.listen({
     port,
     host: "0.0.0.0",
