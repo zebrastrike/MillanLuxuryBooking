@@ -7,36 +7,65 @@ import {
   insertTestimonialSchema,
   insertServiceSchema,
   insertSiteAssetSchema,
+  updateGalleryItemSchema,
   updateSiteAssetSchema,
 } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
-import { put } from "@vercel/blob";
+import { del, put } from "@vercel/blob";
 import multer from "multer";
 import type { RequestHandler } from "express";
+import { isAdminUser } from "@shared/auth";
+import type { Asset, SiteAsset } from "@shared/schema";
 
-const upload = multer({ storage: multer.memoryStorage() });
-const adminAllowlist = (process.env.ADMIN_EMAILS || process.env.CLERK_ADMIN_EMAIL || "")
-  .split(",")
-  .map((email) => email.trim().toLowerCase())
-  .filter(Boolean);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
-const createIsAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+const getBlobPath = (value?: string | null) => {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value);
+    if (!parsed.hostname.includes("vercel-storage")) return null;
+    return parsed.pathname;
+  } catch {
+    return value.startsWith("/") ? value : null;
+  }
+};
+
+const buildAssetPayload = (asset: SiteAsset): Asset & { key: string; path: string; description: string | null } => {
+  const path = getBlobPath(asset.publicId || asset.url) || "";
+  const filename = asset.filename || asset.name || path.split("/").pop() || "asset";
+
+  return {
+    key: asset.key,
+    url: asset.url,
+    id: String(asset.id),
+    path,
+    publicId: asset.publicId || path,
+    filename,
+    description: asset.description ?? null,
+  };
+};
+
+const respondAuthUnavailable: RequestHandler = (_req, res) => {
+  res.status(503).json({ message: "Authentication is not configured." });
+};
+
+const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+  if (!clerkEnabled) {
+    return respondAuthUnavailable;
+  }
+
   return async (req, res, next) => {
-    if (!clerkEnabled) {
-      return next();
-    }
-
     try {
       const auth = getAuth(req);
-      
+
       if (!auth.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const user = await storage.getUser(auth.userId);
-      
-      if (!user?.isAdmin) {
+      const clerkUser = await clerkClient.users.getUser(auth.userId);
+
+      if (!isAdminUser(clerkUser)) {
         return res.status(403).json({ message: "Forbidden - admin access required" });
       }
 
@@ -52,13 +81,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const clerkEnabled = Boolean(process.env.CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
 
   if (!clerkEnabled) {
-    console.warn("[WARN] Clerk keys not configured. Running without authentication.");
+    console.warn("[WARN] Clerk keys not configured. Admin access will be denied.");
   }
 
-  const isAdmin = createIsAdminMiddleware(clerkEnabled);
+  const requireAdmin = createRequireAdminMiddleware(clerkEnabled);
   const requireAuthMiddleware: RequestHandler = clerkEnabled
     ? requireAuth()
-    : (_req, _res, next) => next();
+    : respondAuthUnavailable;
 
   // Setup Clerk middleware with configuration
   if (clerkEnabled) {
@@ -70,29 +99,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Auth routes - Get current user (with auto-provisioning)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
-    if (!clerkEnabled) {
-      const existing = await storage.getUser("dev-admin");
-      const user = existing ?? await storage.upsertUser({
-        id: "dev-admin",
-        email: "dev@example.com",
-        firstName: "Dev",
-        lastName: "Admin",
-        profileImageUrl: null,
-        isAdmin: true,
-      });
-      return res.json(user);
-    }
-
     try {
       const auth = getAuth(req);
-      
+
       if (!auth.userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
-      
+
       // Try to get existing user from database
       let user = await storage.getUser(auth.userId);
-      
+
       // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
         // Fetch full user data from Clerk
@@ -123,13 +139,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
         }
         
-        // Check if this is the first user (auto-promote to admin)
-        const existingUsers = await storage.getAllUsers();
-        const isFirstUser = existingUsers.length === 0;
-        const emailLower = email.toLowerCase();
-        const inAllowlist = adminAllowlist.includes(emailLower);
-        const shouldBeAdmin = isFirstUser || inAllowlist;
-
         // Create user record from Clerk data
         user = await storage.upsertUser({
           id: auth.userId,
@@ -137,24 +146,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: clerkUser.firstName || null,
           lastName: clerkUser.lastName || null,
           profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: shouldBeAdmin,
+          isAdmin: isAdminUser(clerkUser),
         });
-
-        if (isFirstUser) {
-          console.log(`[INFO] First user created with admin privileges: ${user.email}`);
-        } else if (inAllowlist) {
-          console.log(`[INFO] User marked admin via ADMIN_EMAILS allowlist: ${user.email}`);
-        } else {
-          console.log(`[INFO] New user created: ${user.email}`);
-        }
       } else {
-        const emailLower = (user.email ?? "").toLowerCase();
-        if (!user.isAdmin && adminAllowlist.includes(emailLower)) {
-          user = await storage.upsertUser({ ...user, isAdmin: true });
-          console.log(`[INFO] Existing user promoted to admin via ADMIN_EMAILS allowlist: ${user.email}`);
+        const clerkUser = await clerkClient.users.getUser(auth.userId);
+        const isAdmin = isAdminUser(clerkUser);
+        if (user.isAdmin !== isAdmin) {
+          user = await storage.upsertUser({ ...user, isAdmin });
         }
       }
-      
+
       res.json(user);
     } catch (error) {
       console.error("Error fetching/creating user:", error);
@@ -163,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File upload endpoint for Vercel Blob - Protected with Clerk auth
-  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
+  app.post("/api/upload", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({
@@ -182,7 +183,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const filename = `gallery/${Date.now()}-${req.file.originalname}`;
-      
+
       const blob = await put(filename, req.file.buffer, {
         access: 'public',
         token: process.env.BLOB_READ_WRITE_TOKEN,
@@ -190,7 +191,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({
         success: true,
-        data: { url: blob.url }
+        data: {
+          url: blob.url,
+          publicId: blob.pathname,
+          path: blob.pathname,
+          filename: req.file.originalname,
+        }
       });
     } catch (error) {
       console.error("Upload error:", error);
@@ -232,20 +238,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/assets", async (_req, res) => {
     try {
       const assets = await storage.getSiteAssets();
-      res.json(assets);
+      res.json(assets.map((asset) => buildAssetPayload(asset)));
     } catch (error) {
       console.error("Failed to load site assets", error);
       res.status(500).json({ message: "Failed to load site assets" });
     }
   });
 
-  app.post("/api/assets", isAdmin, upload.single('file'), async (req, res) => {
+  app.post("/api/assets", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       const payload = z
         .object({
           key: z.string().min(1),
           description: z.string().optional(),
           name: z.string().optional(),
+          filename: z.string().optional(),
           publicId: z.string().optional(),
           url: z.string().url().optional(),
         })
@@ -277,18 +284,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
 
+      const publicId = blob?.pathname ?? payload.publicId ?? getBlobPath(url);
+      const filename = payload.filename ?? payload.name ?? req.file?.originalname ?? payload.key;
+
       const asset = await storage.upsertSiteAsset({
         key: payload.key,
         url,
-        name: payload.name ?? req.file?.originalname ?? payload.key,
-        publicId: blob?.pathname ?? payload.publicId ?? null,
+        name: payload.name ?? filename,
+        filename,
+        publicId: publicId ?? undefined,
         description: payload.description,
       });
 
       res.status(201).json({
         success: true,
         message: "Asset saved successfully",
-        data: asset,
+        data: buildAssetPayload(asset),
       });
     } catch (error) {
       console.error("Asset upload error:", error);
@@ -300,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/assets/:key", isAdmin, async (req, res) => {
+  app.put("/api/assets/:key", requireAdmin, async (req, res) => {
     try {
       const key = req.params.key;
       const updates = updateSiteAssetSchema.parse(req.body);
@@ -315,11 +326,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         key,
         url: updates.url ?? existing?.url ?? "",
         name: updates.name ?? existing?.name ?? key,
-        publicId: updates.publicId ?? existing?.publicId ?? null,
+        filename: updates.filename ?? existing?.filename ?? existing?.name ?? key,
+        publicId: updates.publicId ?? existing?.publicId ?? getBlobPath(updates.url ?? existing?.url ?? "") ?? undefined,
         description: updates.description ?? existing?.description ?? null,
       });
 
-      res.json({ success: true, data: asset, message: "Asset updated" });
+      res.json({ success: true, data: buildAssetPayload(asset), message: "Asset updated" });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({ success: false, message: "Invalid asset payload", errors: error.issues });
@@ -330,7 +342,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact", isAdmin, async (req, res) => {
+  app.get("/api/contact", requireAdmin, async (req, res) => {
     try {
       const messages = await storage.getContactMessages();
       res.json({
@@ -345,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact/:id", isAdmin, async (req, res) => {
+  app.get("/api/contact/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -420,7 +432,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery", isAdmin, async (req, res) => {
+  app.post("/api/gallery", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertGalleryItemSchema.parse(req.body);
       const item = await storage.createGalleryItem(validatedData);
@@ -446,7 +458,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/gallery/:id", isAdmin, async (req, res) => {
+  app.patch("/api/gallery/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -465,26 +477,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
         preprocessedBody[key] = value;
       }
-      
-      const updateSchema = z.object({
-        title: z.string().min(1, "Title is required").optional(),
-        imageUrl: z.string().min(1).refine(
-          (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
-          { message: "Image URL must be a valid URL or absolute path" }
-        ).optional(),
-        beforeImageUrl: z.string().min(1).refine(
-          (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
-          { message: "Image URL must be a valid URL or absolute path" }
-        ).optional(),
-        afterImageUrl: z.string().min(1).refine(
-          (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
-          { message: "Image URL must be a valid URL or absolute path" }
-        ).optional(),
-        category: z.enum(["deep-cleaning", "move-in-out", "all"]).optional(),
-        order: z.number().optional()
-      });
-      
-      const validatedData = updateSchema.parse(preprocessedBody);
+
+      const validatedData = updateGalleryItemSchema.parse(preprocessedBody);
       const item = await storage.updateGalleryItem(id, validatedData);
       
       if (!item) {
@@ -531,7 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
+  app.delete("/api/gallery/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -542,16 +536,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return;
       }
       
+      const existing = await storage.getGalleryItem(id);
       const deleted = await storage.deleteGalleryItem(id);
-      
-      if (!deleted) {
+
+      if (!deleted || !existing) {
         res.status(404).json({
           success: false,
           message: "Gallery item not found"
         });
         return;
       }
-      
+
+      const blobTargets = [
+        getBlobPath(existing.imagePublicId || existing.imageUrl),
+        getBlobPath(existing.beforeImagePublicId || existing.beforeImageUrl),
+        getBlobPath(existing.afterImagePublicId || existing.afterImageUrl),
+      ].filter((path): path is string => Boolean(path));
+
+      if (blobTargets.length > 0) {
+        if (!process.env.BLOB_READ_WRITE_TOKEN) {
+          console.warn("BLOB_READ_WRITE_TOKEN missing - skipped blob deletion for gallery item", id);
+        } else {
+          await del(blobTargets, { token: process.env.BLOB_READ_WRITE_TOKEN });
+        }
+      }
+
       res.json({
         success: true,
         message: "Gallery item deleted successfully"
@@ -577,7 +586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/testimonials", isAdmin, async (req, res) => {
+  app.post("/api/testimonials", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertTestimonialSchema.parse(req.body);
       const item = await storage.createTestimonial(validatedData);
@@ -603,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/testimonials/:id", isAdmin, async (req, res) => {
+  app.patch("/api/testimonials/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -637,7 +646,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/testimonials/:id", isAdmin, async (req, res) => {
+  app.delete("/api/testimonials/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -683,7 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", isAdmin, async (req, res) => {
+  app.post("/api/services", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const item = await storage.createService(validatedData);
@@ -709,7 +718,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/services/:id", isAdmin, async (req, res) => {
+  app.patch("/api/services/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -743,7 +752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", isAdmin, async (req, res) => {
+  app.delete("/api/services/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

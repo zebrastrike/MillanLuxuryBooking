@@ -7,8 +7,8 @@ const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/stat
 
 export function Hero() {
   const { data: assets = {} } = useSiteAssets();
-  const logo = assets?.logo ?? fallbackLogo;
-  const background = assets?.heroBackground ?? assets?.servicesBackground ?? fallbackBg;
+  const logo = assets?.logo?.url ?? fallbackLogo;
+  const background = assets?.heroBackground?.url ?? assets?.servicesBackground?.url ?? fallbackBg;
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">

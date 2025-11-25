@@ -324,6 +324,7 @@ export class DatabaseStorage implements IStorage {
 
     if (assetData.url !== undefined) updatePayload.url = assetData.url;
     if (assetData.name !== undefined) updatePayload.name = assetData.name;
+    if (assetData.filename !== undefined) updatePayload.filename = assetData.filename;
     if (assetData.publicId !== undefined) updatePayload.publicId = assetData.publicId;
     if (assetData.description !== undefined) updatePayload.description = assetData.description;
 
@@ -361,43 +362,48 @@ class InMemoryStorage implements IStorage {
   private siteAssetsData: SiteAsset[] = [];
 
   constructor() {
-    const defaultAssets: Array<Omit<SiteAsset, "id" | "createdAt" | "updatedAt">> = [
-      {
-        key: "logo",
-        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png",
-        name: "Millan Logo",
-        publicId: "static/millan-logo.png",
-        description: "Primary logo"
-      },
-      {
-        key: "heroBackground",
-        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
-        name: "Hero Botanical Background",
-        publicId: "static/dark-botanical-bg.png",
-        description: "Hero botanical background"
-      },
-      {
-        key: "servicesBackground",
-        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
-        name: "Services Background",
-        publicId: "static/dark-botanical-bg.png",
-        description: "Services background"
-      },
-      {
-        key: "aboutBackground",
-        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png",
-        name: "About Background",
-        publicId: "static/light-botanical-bg.png",
-        description: "About background"
-      },
-      {
-        key: "aboutPortrait",
-        url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg",
-        name: "Owner Portrait",
-        publicId: "static/owner-photo.jpg",
-        description: "Owner portrait"
-      },
-    ];
+      const defaultAssets: Array<Omit<SiteAsset, "id" | "createdAt" | "updatedAt">> = [
+        {
+          key: "logo",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png",
+          name: "Millan Logo",
+          filename: "millan-logo.png",
+          publicId: "static/millan-logo.png",
+          description: "Primary logo"
+        },
+        {
+          key: "heroBackground",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+          name: "Hero Botanical Background",
+          filename: "dark-botanical-bg.png",
+          publicId: "static/dark-botanical-bg.png",
+          description: "Hero botanical background"
+        },
+        {
+          key: "servicesBackground",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
+          name: "Services Background",
+          filename: "dark-botanical-bg.png",
+          publicId: "static/dark-botanical-bg.png",
+          description: "Services background"
+        },
+        {
+          key: "aboutBackground",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png",
+          name: "About Background",
+          filename: "light-botanical-bg.png",
+          publicId: "static/light-botanical-bg.png",
+          description: "About background"
+        },
+        {
+          key: "aboutPortrait",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg",
+          name: "Owner Portrait",
+          filename: "owner-photo.jpg",
+          publicId: "static/owner-photo.jpg",
+          description: "Owner portrait"
+        },
+      ];
 
     let seedId = 1;
     for (const asset of defaultAssets) {
@@ -473,8 +479,14 @@ class InMemoryStorage implements IStorage {
       order: nextOrder,
       createdAt: new Date(),
       imageUrl: itemData.imageUrl ?? null,
+      imagePublicId: itemData.imagePublicId ?? null,
+      imageFilename: itemData.imageFilename ?? null,
       beforeImageUrl: itemData.beforeImageUrl ?? null,
+      beforeImagePublicId: itemData.beforeImagePublicId ?? null,
+      beforeImageFilename: itemData.beforeImageFilename ?? null,
       afterImageUrl: itemData.afterImageUrl ?? null,
+      afterImagePublicId: itemData.afterImagePublicId ?? null,
+      afterImageFilename: itemData.afterImageFilename ?? null,
     };
 
     this.gallery.push(item);
@@ -613,7 +625,8 @@ class InMemoryStorage implements IStorage {
         },
         assetData.url !== undefined ? { url: assetData.url } : {},
         assetData.name !== undefined ? { name: assetData.name } : {},
-        assetData.publicId !== undefined ? { publicId: assetData.publicId } : {},
+        assetData.filename !== undefined ? { filename: assetData.filename ?? null } : {},
+        assetData.publicId !== undefined ? { publicId: assetData.publicId ?? null } : {},
         assetData.description !== undefined ? { description: assetData.description ?? null } : {},
       );
       return existing;
@@ -623,6 +636,7 @@ class InMemoryStorage implements IStorage {
       ...assetData,
       id: this.siteAssetsData.length + 1,
       name: assetData.name ?? assetData.key,
+      filename: assetData.filename ?? assetData.name ?? assetData.key,
       publicId: assetData.publicId ?? null,
       description: assetData.description ?? null,
       createdAt: new Date(),

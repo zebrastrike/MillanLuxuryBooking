@@ -92,7 +92,7 @@ export function handleUnauthorizedError(
       variant: "destructive",
     });
     setTimeout(() => {
-      window.location.href = "/api/login?returnTo=/admin";
+      window.location.href = "/sign-in?redirect_url=/admin";
     }, 500);
     return true;
   }

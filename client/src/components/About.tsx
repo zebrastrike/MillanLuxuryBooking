@@ -6,8 +6,8 @@ const fallbackPortrait = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.co
 
 export function About() {
   const { data: assets = {} } = useSiteAssets();
-  const background = assets?.aboutBackground ?? fallbackBackground;
-  const portrait = assets?.aboutPortrait ?? fallbackPortrait;
+  const background = assets?.aboutBackground?.url ?? fallbackBackground;
+  const portrait = assets?.aboutPortrait?.url ?? fallbackPortrait;
 
   return (
     <section

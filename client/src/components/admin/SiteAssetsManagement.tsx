@@ -26,12 +26,19 @@ export function SiteAssetsManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ key, url }: { key: string; url: string }) => {
-      return apiRequest("PUT", `/api/assets/${key}`, { url });
+      const res = await apiRequest("PUT", `/api/assets/${key}`, { url });
+      const body = await res.json();
+      return (body?.data ?? body) as { key: string; url: string; publicId?: string; filename?: string };
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: (asset) => {
       queryClient.setQueryData<SiteAssetMap>(["/api/assets"], (prev = {}) => ({
         ...prev,
-        [variables.key]: variables.url,
+        [asset.key]: {
+          id: String(prev[asset.key]?.id ?? asset.key),
+          url: asset.url,
+          publicId: asset.publicId ?? prev[asset.key]?.publicId ?? "",
+          filename: asset.filename ?? prev[asset.key]?.filename ?? asset.key,
+        },
       }));
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({ title: "Updated", description: "Asset saved successfully." });
@@ -55,12 +62,17 @@ export function SiteAssetsManagement() {
         throw new Error(body?.message || "Upload failed");
       }
 
-      return body.data as { key: string; url: string };
+      return body.data as { key: string; url: string; publicId?: string; filename?: string };
     },
     onSuccess: (asset) => {
       queryClient.setQueryData<SiteAssetMap>(["/api/assets"], (prev = {}) => ({
         ...prev,
-        [asset.key]: asset.url,
+        [asset.key]: {
+          id: String(prev[asset.key]?.id ?? asset.key),
+          url: asset.url,
+          publicId: asset.publicId ?? prev[asset.key]?.publicId ?? "",
+          filename: asset.filename ?? prev[asset.key]?.filename ?? asset.key,
+        },
       }));
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({ title: "Uploaded", description: "Image uploaded successfully." });
@@ -84,7 +96,8 @@ export function SiteAssetsManagement() {
       </CardHeader>
       <CardContent className="space-y-6">
         {assetFields.map((field) => {
-          const currentValue = assetValues[field.key] ?? "";
+          const currentAsset = assetValues[field.key];
+          const currentValue = currentAsset?.url ?? "";
           return (
             <div key={field.key} className="space-y-3">
               <div className="flex items-center justify-between gap-4">

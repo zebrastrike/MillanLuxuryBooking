@@ -3,6 +3,13 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { sql } from "drizzle-orm";
 
+export interface Asset {
+  id: string;
+  url: string;
+  publicId: string;
+  filename: string;
+}
+
 // Session storage table (required for Replit Auth)
 export const sessions = pgTable(
   "sessions",
@@ -47,8 +54,14 @@ export const galleryItems = pgTable("gallery_items", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
   imageUrl: varchar("image_url", { length: 500 }),
+  imagePublicId: varchar("image_public_id", { length: 500 }),
+  imageFilename: varchar("image_filename", { length: 255 }),
   beforeImageUrl: varchar("before_image_url", { length: 500 }),
+  beforeImagePublicId: varchar("before_image_public_id", { length: 500 }),
+  beforeImageFilename: varchar("before_image_filename", { length: 255 }),
   afterImageUrl: varchar("after_image_url", { length: 500 }),
+  afterImagePublicId: varchar("after_image_public_id", { length: 500 }),
+  afterImageFilename: varchar("after_image_filename", { length: 255 }),
   category: varchar("category", { length: 50 }).notNull(),
   order: integer("order").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull()
@@ -118,6 +131,7 @@ export const siteAssets = pgTable("site_assets", {
   key: varchar("key", { length: 100 }).notNull().unique(),
   url: varchar("url", { length: 500 }).notNull(),
   name: varchar("name", { length: 255 }),
+  filename: varchar("filename", { length: 255 }),
   publicId: varchar("public_id", { length: 500 }),
   description: text("description"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -140,15 +154,21 @@ const emptyToUndefined = <T extends z.ZodTypeAny>(schema: T) =>
   z.preprocess((val) => (val === "" ? undefined : val), schema);
 
 const imageUrlValidator = z.string().min(1, "Image URL is required").refine(
-  (val) => val.startsWith('/') || val.startsWith('http://') || val.startsWith('https://'),
+  (val) => val.startsWith("/") || val.startsWith("http://") || val.startsWith("https://"),
   { message: "Image URL must be a valid URL or absolute path" }
 );
 
 export const insertGalleryItemSchema = createInsertSchema(galleryItems, {
   title: z.string().min(1, "Title is required"),
   imageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  imagePublicId: emptyToUndefined(z.string().optional()),
+  imageFilename: emptyToUndefined(z.string().optional()),
   beforeImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  beforeImagePublicId: emptyToUndefined(z.string().optional()),
+  beforeImageFilename: emptyToUndefined(z.string().optional()),
   afterImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  afterImagePublicId: emptyToUndefined(z.string().optional()),
+  afterImageFilename: emptyToUndefined(z.string().optional()),
   category: z.enum(["deep-cleaning", "move-in-out", "all"])
 }).omit({ id: true, createdAt: true, order: true }).superRefine((data, ctx) => {
   const hasImageUrl = data.imageUrl !== undefined;
@@ -179,8 +199,14 @@ export const insertServiceSchema = createInsertSchema(services, {
 export const updateGalleryItemSchema = z.object({
   title: z.string().min(1, "Title is required").optional(),
   imageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  imagePublicId: emptyToUndefined(z.string().optional()),
+  imageFilename: emptyToUndefined(z.string().optional()),
   beforeImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  beforeImagePublicId: emptyToUndefined(z.string().optional()),
+  beforeImageFilename: emptyToUndefined(z.string().optional()),
   afterImageUrl: emptyToUndefined(imageUrlValidator.optional()),
+  afterImagePublicId: emptyToUndefined(z.string().optional()),
+  afterImageFilename: emptyToUndefined(z.string().optional()),
   category: z.enum(["deep-cleaning", "move-in-out", "all"]).optional()
 });
 
@@ -216,6 +242,7 @@ export const insertSiteAssetSchema = createInsertSchema(siteAssets, {
   key: z.string().min(1),
   url: imageUrlValidator,
   name: z.string().optional(),
+  filename: z.string().optional(),
   publicId: z.string().optional(),
   description: z.string().optional(),
 }).omit({ id: true, createdAt: true, updatedAt: true });
@@ -223,6 +250,7 @@ export const insertSiteAssetSchema = createInsertSchema(siteAssets, {
 export const updateSiteAssetSchema = z.object({
   url: imageUrlValidator.optional(),
   name: z.string().optional(),
+  filename: z.string().optional(),
   publicId: z.string().optional(),
   description: z.string().optional(),
 });

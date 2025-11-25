@@ -9,7 +9,7 @@ const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/st
 export function Navigation() {
   const { data: assets = {} } = useSiteAssets();
   const [isScrolled, setIsScrolled] = useState(false);
-  const logo = assets?.logo ?? fallbackLogo;
+  const logo = assets?.logo?.url ?? fallbackLogo;
 
   useEffect(() => {
     const handleScroll = () => {

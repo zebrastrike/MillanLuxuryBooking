@@ -33,7 +33,7 @@ export function Services() {
 
   const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
   const hasShapeError = !isLoading && !error && !isValid;
-  const background = assets?.servicesBackground ?? assets?.heroBackground ?? fallbackBg;
+  const background = assets?.servicesBackground?.url ?? assets?.heroBackground?.url ?? fallbackBg;
 
   return (
     <section 
