@@ -156,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // File upload endpoint for Vercel Blob - Protected with Clerk auth
-  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
+  app.post("/api/upload", ...adminGuard, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({
@@ -221,7 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact", isAdmin, async (req, res) => {
+  app.get("/api/contact", ...adminGuard, async (req, res) => {
     try {
       const messages = await storage.getContactMessages();
       res.json({
@@ -236,7 +236,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact/:id", isAdmin, async (req, res) => {
+  app.get("/api/contact/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -311,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery", isAdmin, async (req, res) => {
+    app.post("/api/gallery", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertGalleryItemSchema.parse(req.body);
       const item = await storage.createGalleryItem(validatedData);
@@ -337,7 +337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/gallery/:id", isAdmin, async (req, res) => {
+    app.patch("/api/gallery/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -422,7 +422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
+    app.delete("/api/gallery/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -468,7 +468,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/testimonials", isAdmin, async (req, res) => {
+    app.post("/api/testimonials", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertTestimonialSchema.parse(req.body);
       const item = await storage.createTestimonial(validatedData);
@@ -494,7 +494,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/testimonials/:id", isAdmin, async (req, res) => {
+    app.patch("/api/testimonials/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -528,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/testimonials/:id", isAdmin, async (req, res) => {
+    app.delete("/api/testimonials/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -574,7 +574,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", isAdmin, async (req, res) => {
+    app.post("/api/services", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const item = await storage.createService(validatedData);
@@ -600,7 +600,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/services/:id", isAdmin, async (req, res) => {
+    app.patch("/api/services/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -634,7 +634,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", isAdmin, async (req, res) => {
+    app.delete("/api/services/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
