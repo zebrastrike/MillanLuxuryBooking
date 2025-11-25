@@ -1,17 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
+import { useSiteAssets } from "@/hooks/useSiteAssets";
 
-const millanLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
-const darkBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
+const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
+const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
+  const { data: assets } = useSiteAssets();
+  const logo = assets?.logo ?? fallbackLogo;
+  const background = assets?.heroBackground ?? assets?.servicesBackground ?? fallbackBg;
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Image with Parallax Effect */}
-      <div 
+      <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat"
         style={{
-          backgroundImage: `url(${darkBotanicalBg})`,
+          backgroundImage: `url(${background})`,
           backgroundAttachment: 'fixed'
         }}
       />
@@ -23,9 +28,9 @@ export function Hero() {
       <div className="relative z-10 container mx-auto px-6 md:px-8 text-center">
         {/* Logo */}
         <div className="flex justify-center mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-          <img 
-            src={millanLogo} 
-            alt="Millan Luxury Cleaning Logo" 
+          <img
+            src={logo}
+            alt="Millan Luxury Cleaning Logo"
             className="w-48 h-48 md:w-56 md:h-56 lg:w-64 lg:h-64 drop-shadow-2xl object-contain"
           />
         </div>

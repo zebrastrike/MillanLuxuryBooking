@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, updateGalleryItemSchema, updateTestimonialSchema, updateServiceSchema } from "@shared/schema";
+import { insertContactMessageSchema, insertGalleryItemSchema, insertTestimonialSchema, insertServiceSchema, insertSiteAssetSchema, updateSiteAssetSchema } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import { put } from "@vercel/blob";
@@ -10,37 +10,59 @@ import type { RequestHandler } from "express";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middleware to check if user is admin
-const isAdmin: RequestHandler = async (req, res, next) => {
-  try {
-    const auth = getAuth(req);
-    
-    if (!auth.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
+const createIsAdminMiddleware = (): RequestHandler => {
+  return async (req, res, next) => {
+    try {
+      const auth = getAuth(req);
 
-    const user = await storage.getUser(auth.userId);
-    
-    if (!user?.isAdmin) {
-      return res.status(403).json({ message: "Forbidden - admin access required" });
-    }
+      if (!auth.userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
 
-    next();
-  } catch (error) {
-    console.error("Admin check error:", error);
-    res.status(500).json({ message: "Failed to verify admin status" });
-  }
+      const user = await storage.getUser(auth.userId);
+
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Forbidden - admin access required" });
+      }
+
+      next();
+    } catch (error) {
+      console.error("Admin check error:", error);
+      res.status(500).json({ message: "Failed to verify admin status" });
+    }
+  };
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const publishableKey = process.env.CLERK_PUBLISHABLE_KEY;
+  const secretKey = process.env.CLERK_SECRET_KEY;
+
+  if (!publishableKey || !secretKey) {
+    throw new Error("Clerk keys are required. Set CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY to start the server.");
+  }
+
+  const isAdmin = createIsAdminMiddleware();
+  const requireAuthMiddleware: RequestHandler = requireAuth();
+  const adminGuard: RequestHandler[] = [requireAuthMiddleware, isAdmin];
+
   // Setup Clerk middleware with configuration
   app.use(clerkMiddleware({
-    publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
-    secretKey: process.env.CLERK_SECRET_KEY,
+    publishableKey,
+    secretKey,
   }));
 
   // Auth routes - Get current user (with auto-provisioning)
-  app.get('/api/auth/user', requireAuth(), async (req: any, res) => {
+  const adminAllowlist = (process.env.ADMIN_EMAILS ?? process.env.ADMIN_EMAIL ?? "")
+    .split(",")
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean);
+  const hasAdminAllowlist = adminAllowlist.length > 0;
+
+  if (!hasAdminAllowlist) {
+    console.warn("[Clerk] ADMIN_EMAILS/ADMIN_EMAIL not set. Only the first signed-in user will be promoted to admin.");
+  }
+
+  app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     try {
       const auth = getAuth(req);
       
@@ -65,9 +87,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         } 
         // Fallback: find first non-revoked email (handles OAuth with null verification status)
         else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find(
-            e => e.emailAddress && e.verification?.status !== 'revoked'
-          );
+          const usableEmail = clerkUser.emailAddresses.find(e => {
+            if (!e.emailAddress) return false;
+
+            const verificationStatus = e.verification?.status as string | undefined;
+            return verificationStatus !== "revoked";
+          });
           if (usableEmail?.emailAddress) {
             email = usableEmail.emailAddress;
           }
@@ -83,7 +108,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Check if this is the first user (auto-promote to admin)
         const existingUsers = await storage.getAllUsers();
         const isFirstUser = existingUsers.length === 0;
-        
+        const emailLower = email.toLowerCase();
+        const inAllowlist = adminAllowlist.includes(emailLower);
+        const shouldBeAdmin = hasAdminAllowlist ? inAllowlist : isFirstUser;
+
         // Create user record from Clerk data
         user = await storage.upsertUser({
           id: auth.userId,
@@ -91,13 +119,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: clerkUser.firstName || null,
           lastName: clerkUser.lastName || null,
           profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: isFirstUser, // First user becomes admin
+          isAdmin: shouldBeAdmin,
         });
-        
-        if (isFirstUser) {
+
+        if (isFirstUser && !hasAdminAllowlist) {
           console.log(`[INFO] First user created with admin privileges: ${user.email}`);
+        } else if (inAllowlist) {
+          console.log(`[INFO] User marked admin via ADMIN_EMAILS allowlist: ${user.email}`);
         } else {
           console.log(`[INFO] New user created: ${user.email}`);
+        }
+      } else {
+        const emailLower = (user.email ?? "").toLowerCase();
+        const inAllowlist = adminAllowlist.includes(emailLower);
+
+        if (hasAdminAllowlist && !inAllowlist && user.isAdmin) {
+          user = await storage.upsertUser({ ...user, isAdmin: false });
+          console.warn(`[INFO] User demoted from admin (not in ADMIN_EMAILS): ${user.email}`);
+        } else if (!user.isAdmin && inAllowlist) {
+          user = await storage.upsertUser({ ...user, isAdmin: true });
+          console.log(`[INFO] Existing user promoted to admin via ADMIN_EMAILS allowlist: ${user.email}`);
         }
       }
       
@@ -108,61 +149,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Gallery endpoints
-  app.get("/api/gallery", async (req, res) => {
-    try {
-      const items = await storage.getGalleryItems();
-      res.json(items);
-    } catch (error) {
-      console.error("Error fetching gallery:", error);
-      res.status(500).json({ message: "Failed to fetch gallery" });
-    }
+  // Site assets (logo/backgrounds)
+  app.get("/api/assets", async (_req, res) => {
+    const assets = await storage.getSiteAssets();
+    res.json(assets);
   });
 
-  app.post("/api/gallery", isAdmin, async (req, res) => {
+  app.put("/api/assets/:key", ...adminGuard, async (req, res) => {
     try {
-      const validatedData = insertGalleryItemSchema.parse(req.body);
-      const item = await storage.createGalleryItem(validatedData);
-      res.status(201).json(item);
+      const key = req.params.key;
+      const validated = updateSiteAssetSchema.parse(req.body);
+      const existing = await storage.getSiteAssetByKey(key);
+      const asset = await storage.upsertSiteAsset({
+        key,
+        url: validated.url ?? existing?.url ?? "",
+        description: validated.description ?? existing?.description,
+      });
+      res.json(asset);
     } catch (error) {
       if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
+        res.status(400).json({ message: "Invalid asset data", issues: error.issues });
       } else {
-        console.error("Error creating gallery item:", error);
-        res.status(500).json({ message: "Failed to create gallery item" });
+        console.error("Error updating asset:", error);
+        res.status(500).json({ message: "Failed to update asset" });
       }
-    }
-  });
-
-  app.put("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const validatedData = updateGalleryItemSchema.parse(req.body);
-      const item = await storage.updateGalleryItem(id, validatedData);
-      res.json(item);
-    } catch (error) {
-      if (error instanceof ZodError) {
-        res.status(400).json({ message: "Invalid gallery item data" });
-      } else {
-        console.error("Error updating gallery item:", error);
-        res.status(500).json({ message: "Failed to update gallery item" });
-      }
-    }
-  });
-
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      await storage.deleteGalleryItem(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting gallery item:", error);
-      res.status(500).json({ message: "Failed to delete gallery item" });
     }
   });
 
   // File upload endpoint for Vercel Blob - Protected with Clerk auth
-  app.post("/api/upload", isAdmin, upload.single('file'), async (req, res) => {
+  app.post("/api/upload", ...adminGuard, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         res.status(400).json({
@@ -227,7 +242,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact", isAdmin, async (req, res) => {
+  app.get("/api/contact", ...adminGuard, async (req, res) => {
     try {
       const messages = await storage.getContactMessages();
       res.json({
@@ -242,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/contact/:id", isAdmin, async (req, res) => {
+  app.get("/api/contact/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -317,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery", isAdmin, async (req, res) => {
+    app.post("/api/gallery", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertGalleryItemSchema.parse(req.body);
       const item = await storage.createGalleryItem(validatedData);
@@ -343,7 +358,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/gallery/:id", isAdmin, async (req, res) => {
+    app.patch("/api/gallery/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -428,7 +443,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/gallery/:id", isAdmin, async (req, res) => {
+    app.delete("/api/gallery/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -474,7 +489,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/testimonials", isAdmin, async (req, res) => {
+    app.post("/api/testimonials", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertTestimonialSchema.parse(req.body);
       const item = await storage.createTestimonial(validatedData);
@@ -500,7 +515,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/testimonials/:id", isAdmin, async (req, res) => {
+    app.patch("/api/testimonials/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -534,7 +549,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/testimonials/:id", isAdmin, async (req, res) => {
+    app.delete("/api/testimonials/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -580,7 +595,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", isAdmin, async (req, res) => {
+    app.post("/api/services", ...adminGuard, async (req, res) => {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const item = await storage.createService(validatedData);
@@ -606,7 +621,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/services/:id", isAdmin, async (req, res) => {
+    app.patch("/api/services/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
@@ -640,7 +655,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", isAdmin, async (req, res) => {
+    app.delete("/api/services/:id", ...adminGuard, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       if (isNaN(id)) {

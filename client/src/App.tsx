@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
+import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 
 // Main router component
 function Router() {
@@ -22,8 +23,10 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Router />
+        <AppErrorBoundary>
+          <Toaster />
+          <Router />
+        </AppErrorBoundary>
       </TooltipProvider>
     </QueryClientProvider>
   );

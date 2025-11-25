@@ -2,11 +2,14 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useSiteAssets } from "@/hooks/useSiteAssets";
 
-const millanLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
+const fallbackLogo = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png";
 
 export function Navigation() {
+  const { data: assets } = useSiteAssets();
   const [isScrolled, setIsScrolled] = useState(false);
+  const logo = assets?.logo ?? fallbackLogo;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -42,9 +45,9 @@ export function Navigation() {
             className="transition-opacity hover:opacity-80"
             data-testid="link-logo"
           >
-            <img 
-              src={millanLogo} 
-              alt="Millan Luxury Cleaning" 
+            <img
+              src={logo}
+              alt="Millan Luxury Cleaning"
               className="h-12 md:h-14 w-auto object-contain"
             />
           </a>
