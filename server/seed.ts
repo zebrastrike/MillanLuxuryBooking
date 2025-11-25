@@ -1,5 +1,12 @@
-import { db } from "./db";
-import { galleryItems, testimonials, services } from "@shared/schema";
+import { db, hasDatabaseUrl } from "./db";
+import { galleryItems, testimonials, services, siteAssets } from "@shared/schema";
+
+if (!hasDatabaseUrl || !db) {
+  console.error("DATABASE_URL must be set to seed the database. Aborting.");
+  process.exit(1);
+}
+
+const database = db;
 
 async function seed() {
   console.log("Seeding database...");
@@ -45,7 +52,7 @@ async function seed() {
   ];
 
   for (const item of initialGallery) {
-    await db.insert(galleryItems).values(item);
+    await database.insert(galleryItems).values(item);
   }
   console.log("Gallery items seeded");
 
@@ -84,7 +91,7 @@ async function seed() {
   ];
 
   for (const item of initialTestimonials) {
-    await db.insert(testimonials).values(item);
+    await database.insert(testimonials).values(item);
   }
   console.log("Testimonials seeded");
 
@@ -145,9 +152,22 @@ async function seed() {
   ];
 
   for (const item of initialServices) {
-    await db.insert(services).values(item);
+    await database.insert(services).values(item);
   }
   console.log("Services seeded");
+
+  const initialAssets = [
+    { key: "logo", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png", description: "Primary logo" },
+    { key: "heroBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Hero background" },
+    { key: "servicesBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png", description: "Services background" },
+    { key: "aboutBackground", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png", description: "About background" },
+    { key: "aboutPortrait", url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg", description: "Owner portrait" },
+  ];
+
+  for (const asset of initialAssets) {
+    await database.insert(siteAssets).values(asset);
+  }
+  console.log("Site assets seeded");
 
   console.log("Database seeded successfully!");
   process.exit(0);

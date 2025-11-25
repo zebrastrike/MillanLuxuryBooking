@@ -112,6 +112,19 @@ export const googleReviews = pgTable("google_reviews", {
 export type GoogleReview = typeof googleReviews.$inferSelect;
 export type InsertGoogleReview = typeof googleReviews.$inferInsert;
 
+// Site assets table for dynamic image references (e.g., logo, hero background)
+export const siteAssets = pgTable("site_assets", {
+  id: serial("id").primaryKey(),
+  key: varchar("key", { length: 100 }).notNull().unique(),
+  url: varchar("url", { length: 500 }).notNull(),
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type SiteAsset = typeof siteAssets.$inferSelect;
+export type InsertSiteAsset = typeof siteAssets.$inferInsert;
+
 // Zod schemas for validation
 export const insertContactMessageSchema = createInsertSchema(contactMessages, {
   name: z.string().min(2, "Name must be at least 2 characters"),
@@ -195,3 +208,15 @@ export const insertGoogleReviewSchema = createInsertSchema(googleReviews, {
   comment: z.string().min(1, "Comment is required"),
   reviewDate: z.date().or(z.string().datetime())
 }).omit({ id: true, syncedAt: true, featured: true, googleReviewId: true });
+
+// Site assets (images, backgrounds, logos)
+export const insertSiteAssetSchema = createInsertSchema(siteAssets, {
+  key: z.string().min(1),
+  url: imageUrlValidator,
+  description: z.string().optional(),
+}).omit({ id: true, createdAt: true, updatedAt: true });
+
+export const updateSiteAssetSchema = z.object({
+  url: imageUrlValidator.optional(),
+  description: z.string().optional(),
+});

@@ -1,15 +1,20 @@
 import { Card } from "@/components/ui/card";
+import { useSiteAssets } from "@/hooks/useSiteAssets";
 
-const lightBotanicalBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png";
-const ownerPhoto = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg";
+const fallbackBackground = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png";
+const fallbackPortrait = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg";
 
 export function About() {
+  const { data: assets } = useSiteAssets();
+  const background = assets?.aboutBackground ?? fallbackBackground;
+  const portrait = assets?.aboutPortrait ?? fallbackPortrait;
+
   return (
-    <section 
-      id="about" 
+    <section
+      id="about"
       className="relative py-20 md:py-32 overflow-hidden"
       style={{
-        backgroundImage: `url(${lightBotanicalBg})`,
+        backgroundImage: `url(${background})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}
@@ -33,8 +38,8 @@ export function About() {
               {/* Photo */}
               <div className="flex justify-center md:justify-start">
                 <div className="w-full max-w-sm rounded-lg overflow-hidden shadow-md">
-                  <img 
-                    src={ownerPhoto} 
+                  <img
+                    src={portrait}
                     alt="Ivan Millan, Founder of Millan Luxury Cleaning"
                     className="w-full h-auto object-cover"
                     data-testid="img-owner-photo"
