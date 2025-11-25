@@ -160,7 +160,7 @@ export function Services() {
         )}
 
         {/* Empty State */}
-        {!isLoading && !error && serviceList.length === 0 && (
+        {!isLoading && !error && services.length === 0 && (
           <div className="text-center py-12">
             <p className="text-white/70 text-lg">
               No services available yet.

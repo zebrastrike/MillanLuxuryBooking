@@ -4,19 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/schema";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
 
-let hasWarnedDevAuth = false;
-
 function useDevAuth() {
-  useEffect(() => {
-    if (!hasWarnedDevAuth) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        "[Auth] Clerk keys are missing or invalid. Running in unsecured dev mode with local admin access. Configure VITE_CLERK_PUBLISHABLE_KEY and CLERK_SECRET_KEY for production."
-      );
-      hasWarnedDevAuth = true;
-    }
-  }, []);
-
   const { data: dbUser, isLoading, error } = useQuery<User>({
     queryKey: ["/api/auth/user"],
     retry: 2,
