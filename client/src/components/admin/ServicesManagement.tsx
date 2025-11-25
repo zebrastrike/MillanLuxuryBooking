@@ -358,7 +358,7 @@ export function ServicesManagement() {
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1">
-                  {service.features.map((feature, idx) => (
+                  {Array.isArray(service.features) && service.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
                       <span className="text-primary mt-0.5">✓</span>
                       <span>{feature}</span>

@@ -114,12 +114,17 @@ export function Services() {
                   
                   <CardContent>
                     <ul className="space-y-2">
-                      {service.features.map((feature, idx) => (
+                      {Array.isArray(service.features) && service.features.map((feature, idx) => (
                         <li key={idx} className="flex items-start gap-2 text-sm text-muted-foreground">
                           <span className="text-primary mt-0.5">✓</span>
                           <span>{feature}</span>
                         </li>
                       ))}
+                      {!Array.isArray(service.features) && (
+                        <li className="text-sm text-muted-foreground text-center py-4">
+                          Features loading...
+                        </li>
+                      )}
                     </ul>
                   </CardContent>
                   

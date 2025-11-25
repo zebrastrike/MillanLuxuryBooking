@@ -1,0 +1,51 @@
+13:23:06.529 Running build in Washington, D.C., USA (East) – iad1
+13:23:06.529 Build machine configuration: 2 cores, 8 GB
+13:23:06.539 Cloning github.com/zebrastrike/MillanLuxuryBooking (Branch: main, Commit: 42e7aaa)
+13:23:06.540 Skipping build cache, deployment was triggered without cache.
+13:23:07.615 Cloning completed: 1.076s
+13:23:07.656 Found .vercelignore
+13:23:07.658 Removed 1 ignored files defined in .vercelignore
+13:23:07.659   /.replit
+13:23:07.853 Running "if [ "$VERCEL_ENV" == "production" ]; then exit 1; else exit 0; fi"
+13:23:08.029 Running "vercel build"
+13:23:08.432 Vercel CLI 48.10.5
+13:23:09.481 Installing dependencies...
+13:23:14.293 npm warn deprecated @esbuild-kit/esm-loader@2.6.5: Merged into tsx: https://tsx.is
+13:23:14.349 npm warn deprecated @esbuild-kit/core-utils@3.3.2: Merged into tsx: https://tsx.is
+13:23:24.189 
+13:23:24.189 added 530 packages in 14s
+13:23:24.190 
+13:23:24.190 70 packages are looking for funding
+13:23:24.191   run `npm fund` for details
+13:23:24.242 Starting Vercel build...
+13:23:24.245 Node version: v22.21.1
+13:23:24.246 Current directory: /vercel/path0
+13:23:24.383 
+13:23:24.383 > rest-express@1.0.0 build
+13:23:24.384 > vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist
+13:23:24.384 
+13:23:24.637 [36mvite v5.4.20 [32mbuilding for production...[36m[39m
+13:23:24.695 transforming...
+13:23:26.045 
+13:23:26.046 A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
+13:23:31.033 [32m✓[39m 2215 modules transformed.
+13:23:31.600 rendering chunks...
+13:23:31.643 computing gzip size...
+13:23:31.707 [2m../dist/public/[22m[32mindex.html                 [39m[1m[2m  3.40 kB[22m[1m[22m[2m │ gzip:   1.09 kB[22m
+13:23:31.707 [2m../dist/public/[22m[2massets/[22m[35mindex-OErgn3yN.css  [39m[1m[2m 78.69 kB[22m[1m[22m[2m │ gzip:  12.72 kB[22m
+13:23:31.708 [2m../dist/public/[22m[2massets/[22m[36mindex-w9bexNgL.js   [39m[1m[33m673.88 kB[39m[22m[2m │ gzip: 199.91 kB[22m
+13:23:31.709 [33m
+13:23:31.709 (!) Some chunks are larger than 500 kB after minification. Consider:
+13:23:31.709 - Using dynamic import() to code-split the application
+13:23:31.710 - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+13:23:31.710 - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.[39m
+13:23:31.710 [32m✓ built in 7.05s[39m
+13:23:31.851 
+13:23:31.851   dist/index.js  34.9kb
+13:23:31.851 
+13:23:31.851 ⚡ Done in 7ms
+13:23:31.858 Build completed successfully!
+13:23:42.455 Build Completed in /vercel/output [33s]
+13:23:42.753 Deploying outputs...
+13:23:51.149 Deployment completed
+13:23:51.760 Creating build cache...

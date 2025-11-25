@@ -15,7 +15,7 @@ export function Gallery() {
     queryKey: ["/api/gallery"]
   });
 
-  const items = galleryItems || [];
+  const items = Array.isArray(galleryItems) ? galleryItems : [];
   
   const filteredImages = filter === "all" 
     ? items 

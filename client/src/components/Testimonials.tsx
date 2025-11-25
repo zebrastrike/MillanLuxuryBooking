@@ -50,9 +50,12 @@ export function Testimonials() {
                 <CardContent className="pt-6">
                   {/* Star Rating */}
                   <div className="flex gap-1 mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
+                    {typeof testimonial.rating === 'number' && testimonial.rating > 0 && [...Array(Math.min(testimonial.rating, 5))].map((_, i) => (
                       <Star key={i} className="w-5 h-5 fill-primary text-primary" />
                     ))}
+                    {(!testimonial.rating || typeof testimonial.rating !== 'number') && (
+                      <div className="text-sm text-muted-foreground">Rating unavailable</div>
+                    )}
                   </div>
 
                   {/* Review Text */}
