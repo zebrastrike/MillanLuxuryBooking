@@ -1,38 +1,29 @@
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
+import { normalizeArrayData } from "@/lib/arrayUtils";
+import type { Faq } from "@shared/schema";
 
 export function FAQ() {
-  const faqs = [
-    {
-      question: "What's included in a deep cleaning?",
-      answer: "Our deep cleaning includes a full top-to-bottom refresh: baseboards, ceiling corners, vents, detailed kitchen and bath sanitizing, inside appliances (by request), and more—all finished with Millan's signature sparkle touch.",
-      testId: "deep-cleaning"
-    },
-    {
-      question: "Are your services pet-friendly?",
-      answer: "Yes! We love furry family members. We use non-toxic, pet-safe products to ensure a safe, clean environment for all household residents.",
-      testId: "pet-friendly"
-    },
-    {
-      question: "What is your cancellation policy?",
-      answer: "We kindly ask for 24 hours' notice for any cancellations or reschedules. Cancellations with less than 24 hours' notice may be subject to a fee.",
-      testId: "cancellation"
-    },
-    {
-      question: "How do I book a cleaning?",
-      answer: "Booking is easy! You can call, email, or request a quote directly through our website or social media. We'll guide you through a quick intake to match you with the right service.",
-      testId: "booking"
-    },
-    {
-      question: "What areas do you service?",
-      answer: "We proudly serve high-end residential and boutique commercial spaces throughout Phoenix, AZ. Not sure if you're in our range? Reach out — we're happy to check!",
-      testId: "areas"
+  const { data: faqsPayload, isLoading, error } = useQuery<Faq[]>({
+    queryKey: ["/api/faqs"],
+    retry: false,
+  });
+
+  const { items: faqs, isValid } = normalizeArrayData<Faq>(faqsPayload);
+
+  useEffect(() => {
+    if (!isValid && !isLoading && !error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Public] Unexpected FAQ payload shape.", faqsPayload);
     }
-  ];
+  }, [faqsPayload, isValid, isLoading, error]);
 
   return (
     <section id="faq" className="py-20 md:py-32 bg-background">
@@ -49,23 +40,38 @@ export function FAQ() {
 
         {/* FAQ Accordion */}
         <div className="max-w-3xl mx-auto">
-          <Accordion type="single" collapsible className="space-y-4">
-            {faqs.map((faq, index) => (
-              <AccordionItem 
-                key={index} 
-                value={`item-${index}`}
-                className="border rounded-md px-6 bg-card"
-                data-testid={`faq-item-${faq.testId}`}
-              >
-                <AccordionTrigger className="text-left font-semibold text-base md:text-lg py-4 hover:no-underline">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-4">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+          {isLoading ? (
+            <div className="space-y-4">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="border rounded-md px-6 py-4 bg-card space-y-2">
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="text-center text-muted-foreground">Unable to load FAQs right now.</div>
+          ) : faqs.length === 0 ? (
+            <div className="text-center text-muted-foreground">No FAQs available yet. Check back soon!</div>
+          ) : (
+            <Accordion type="single" collapsible className="space-y-4">
+              {faqs.map((faq, index) => (
+                <AccordionItem
+                  key={faq.id ?? index}
+                  value={`item-${faq.id ?? index}`}
+                  className="border rounded-md px-6 bg-card"
+                  data-testid={`faq-item-${faq.id ?? index}`}
+                >
+                  <AccordionTrigger className="text-left font-semibold text-base md:text-lg py-4 hover:no-underline">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-4">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
         </div>
       </div>
     </section>
