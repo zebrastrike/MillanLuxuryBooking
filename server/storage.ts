@@ -1,617 +1,362 @@
-import {
-  type ContactMessage,
-  type InsertContactMessage,
-  type GalleryItem,
-  type InsertGalleryItem,
-  type Testimonial,
-  type InsertTestimonial,
-  type Service,
-  type InsertService,
-  type User,
-  type UpsertUser,
-  type SiteAsset,
-  type InsertSiteAsset,
-  type Post,
-  type InsertPost,
-  type Faq,
-  type InsertFaq,
-  posts,
-  siteAssets,
-  contactMessages,
-  galleryItems,
-  testimonials,
-  services,
-  users,
-  faqs,
-} from "@shared/schema";
-import { db, hasDatabaseUrl } from "./db";
-import { eq, desc, asc, and } from "drizzle-orm";
+import type {
+  User,
+  ContactMessage,
+  GalleryItem,
+  ServiceItem,
+  Testimonial,
+  FaqItem,
+  SiteAsset,
+  Post,
+  BrandingAsset,
+  InsertContactMessage,
+  InsertGalleryItem,
+  InsertService,
+  InsertTestimonial,
+  InsertFaq,
+  InsertPost,
+  UpdateService,
+  UpdateGalleryItem,
+  UpdateTestimonial,
+  UpdateFaq,
+  UpdatePost,
+  BlobMetadata,
+} from "@shared/types";
+import { assertPrisma, hasDatabaseUrl } from "./db";
+import { Prisma } from "@prisma/client";
 
-// Update type for gallery items - allows updating any field including order
-export type UpdateGalleryItem = Partial<Omit<GalleryItem, 'id' | 'createdAt'>>;
-export type UpdateTestimonial = Partial<Omit<Testimonial, 'id' | 'createdAt'>>;
-export type UpdateService = Partial<Omit<Service, 'id' | 'createdAt'>>;
-export type UpdateSiteAsset = Partial<Omit<SiteAsset, 'id' | 'createdAt' | 'updatedAt'>>;
-export type UpdatePost = Partial<Omit<Post, 'id' | 'createdAt' | 'updatedAt'>>;
-export type UpdateFaq = Partial<Omit<Faq, 'id' | 'createdAt'>>;
+export type UpsertUser = Pick<User, "id" | "email" | "firstName" | "lastName" | "profileImageUrl"> & {
+  isAdmin?: boolean;
+};
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
-  getUser(id: string): Promise<User | undefined>;
+  getUser(id: string): Promise<User | null>;
   getAllUsers(): Promise<User[]>;
   upsertUser(user: UpsertUser): Promise<User>;
-  
-  // Contact messages
+
   createContactMessage(message: InsertContactMessage): Promise<ContactMessage>;
   getContactMessages(): Promise<ContactMessage[]>;
-  getContactMessage(id: number): Promise<ContactMessage | undefined>;
-  
-  // Gallery items
+  getContactMessage(id: number): Promise<ContactMessage | null>;
+
   createGalleryItem(item: InsertGalleryItem): Promise<GalleryItem>;
   getGalleryItems(): Promise<GalleryItem[]>;
-  getGalleryItem(id: number): Promise<GalleryItem | undefined>;
-  updateGalleryItem(id: number, item: UpdateGalleryItem): Promise<GalleryItem | undefined>;
+  getGalleryItem(id: number): Promise<GalleryItem | null>;
+  updateGalleryItem(id: number, item: UpdateGalleryItem): Promise<GalleryItem | null>;
   deleteGalleryItem(id: number): Promise<boolean>;
-  
-  // Testimonials
+
   createTestimonial(item: InsertTestimonial): Promise<Testimonial>;
   getTestimonials(): Promise<Testimonial[]>;
-  getTestimonial(id: number): Promise<Testimonial | undefined>;
-  updateTestimonial(id: number, item: UpdateTestimonial): Promise<Testimonial | undefined>;
+  getTestimonial(id: number): Promise<Testimonial | null>;
+  updateTestimonial(id: number, item: UpdateTestimonial): Promise<Testimonial | null>;
   deleteTestimonial(id: number): Promise<boolean>;
 
-  // FAQs
-  createFaq(item: InsertFaq): Promise<Faq>;
-  getFaqs(): Promise<Faq[]>;
-  getFaq(id: number): Promise<Faq | undefined>;
-  updateFaq(id: number, item: UpdateFaq): Promise<Faq | undefined>;
+  createFaq(item: InsertFaq): Promise<FaqItem>;
+  getFaqs(): Promise<FaqItem[]>;
+  getFaq(id: number): Promise<FaqItem | null>;
+  updateFaq(id: number, item: UpdateFaq): Promise<FaqItem | null>;
   deleteFaq(id: number): Promise<boolean>;
-  
-  // Services
-  createService(item: InsertService): Promise<Service>;
-  getServices(): Promise<Service[]>;
-  getService(id: number): Promise<Service | undefined>;
-  updateService(id: number, item: UpdateService): Promise<Service | undefined>;
+
+  createService(item: InsertService): Promise<ServiceItem>;
+  getServices(): Promise<ServiceItem[]>;
+  getService(id: number): Promise<ServiceItem | null>;
+  updateService(id: number, item: UpdateService): Promise<ServiceItem | null>;
   deleteService(id: number): Promise<boolean>;
 
-  // Site assets
-  upsertSiteAsset(asset: InsertSiteAsset): Promise<SiteAsset>;
+  upsertSiteAsset(asset: Partial<SiteAsset> & { key: string; url: string }): Promise<SiteAsset>;
   getSiteAssets(): Promise<SiteAsset[]>;
-  getSiteAssetByKey(key: string): Promise<SiteAsset | undefined>;
-  getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined>;
+  getSiteAssetByKey(key: string): Promise<SiteAsset | null>;
+  getSiteAssetByUrl(url: string): Promise<SiteAsset | null>;
 
-  // Posts
   createPost(post: InsertPost): Promise<Post>;
   getPublishedPosts(): Promise<Post[]>;
-  getPublishedPostBySlug(slug: string): Promise<Post | undefined>;
+  getPublishedPostBySlug(slug: string): Promise<Post | null>;
   getAllPosts(): Promise<Post[]>;
-  updatePost(id: number, updates: UpdatePost): Promise<Post | undefined>;
+  updatePost(id: number, updates: UpdatePost): Promise<Post | null>;
   deletePost(id: number): Promise<boolean>;
+
+  getBranding(): Promise<BrandingAsset | null>;
+  upsertBranding(values: Partial<BrandingAsset>): Promise<BrandingAsset>;
 }
 
-function assertDb() {
-  if (!db) {
-    throw new Error("Database connection is not configured. Set DATABASE_URL to enable Postgres storage.");
-  }
-
-  return db;
+function normalizeMetadata(metadata?: BlobMetadata | null): Prisma.JsonValue | undefined {
+  if (!metadata) return undefined;
+  return {
+    url: metadata.url,
+    pathname: metadata.pathname,
+    contentType: metadata.contentType ?? null,
+    filename: metadata.filename ?? null,
+    size: metadata.size ?? null,
+  };
 }
 
-export class DatabaseStorage implements IStorage {
-  private db = assertDb();
+class PrismaStorage implements IStorage {
+  private db = assertPrisma();
 
-  // User operations (required for Replit Auth)
-  async getUser(id: string): Promise<User | undefined> {
-    const [user] = await this.db.select().from(users).where(eq(users.id, id));
-    return user;
+  async getUser(id: string) {
+    return this.db.user.findUnique({ where: { id } });
   }
 
-  async getAllUsers(): Promise<User[]> {
-    return await this.db.select().from(users);
+  async getAllUsers() {
+    return this.db.user.findMany();
   }
 
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const [user] = await this.db
-      .insert(users)
-      .values(userData)
-      .onConflictDoUpdate({
-        target: users.id,
-        set: {
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          profileImageUrl: userData.profileImageUrl,
-          isAdmin: userData.isAdmin,
-        },
-      })
-      .returning();
-    return user;
+  async upsertUser(userData: UpsertUser) {
+    return this.db.user.upsert({
+      where: { id: userData.id },
+      create: {
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        isAdmin: userData.isAdmin ?? false,
+      },
+      update: {
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        profileImageUrl: userData.profileImageUrl,
+        isAdmin: userData.isAdmin ?? false,
+      },
+    });
   }
 
-  // Contact messages
-  async createContactMessage(messageData: InsertContactMessage): Promise<ContactMessage> {
-    const [message] = await this.db
-      .insert(contactMessages)
-      .values(messageData)
-      .returning();
-    return message;
+  async createContactMessage(messageData: InsertContactMessage) {
+    return this.db.contactMessage.create({ data: messageData });
   }
 
-  async getContactMessages(): Promise<ContactMessage[]> {
-    return await this.db
-      .select()
-      .from(contactMessages)
-      .orderBy(desc(contactMessages.timestamp));
+  async getContactMessages() {
+    return this.db.contactMessage.findMany({ orderBy: { timestamp: "desc" } });
   }
 
-  async getContactMessage(id: number): Promise<ContactMessage | undefined> {
-    const [message] = await this.db
-      .select()
-      .from(contactMessages)
-      .where(eq(contactMessages.id, id));
-    return message || undefined;
+  async getContactMessage(id: number) {
+    return this.db.contactMessage.findUnique({ where: { id } });
   }
 
-  // Gallery items
-  async createGalleryItem(itemData: InsertGalleryItem): Promise<GalleryItem> {
-    const maxOrder = await this.db
-      .select()
-      .from(galleryItems)
-      .orderBy(desc(galleryItems.order))
-      .limit(1);
-    
-    const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
-    
-    const [item] = await this.db
-      .insert(galleryItems)
-      .values({ ...itemData, order: nextOrder })
-      .returning();
-    return item;
+  async createGalleryItem(itemData: InsertGalleryItem) {
+    const maxOrder = await this.db.galleryItem.aggregate({ _max: { order: true } });
+    const nextOrder = (maxOrder._max.order ?? -1) + 1;
+    return this.db.galleryItem.create({ data: { ...itemData, order: nextOrder } });
   }
 
-  async getGalleryItems(): Promise<GalleryItem[]> {
-    return await this.db
-      .select()
-      .from(galleryItems)
-      .orderBy(asc(galleryItems.order));
+  async getGalleryItems() {
+    return this.db.galleryItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
   }
 
-  async getGalleryItem(id: number): Promise<GalleryItem | undefined> {
-    const [item] = await this.db
-      .select()
-      .from(galleryItems)
-      .where(eq(galleryItems.id, id));
-    return item || undefined;
+  async getGalleryItem(id: number) {
+    return this.db.galleryItem.findUnique({ where: { id } });
   }
 
-  async updateGalleryItem(id: number, itemData: UpdateGalleryItem): Promise<GalleryItem | undefined> {
+  async updateGalleryItem(id: number, itemData: UpdateGalleryItem) {
     const existing = await this.getGalleryItem(id);
-    if (!existing) return undefined;
-    
-    // Validate order if provided
-    if (itemData.order !== undefined && (typeof itemData.order !== 'number' || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-    
-    // Create the merged result
-    const updated = {
-      ...existing,
-      ...itemData
-    };
-    
-    // Validate the merged result maintains the integrity constraint
-    const hasValidImageUrl = updated.imageUrl && updated.imageUrl.trim().length > 0;
-    const hasValidBeforeAfter = 
-      updated.beforeImageUrl && updated.beforeImageUrl.trim().length > 0 &&
-      updated.afterImageUrl && updated.afterImageUrl.trim().length > 0;
-    
-    if (!hasValidImageUrl && !hasValidBeforeAfter) {
-      throw new Error("Gallery item must have either imageUrl or both beforeImageUrl and afterImageUrl");
-    }
-    
-    const [result] = await this.db
-      .update(galleryItems)
-      .set(itemData)
-      .where(eq(galleryItems.id, id))
-      .returning();
-    
-    return result || undefined;
+    if (!existing) return null;
+    return this.db.galleryItem.update({ where: { id }, data: itemData });
   }
 
-  async deleteGalleryItem(id: number): Promise<boolean> {
-    const result = await this.db
-      .delete(galleryItems)
-      .where(eq(galleryItems.id, id))
-      .returning();
-    return result.length > 0;
+  async deleteGalleryItem(id: number) {
+    const existing = await this.getGalleryItem(id);
+    if (!existing) return false;
+    await this.db.galleryItem.delete({ where: { id } });
+    return true;
   }
 
-  // Testimonials
-  async createTestimonial(itemData: InsertTestimonial): Promise<Testimonial> {
-    const maxOrder = await this.db
-      .select()
-      .from(testimonials)
-      .orderBy(desc(testimonials.order))
-      .limit(1);
-
-    const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
-
-    const [item] = await this.db
-      .insert(testimonials)
-      .values({
-        ...itemData,
-        source: itemData.source ?? "manual",
-        sourceUrl: itemData.sourceUrl ?? null,
+  async createTestimonial(itemData: InsertTestimonial) {
+    const maxOrder = await this.db.testimonial.aggregate({ _max: { order: true } });
+    const nextOrder = (maxOrder._max.order ?? -1) + 1;
+    return this.db.testimonial.create({
+      data: {
+        author: itemData.author ?? itemData.name ?? "",
+        content: itemData.content ?? (itemData as any).review ?? "",
+        rating: itemData.rating ?? 5,
+        source: (itemData as any).source,
+        sourceUrl: (itemData as any).sourceUrl,
+        name: (itemData as any).name,
+        review: (itemData as any).content ?? (itemData as any).review,
         order: nextOrder,
-      })
-      .returning();
-    return item;
+      },
+    });
   }
 
-  async getTestimonials(): Promise<Testimonial[]> {
-    return await this.db
-      .select()
-      .from(testimonials)
-      .orderBy(asc(testimonials.order));
+  async getTestimonials() {
+    return this.db.testimonial.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
   }
 
-  async getTestimonial(id: number): Promise<Testimonial | undefined> {
-    const [item] = await this.db
-      .select()
-      .from(testimonials)
-      .where(eq(testimonials.id, id));
-    return item || undefined;
+  async getTestimonial(id: number) {
+    return this.db.testimonial.findUnique({ where: { id } });
   }
 
-  async updateTestimonial(id: number, itemData: UpdateTestimonial): Promise<Testimonial | undefined> {
+  async updateTestimonial(id: number, itemData: UpdateTestimonial) {
     const existing = await this.getTestimonial(id);
-    if (!existing) return undefined;
-    
-    if (itemData.order !== undefined && (typeof itemData.order !== 'number' || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-    
-    const [result] = await this.db
-      .update(testimonials)
-      .set(itemData)
-      .where(eq(testimonials.id, id))
-      .returning();
-    
-    return result || undefined;
+    if (!existing) return null;
+    return this.db.testimonial.update({ where: { id }, data: itemData });
   }
 
-  async deleteTestimonial(id: number): Promise<boolean> {
-    const result = await this.db
-      .delete(testimonials)
-      .where(eq(testimonials.id, id))
-      .returning();
-    return result.length > 0;
+  async deleteTestimonial(id: number) {
+    const existing = await this.getTestimonial(id);
+    if (!existing) return false;
+    await this.db.testimonial.delete({ where: { id } });
+    return true;
   }
 
-  // FAQs
-  async createFaq(itemData: InsertFaq): Promise<Faq> {
-    const maxOrder = await this.db
-      .select()
-      .from(faqs)
-      .orderBy(desc(faqs.order))
-      .limit(1);
-
-    const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
-    const [item] = await this.db
-      .insert(faqs)
-      .values({ ...itemData, order: itemData.order ?? nextOrder })
-      .returning();
-    return item;
+  async createFaq(itemData: InsertFaq) {
+    const maxOrder = await this.db.faqItem.aggregate({ _max: { order: true } });
+    const nextOrder = (maxOrder._max.order ?? -1) + 1;
+    return this.db.faqItem.create({ data: { ...itemData, order: itemData.order ?? nextOrder } });
   }
 
-  async getFaqs(): Promise<Faq[]> {
-    return await this.db.select().from(faqs).orderBy(asc(faqs.order), asc(faqs.id));
+  async getFaqs() {
+    return this.db.faqItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
   }
 
-  async getFaq(id: number): Promise<Faq | undefined> {
-    const [item] = await this.db.select().from(faqs).where(eq(faqs.id, id));
-    return item || undefined;
+  async getFaq(id: number) {
+    return this.db.faqItem.findUnique({ where: { id } });
   }
 
-  async updateFaq(id: number, itemData: UpdateFaq): Promise<Faq | undefined> {
+  async updateFaq(id: number, itemData: UpdateFaq) {
     const existing = await this.getFaq(id);
-    if (!existing) return undefined;
-
-    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-
-    const [result] = await this.db
-      .update(faqs)
-      .set(itemData)
-      .where(eq(faqs.id, id))
-      .returning();
-
-    return result || undefined;
+    if (!existing) return null;
+    return this.db.faqItem.update({ where: { id }, data: itemData });
   }
 
-  async deleteFaq(id: number): Promise<boolean> {
-    const result = await this.db.delete(faqs).where(eq(faqs.id, id)).returning();
-    return result.length > 0;
+  async deleteFaq(id: number) {
+    const existing = await this.getFaq(id);
+    if (!existing) return false;
+    await this.db.faqItem.delete({ where: { id } });
+    return true;
   }
 
-  // Services
-  async createService(itemData: InsertService): Promise<Service> {
-    const maxOrder = await this.db
-      .select()
-      .from(services)
-      .orderBy(desc(services.order))
-      .limit(1);
-    
-    const nextOrder = maxOrder.length > 0 ? (maxOrder[0].order ?? 0) + 1 : 0;
-    
-    const [item] = await this.db
-      .insert(services)
-      .values({ ...itemData, order: nextOrder })
-      .returning();
-    return item;
+  async createService(itemData: InsertService) {
+    const maxOrder = await this.db.serviceItem.aggregate({ _max: { order: true } });
+    const nextOrder = (maxOrder._max.order ?? -1) + 1;
+    return this.db.serviceItem.create({
+      data: {
+        ...itemData,
+        title: (itemData as any).title ?? (itemData as any).name ?? "",
+        name: (itemData as any).name ?? (itemData as any).title ?? "",
+        order: nextOrder,
+      },
+    });
   }
 
-  async getServices(): Promise<Service[]> {
-    return await this.db
-      .select()
-      .from(services)
-      .orderBy(asc(services.order));
+  async getServices() {
+    return this.db.serviceItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
   }
 
-  async getService(id: number): Promise<Service | undefined> {
-    const [item] = await this.db
-      .select()
-      .from(services)
-      .where(eq(services.id, id));
-    return item || undefined;
+  async getService(id: number) {
+    return this.db.serviceItem.findUnique({ where: { id } });
   }
 
-  async updateService(id: number, itemData: UpdateService): Promise<Service | undefined> {
+  async updateService(id: number, itemData: UpdateService) {
     const existing = await this.getService(id);
-    if (!existing) return undefined;
-    
-    if (itemData.order !== undefined && (typeof itemData.order !== 'number' || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
+    if (!existing) return null;
+    return this.db.serviceItem.update({ where: { id }, data: itemData });
+  }
+
+  async deleteService(id: number) {
+    const existing = await this.getService(id);
+    if (!existing) return false;
+    await this.db.serviceItem.delete({ where: { id } });
+    return true;
+  }
+
+  async upsertSiteAsset(assetData: Partial<SiteAsset> & { key: string; url: string }) {
+    return this.db.siteAsset.upsert({
+      where: { key: assetData.key },
+      create: {
+        key: assetData.key,
+        url: assetData.url,
+        name: assetData.name ?? assetData.filename ?? assetData.key,
+        filename: assetData.filename,
+        publicId: assetData.publicId,
+        description: assetData.description,
+      },
+      update: {
+        url: assetData.url,
+        name: assetData.name ?? assetData.filename ?? assetData.key,
+        filename: assetData.filename,
+        publicId: assetData.publicId,
+        description: assetData.description,
+      },
+    });
+  }
+
+  async getSiteAssets() {
+    return this.db.siteAsset.findMany({ orderBy: { key: "asc" } });
+  }
+
+  async getSiteAssetByKey(key: string) {
+    return this.db.siteAsset.findUnique({ where: { key } });
+  }
+
+  async getSiteAssetByUrl(url: string) {
+    return this.db.siteAsset.findFirst({ where: { url } });
+  }
+
+  async createPost(postData: InsertPost) {
+    return this.db.post.create({ data: postData });
+  }
+
+  async getPublishedPosts() {
+    return this.db.post.findMany({ where: { published: true }, orderBy: { createdAt: "desc" } });
+  }
+
+  async getPublishedPostBySlug(slug: string) {
+    return this.db.post.findFirst({ where: { slug, published: true } });
+  }
+
+  async getAllPosts() {
+    return this.db.post.findMany({ orderBy: { createdAt: "desc" } });
+  }
+
+  async updatePost(id: number, updates: UpdatePost) {
+    const existing = await this.db.post.findUnique({ where: { id } });
+    if (!existing) return null;
+    return this.db.post.update({ where: { id }, data: { ...updates, updatedAt: new Date() } });
+  }
+
+  async deletePost(id: number) {
+    const existing = await this.db.post.findUnique({ where: { id } });
+    if (!existing) return false;
+    await this.db.post.delete({ where: { id } });
+    return true;
+  }
+
+  async getBranding() {
+    const [branding] = await this.db.brandingAsset.findMany({ take: 1 });
+    return branding ?? null;
+  }
+
+  async upsertBranding(values: Partial<BrandingAsset>) {
+    const branding = await this.getBranding();
+    if (branding) {
+      return this.db.brandingAsset.update({ where: { id: branding.id }, data: { ...values } });
     }
-    
-    const [result] = await this.db
-      .update(services)
-      .set(itemData)
-      .where(eq(services.id, id))
-      .returning();
-    
-    return result || undefined;
-  }
-
-  async deleteService(id: number): Promise<boolean> {
-    const result = await this.db
-      .delete(services)
-      .where(eq(services.id, id))
-      .returning();
-    return result.length > 0;
-  }
-
-  // Posts
-  async createPost(postData: InsertPost): Promise<Post> {
-    const [post] = await this.db.insert(posts).values(postData).returning();
-    return post;
-  }
-
-  async getPublishedPosts(): Promise<Post[]> {
-    return await this.db
-      .select()
-      .from(posts)
-      .where(eq(posts.published, true))
-      .orderBy(desc(posts.createdAt));
-  }
-
-  async getPublishedPostBySlug(slug: string): Promise<Post | undefined> {
-    const [post] = await this.db
-      .select()
-      .from(posts)
-      .where(and(eq(posts.slug, slug), eq(posts.published, true)));
-
-    return post || undefined;
-  }
-
-  async getAllPosts(): Promise<Post[]> {
-    return await this.db.select().from(posts).orderBy(desc(posts.createdAt));
-  }
-
-  async updatePost(id: number, updates: UpdatePost): Promise<Post | undefined> {
-    const [existing] = await this.db.select().from(posts).where(eq(posts.id, id));
-    if (!existing) return undefined;
-
-    const [post] = await this.db
-      .update(posts)
-      .set({ ...updates, updatedAt: new Date() })
-      .where(eq(posts.id, id))
-      .returning();
-
-    return post || undefined;
-  }
-
-  async deletePost(id: number): Promise<boolean> {
-    const result = await this.db.delete(posts).where(eq(posts.id, id)).returning();
-    return result.length > 0;
-  }
-
-  // Site assets
-  async upsertSiteAsset(assetData: InsertSiteAsset): Promise<SiteAsset> {
-    const updatePayload: Partial<InsertSiteAsset> & { updatedAt: Date } = {
-      updatedAt: new Date(),
-    };
-
-    if (assetData.url !== undefined) updatePayload.url = assetData.url;
-    if (assetData.name !== undefined) updatePayload.name = assetData.name;
-    if (assetData.filename !== undefined) updatePayload.filename = assetData.filename;
-    if (assetData.publicId !== undefined) updatePayload.publicId = assetData.publicId;
-    if (assetData.description !== undefined) updatePayload.description = assetData.description;
-
-    const [asset] = await this.db
-      .insert(siteAssets)
-      .values(assetData)
-      .onConflictDoUpdate({
-        target: siteAssets.key,
-        set: updatePayload,
-      })
-      .returning();
-    return asset;
-  }
-
-  async getSiteAssets(): Promise<SiteAsset[]> {
-    return await this.db.select().from(siteAssets).orderBy(asc(siteAssets.key));
-  }
-
-  async getSiteAssetByKey(key: string): Promise<SiteAsset | undefined> {
-    const [asset] = await this.db.select().from(siteAssets).where(eq(siteAssets.key, key));
-    return asset || undefined;
-  }
-
-  async getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined> {
-    const [asset] = await this.db.select().from(siteAssets).where(eq(siteAssets.url, url));
-    return asset || undefined;
+    return this.db.brandingAsset.create({ data: { ...values } });
   }
 }
 
 class InMemoryStorage implements IStorage {
-  private galleryId = 1;
-  private testimonialId = 1;
-  private serviceId = 1;
-  private faqId = 1;
-  private contactId = 1;
-  private postId = 1;
   private users: User[] = [];
+  private contacts: ContactMessage[] = [];
   private gallery: GalleryItem[] = [];
-  private testimonialsData: Testimonial[] = [];
-  private servicesData: Service[] = [];
-  private faqsData: Faq[] = [];
-  private contactMessagesData: ContactMessage[] = [];
-  private siteAssetsData: SiteAsset[] = [];
-  private postsData: Post[] = [];
+  private testimonials: Testimonial[] = [];
+  private faqs: FaqItem[] = [];
+  private services: ServiceItem[] = [];
+  private assets: SiteAsset[] = [];
+  private posts: Post[] = [];
+  private branding: BrandingAsset | null = null;
 
-  constructor() {
-      const defaultAssets: Array<Omit<SiteAsset, "id" | "createdAt" | "updatedAt">> = [
-        {
-          key: "logo",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo.png",
-          name: "Millan Logo",
-          filename: "millan-logo.png",
-          publicId: "static/millan-logo.png",
-          description: "Primary logo"
-        },
-        {
-          key: "heroCrown",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png",
-          name: "Hero Crown",
-          filename: "millan-logo-edited.png",
-          publicId: "static/millan-logo-edited.png",
-          description: "Hero crown image",
-        },
-        {
-          key: "heroBackground",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
-          name: "Hero Botanical Background",
-          filename: "dark-botanical-bg.png",
-          publicId: "static/dark-botanical-bg.png",
-          description: "Hero botanical background"
-        },
-        {
-          key: "servicesBackground",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
-          name: "Services Background",
-          filename: "dark-botanical-bg.png",
-          publicId: "static/dark-botanical-bg.png",
-          description: "Services background"
-        },
-        {
-          key: "aboutBackground",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png",
-          name: "About Background",
-          filename: "light-botanical-bg.png",
-          publicId: "static/light-botanical-bg.png",
-          description: "About background"
-        },
-        {
-          key: "aboutPortrait",
-          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg",
-          name: "Owner Portrait",
-          filename: "owner-photo.jpg",
-          publicId: "static/owner-photo.jpg",
-          description: "Owner portrait"
-        },
-      ];
-
-    let seedId = 1;
-    for (const asset of defaultAssets) {
-      this.siteAssetsData.push({
-        ...asset,
-        id: seedId++,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-    }
-
-    const defaultFaqs: Array<Omit<Faq, "id" | "createdAt">> = [
-      {
-        question: "What's included in a deep cleaning?",
-        answer:
-          "Our deep cleaning includes a full top-to-bottom refresh: baseboards, ceiling corners, vents, detailed kitchen and bath sanitizing, inside appliances (by request), and more—all finished with Millan's signature sparkle touch.",
-        order: 0,
-      },
-      {
-        question: "Are your services pet-friendly?",
-        answer:
-          "Yes! We love furry family members. We use non-toxic, pet-safe products to ensure a safe, clean environment for all household residents.",
-        order: 1,
-      },
-      {
-        question: "What is your cancellation policy?",
-        answer:
-          "We kindly ask for 24 hours' notice for any cancellations or reschedules. Cancellations with less than 24 hours' notice may be subject to a fee.",
-        order: 2,
-      },
-      {
-        question: "How do I book a cleaning?",
-        answer:
-          "Booking is easy! You can call, email, or request a quote directly through our website or social media. We'll guide you through a quick intake to match you with the right service.",
-        order: 3,
-      },
-      {
-        question: "What areas do you service?",
-        answer:
-          "We proudly serve high-end residential and boutique commercial spaces throughout Phoenix, AZ. Not sure if you're in our range? Reach out — we're happy to check!",
-        order: 4,
-      },
-    ];
-
-    for (const faq of defaultFaqs) {
-      this.faqsData.push({ ...faq, id: this.faqId++, createdAt: new Date() });
-    }
+  async getUser(id: string) {
+    return this.users.find((u) => u.id === id) ?? null;
   }
-
-  // User operations (required for Replit Auth)
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.find((u) => u.id === id);
-  }
-
-  async getAllUsers(): Promise<User[]> {
-    return [...this.users];
-  }
-
-  async upsertUser(userData: UpsertUser): Promise<User> {
-    const existing = this.users.find((u) => u.id === userData.id);
+  async getAllUsers() { return this.users; }
+  async upsertUser(userData: UpsertUser) {
+    const existing = await this.getUser(userData.id);
     if (existing) {
-      Object.assign(existing, {
-        ...userData,
-        updatedAt: new Date(),
-      });
+      Object.assign(existing, userData);
       return existing;
     }
-
-    const newUser: User = {
-      ...userData,
+    const created: User = {
+      id: userData.id,
       email: userData.email ?? null,
       firstName: userData.firstName ?? null,
       lastName: userData.lastName ?? null,
@@ -620,313 +365,166 @@ class InMemoryStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.users.push(newUser);
-    return newUser;
+    this.users.push(created);
+    return created;
   }
 
-  // Contact messages
-  async createContactMessage(messageData: InsertContactMessage): Promise<ContactMessage> {
-    const message: ContactMessage = {
-      ...messageData,
-      id: this.contactId++,
-      timestamp: new Date(),
-    };
-    this.contactMessagesData.push(message);
+  async createContactMessage(messageData: InsertContactMessage) {
+    const message: ContactMessage = { id: this.contacts.length + 1, timestamp: new Date(), ...messageData };
+    this.contacts.unshift(message);
     return message;
   }
+  async getContactMessages() { return this.contacts; }
+  async getContactMessage(id: number) { return this.contacts.find((m) => m.id === id) ?? null; }
 
-  async getContactMessages(): Promise<ContactMessage[]> {
-    return [...this.contactMessagesData].sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-  }
-
-  async getContactMessage(id: number): Promise<ContactMessage | undefined> {
-    return this.contactMessagesData.find((m) => m.id === id);
-  }
-
-  // Gallery items
-  async createGalleryItem(itemData: InsertGalleryItem): Promise<GalleryItem> {
-    const maxOrder = this.gallery.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
-    const nextOrder = maxOrder + 1;
-
-    const item: GalleryItem = {
-      ...itemData,
-      id: this.galleryId++,
-      order: nextOrder,
-      createdAt: new Date(),
-      imageUrl: itemData.imageUrl ?? null,
-      imagePublicId: itemData.imagePublicId ?? null,
-      imageFilename: itemData.imageFilename ?? null,
-      beforeImageUrl: itemData.beforeImageUrl ?? null,
-      beforeImagePublicId: itemData.beforeImagePublicId ?? null,
-      beforeImageFilename: itemData.beforeImageFilename ?? null,
-      afterImageUrl: itemData.afterImageUrl ?? null,
-      afterImagePublicId: itemData.afterImagePublicId ?? null,
-      afterImageFilename: itemData.afterImageFilename ?? null,
-    };
-
+  async createGalleryItem(itemData: InsertGalleryItem) {
+    const item: GalleryItem = { id: this.gallery.length + 1, createdAt: new Date(), order: this.gallery.length, ...itemData } as GalleryItem;
     this.gallery.push(item);
     return item;
   }
-
-  async getGalleryItems(): Promise<GalleryItem[]> {
-    return [...this.gallery].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }
-
-  async getGalleryItem(id: number): Promise<GalleryItem | undefined> {
-    return this.gallery.find((item) => item.id === id);
-  }
-
-  async updateGalleryItem(id: number, itemData: UpdateGalleryItem): Promise<GalleryItem | undefined> {
+  async getGalleryItems() { return this.gallery.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)); }
+  async getGalleryItem(id: number) { return this.gallery.find((g) => g.id === id) ?? null; }
+  async updateGalleryItem(id: number, item: UpdateGalleryItem) {
     const existing = await this.getGalleryItem(id);
-    if (!existing) return undefined;
-
-    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-
-    const updated: GalleryItem = {
-      ...existing,
-      ...itemData,
-    };
-
-    const hasValidImageUrl = updated.imageUrl && updated.imageUrl.trim().length > 0;
-    const hasValidBeforeAfter =
-      updated.beforeImageUrl && updated.beforeImageUrl.trim().length > 0 &&
-      updated.afterImageUrl && updated.afterImageUrl.trim().length > 0;
-
-    if (!hasValidImageUrl && !hasValidBeforeAfter) {
-      throw new Error("Gallery item must have either imageUrl or both beforeImageUrl and afterImageUrl");
-    }
-
-    Object.assign(existing, updated);
+    if (!existing) return null;
+    Object.assign(existing, item);
     return existing;
   }
-
-  async deleteGalleryItem(id: number): Promise<boolean> {
+  async deleteGalleryItem(id: number) {
     const before = this.gallery.length;
-    this.gallery = this.gallery.filter((item) => item.id !== id);
+    this.gallery = this.gallery.filter((g) => g.id !== id);
     return this.gallery.length < before;
   }
 
-  // Testimonials
-  async createTestimonial(itemData: InsertTestimonial): Promise<Testimonial> {
-    const maxOrder = this.testimonialsData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
-    const nextOrder = maxOrder + 1;
-
-    const item: Testimonial = {
-      ...itemData,
-      source: itemData.source ?? "manual",
-      id: this.testimonialId++,
-      order: nextOrder,
+  async createTestimonial(item: InsertTestimonial) {
+    const testimonial: Testimonial = {
+      id: this.testimonials.length + 1,
+      author: (item as any).author ?? (item as any).name ?? "",
+      content: (item as any).content ?? (item as any).review ?? "",
+      rating: item.rating ?? 5,
       createdAt: new Date(),
-      rating: itemData.rating ?? 5,
-      sourceUrl: itemData.sourceUrl ?? null,
+      source: (item as any).source,
+      sourceUrl: (item as any).sourceUrl,
+      order: this.testimonials.length,
     };
-
-    this.testimonialsData.push(item);
-    return item;
+    this.testimonials.push(testimonial);
+    return testimonial;
   }
-
-  async getTestimonials(): Promise<Testimonial[]> {
-    return [...this.testimonialsData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }
-
-  async getTestimonial(id: number): Promise<Testimonial | undefined> {
-    return this.testimonialsData.find((item) => item.id === id);
-  }
-
-  async updateTestimonial(id: number, itemData: UpdateTestimonial): Promise<Testimonial | undefined> {
+  async getTestimonials() { return this.testimonials; }
+  async getTestimonial(id: number) { return this.testimonials.find((t) => t.id === id) ?? null; }
+  async updateTestimonial(id: number, item: UpdateTestimonial) {
     const existing = await this.getTestimonial(id);
-    if (!existing) return undefined;
-
-    Object.assign(existing, itemData);
+    if (!existing) return null;
+    Object.assign(existing, item);
     return existing;
   }
-
-  async deleteTestimonial(id: number): Promise<boolean> {
-    const before = this.testimonialsData.length;
-    this.testimonialsData = this.testimonialsData.filter((item) => item.id !== id);
-    return this.testimonialsData.length < before;
+  async deleteTestimonial(id: number) {
+    const before = this.testimonials.length;
+    this.testimonials = this.testimonials.filter((t) => t.id !== id);
+    return this.testimonials.length < before;
   }
 
-  // FAQs
-  async createFaq(itemData: InsertFaq): Promise<Faq> {
-    const maxOrder = this.faqsData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
-    const nextOrder = maxOrder + 1;
-
-    const item: Faq = {
-      ...itemData,
-      id: this.faqId++,
-      order: itemData.order ?? nextOrder,
-      createdAt: new Date(),
-    };
-
-    this.faqsData.push(item);
-    return item;
+  async createFaq(item: InsertFaq) {
+    const faq: FaqItem = { id: this.faqs.length + 1, createdAt: new Date(), order: item.order ?? this.faqs.length, ...item };
+    this.faqs.push(faq);
+    return faq;
   }
-
-  async getFaqs(): Promise<Faq[]> {
-    return [...this.faqsData].sort((a, b) => {
-      if ((a.order ?? 0) === (b.order ?? 0)) return a.id - b.id;
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
-  }
-
-  async getFaq(id: number): Promise<Faq | undefined> {
-    return this.faqsData.find((item) => item.id === id);
-  }
-
-  async updateFaq(id: number, itemData: UpdateFaq): Promise<Faq | undefined> {
+  async getFaqs() { return this.faqs; }
+  async getFaq(id: number) { return this.faqs.find((f) => f.id === id) ?? null; }
+  async updateFaq(id: number, item: UpdateFaq) {
     const existing = await this.getFaq(id);
-    if (!existing) return undefined;
-
-    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-
-    Object.assign(existing, itemData);
+    if (!existing) return null;
+    Object.assign(existing, item);
     return existing;
   }
-
-  async deleteFaq(id: number): Promise<boolean> {
-    const before = this.faqsData.length;
-    this.faqsData = this.faqsData.filter((item) => item.id !== id);
-    return this.faqsData.length < before;
+  async deleteFaq(id: number) {
+    const before = this.faqs.length;
+    this.faqs = this.faqs.filter((f) => f.id !== id);
+    return this.faqs.length < before;
   }
 
-  // Services
-  async createService(itemData: InsertService): Promise<Service> {
-    const maxOrder = this.servicesData.reduce((max, item) => Math.max(max, item.order ?? 0), -1);
-    const nextOrder = maxOrder + 1;
-
-    const item: Service = {
-      ...itemData,
-      id: this.serviceId++,
-      order: nextOrder,
+  async createService(item: InsertService) {
+    const service: ServiceItem = {
+      id: this.services.length + 1,
       createdAt: new Date(),
+      order: this.services.length,
+      title: (item as any).title ?? (item as any).name ?? "",
+      description: item.description,
+      iconUrl: item.iconUrl,
+      imageUrl: item.imageUrl,
+      features: (item as any).features ?? [],
     };
-
-    this.servicesData.push(item);
-    return item;
+    this.services.push(service);
+    return service;
   }
-
-  async getServices(): Promise<Service[]> {
-    return [...this.servicesData].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-  }
-
-  async getService(id: number): Promise<Service | undefined> {
-    return this.servicesData.find((item) => item.id === id);
-  }
-
-  async updateService(id: number, itemData: UpdateService): Promise<Service | undefined> {
+  async getServices() { return this.services; }
+  async getService(id: number) { return this.services.find((s) => s.id === id) ?? null; }
+  async updateService(id: number, item: UpdateService) {
     const existing = await this.getService(id);
-    if (!existing) return undefined;
-
-    if (itemData.order !== undefined && (typeof itemData.order !== "number" || itemData.order < 0)) {
-      throw new Error("Order must be a non-negative number");
-    }
-
-    Object.assign(existing, itemData);
+    if (!existing) return null;
+    Object.assign(existing, item);
     return existing;
   }
-
-  async deleteService(id: number): Promise<boolean> {
-    const before = this.servicesData.length;
-    this.servicesData = this.servicesData.filter((item) => item.id !== id);
-    return this.servicesData.length < before;
+  async deleteService(id: number) {
+    const before = this.services.length;
+    this.services = this.services.filter((s) => s.id !== id);
+    return this.services.length < before;
   }
 
-  // Posts
-  async createPost(postData: InsertPost): Promise<Post> {
-    const now = new Date();
-    const post: Post = {
-      ...postData,
-      id: this.postId++,
-      createdAt: now,
-      updatedAt: now,
-      published: postData.published ?? false,
-    };
-    this.postsData.push(post);
-    return post;
-  }
-
-  async getPublishedPosts(): Promise<Post[]> {
-    return [...this.postsData]
-      .filter((post) => Boolean(post.published))
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  async getPublishedPostBySlug(slug: string): Promise<Post | undefined> {
-    return this.postsData.find((post) => post.slug === slug && post.published === true);
-  }
-
-  async getAllPosts(): Promise<Post[]> {
-    return [...this.postsData].sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-  }
-
-  async updatePost(id: number, updates: UpdatePost): Promise<Post | undefined> {
-    const existing = this.postsData.find((post) => post.id === id);
-    if (!existing) return undefined;
-
-    Object.assign(existing, updates, { updatedAt: new Date() });
-    return existing;
-  }
-
-  async deletePost(id: number): Promise<boolean> {
-    const before = this.postsData.length;
-    this.postsData = this.postsData.filter((post) => post.id !== id);
-    return this.postsData.length < before;
-  }
-
-  // Site assets
-  async upsertSiteAsset(assetData: InsertSiteAsset): Promise<SiteAsset> {
-    const existing = this.siteAssetsData.find((asset) => asset.key === assetData.key);
+  async upsertSiteAsset(asset: Partial<SiteAsset> & { key: string; url: string }) {
+    const existing = this.assets.find((a) => a.key === asset.key);
     if (existing) {
-      Object.assign(
-        existing,
-        {
-          updatedAt: new Date(),
-        },
-        assetData.url !== undefined ? { url: assetData.url } : {},
-        assetData.name !== undefined ? { name: assetData.name } : {},
-        assetData.filename !== undefined ? { filename: assetData.filename ?? null } : {},
-        assetData.publicId !== undefined ? { publicId: assetData.publicId ?? null } : {},
-        assetData.description !== undefined ? { description: assetData.description ?? null } : {},
-      );
+      Object.assign(existing, asset, { updatedAt: new Date() });
       return existing;
     }
-
-    const asset: SiteAsset = {
-      ...assetData,
-      id: this.siteAssetsData.length + 1,
-      name: assetData.name ?? assetData.key,
-      filename: assetData.filename ?? assetData.name ?? assetData.key,
-      publicId: assetData.publicId ?? null,
-      description: assetData.description ?? null,
+    const created: SiteAsset = {
+      id: this.assets.length + 1,
+      key: asset.key,
+      url: asset.url,
+      name: asset.name,
+      filename: asset.filename,
+      publicId: asset.publicId,
+      description: asset.description,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
-    this.siteAssetsData.push(asset);
-    return asset;
+    this.assets.push(created);
+    return created;
+  }
+  async getSiteAssets() { return this.assets; }
+  async getSiteAssetByKey(key: string) { return this.assets.find((a) => a.key === key) ?? null; }
+  async getSiteAssetByUrl(url: string) { return this.assets.find((a) => a.url === url) ?? null; }
+
+  async createPost(post: InsertPost) {
+    const created: Post = { id: this.posts.length + 1, createdAt: new Date(), updatedAt: new Date(), published: post.published ?? false, ...post } as Post;
+    this.posts.push(created);
+    return created;
+  }
+  async getPublishedPosts() { return this.posts.filter((p) => p.published); }
+  async getPublishedPostBySlug(slug: string) { return this.posts.find((p) => p.slug === slug && p.published) ?? null; }
+  async getAllPosts() { return this.posts; }
+  async updatePost(id: number, updates: UpdatePost) {
+    const existing = await this.getPostById(id);
+    if (!existing) return null;
+    Object.assign(existing, updates, { updatedAt: new Date() });
+    return existing;
+  }
+  private async getPostById(id: number) { return this.posts.find((p) => p.id === id) ?? null; }
+  async deletePost(id: number) {
+    const before = this.posts.length;
+    this.posts = this.posts.filter((p) => p.id !== id);
+    return this.posts.length < before;
   }
 
-  async getSiteAssets(): Promise<SiteAsset[]> {
-    return [...this.siteAssetsData].sort((a, b) => a.key.localeCompare(b.key));
-  }
-
-  async getSiteAssetByKey(key: string): Promise<SiteAsset | undefined> {
-    return this.siteAssetsData.find((asset) => asset.key === key);
-  }
-
-  async getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined> {
-    return this.siteAssetsData.find((asset) => asset.url === url);
+  async getBranding() { return this.branding; }
+  async upsertBranding(values: Partial<BrandingAsset>) {
+    if (this.branding) {
+      Object.assign(this.branding, values, { updatedAt: new Date() });
+      return this.branding;
+    }
+    this.branding = { id: 1, updatedAt: new Date(), ...values } as BrandingAsset;
+    return this.branding;
   }
 }
 
-const storageImpl = hasDatabaseUrl ? new DatabaseStorage() : new InMemoryStorage();
-
-if (!hasDatabaseUrl) {
-  console.warn("[WARN] DATABASE_URL not set. Using in-memory storage; data will reset on restart.");
-}
-
-export const storage = storageImpl;
+export const storage: IStorage = hasDatabaseUrl ? new PrismaStorage() : new InMemoryStorage();

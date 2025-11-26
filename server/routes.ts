@@ -15,13 +15,13 @@ import {
   updateSiteAssetSchema,
   updatePostSchema,
   updateFaqSchema,
-} from "@shared/schema";
+} from "@shared/types";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
-import type { Asset, SiteAsset } from "@shared/schema";
+import type { Asset, SiteAsset } from "@shared/types";
 import type { EnvConfig } from "./env";
 import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService";
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import ReactCompareImage from "react-compare-image";
-import type { GalleryItem } from "@shared/schema";
+import type { GalleryItem } from "@shared/types";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 
 const placeholderImage = "https://placehold.co/1200x800?text=Image+coming+soon";

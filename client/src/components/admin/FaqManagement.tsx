@@ -14,8 +14,8 @@ import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import type { Faq } from "@shared/schema";
-import { insertFaqSchema } from "@shared/schema";
+import type { Faq } from "@shared/types";
+import { insertFaqSchema } from "@shared/types";
 import { Plus, Edit, Trash2, Loader2, HelpCircle } from "lucide-react";
 import { z } from "zod";
 

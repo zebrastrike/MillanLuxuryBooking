@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
-import type { Service } from "@shared/schema";
+import type { Service } from "@shared/types";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 import { useSiteAssets } from "@/hooks/useSiteAssets";
 

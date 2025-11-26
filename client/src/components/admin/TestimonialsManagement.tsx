@@ -15,8 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Star, Plus, Edit, Trash2, Loader2 } from "lucide-react";
-import type { Testimonial, InsertTestimonial } from "@shared/schema";
-import { insertTestimonialSchema, testimonialSourceSchema } from "@shared/schema";
+import type { Testimonial, InsertTestimonial } from "@shared/types";
+import { insertTestimonialSchema, testimonialSourceSchema } from "@shared/types";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 

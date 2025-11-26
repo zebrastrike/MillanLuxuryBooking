@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Asset, SiteAsset } from "@shared/schema";
+import type { Asset, SiteAsset } from "@shared/types";
 
 export type SiteAssetMap = Record<string, Asset>;
 
