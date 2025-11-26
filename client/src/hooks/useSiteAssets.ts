@@ -5,6 +5,20 @@ export type SiteAssetMap = Record<string, Asset>;
 
 type SiteAssetResponseRecord = (Asset & { key?: string }) | (SiteAsset & { key?: string });
 
+function safeObj<T extends object>(value: unknown): T {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as T)
+    : ({} as T);
+}
+
+function safeEntries(value: unknown) {
+  try {
+    return Object.entries(safeObj<Record<string, unknown>>(value));
+  } catch {
+    return [] as [string, unknown][];
+  }
+}
+
 function normalizeAsset(asset: SiteAssetResponseRecord, keyFallback?: string): Asset | null {
   if (!asset?.url) return null;
 
@@ -34,10 +48,7 @@ export function useSiteAssets() {
       }
       const payload = await res.json();
       const rawAssets = payload?.data !== undefined ? payload.data : payload;
-      const assets =
-        rawAssets && typeof rawAssets === "object" && !Array.isArray(rawAssets)
-          ? rawAssets
-          : undefined;
+      const assets = safeObj<Record<string, SiteAssetResponseRecord>>(rawAssets);
 
       if (Array.isArray(rawAssets)) {
         return (rawAssets as SiteAssetResponseRecord[]).reduce<SiteAssetMap>((acc, asset) => {
@@ -51,20 +62,15 @@ export function useSiteAssets() {
         }, {});
       }
 
-      if (assets && typeof assets === "object") {
-        const safeAssets = !Array.isArray(assets) && assets ? assets : {};
-        const entries = Object.entries((safeAssets as Record<string, SiteAssetResponseRecord>) || {});
+      const entries = safeEntries(assets) as [string, SiteAssetResponseRecord][];
 
-        return entries.reduce<SiteAssetMap>((acc, [key, value]) => {
-          const normalized = normalizeAsset(value, key);
-          if (normalized) {
-            acc[key] = normalized;
-          }
-          return acc;
-        }, {});
-      }
-
-      return {};
+      return entries.reduce<SiteAssetMap>((acc, [key, value]) => {
+        const normalized = normalizeAsset(value, key);
+        if (normalized) {
+          acc[key] = normalized;
+        }
+        return acc;
+      }, {});
     },
     initialData: {},
   });
