@@ -181,9 +181,11 @@ export const createServiceSchema = z.object({
   }
 });
 export type CreateService = z.infer<typeof createServiceSchema>;
-export const updateServiceSchema = optionalize(
-  (createServiceSchema as any)._def.schema.shape,
-);
+const serviceShape =
+  (createServiceSchema as any)?._def?.schema?.shape ??
+  (createServiceSchema as any)?.shape ??
+  {};
+export const updateServiceSchema = optionalize(serviceShape);
 export type UpdateService = z.infer<typeof updateServiceSchema>;
 
 export const createTestimonialSchema = z.object({
@@ -203,9 +205,11 @@ export const createTestimonialSchema = z.object({
   }
 });
 export type CreateTestimonial = z.infer<typeof createTestimonialSchema>;
-export const updateTestimonialSchema = optionalize(
-  (createTestimonialSchema as any)._def.schema.shape,
-);
+const testimonialShape =
+  (createTestimonialSchema as any)?._def?.schema?.shape ??
+  (createTestimonialSchema as any)?.shape ??
+  {};
+export const updateTestimonialSchema = optionalize(testimonialShape);
 export type UpdateTestimonial = z.infer<typeof updateTestimonialSchema>;
 
 export const createFaqSchema = z.object({
