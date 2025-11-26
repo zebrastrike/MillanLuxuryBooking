@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../server/db/prismaClient";
 import { insertServiceSchema } from "../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
+import { ensureParsedBody, handleUnknownError, methodNotAllowed, requireAdmin } from "./_utils";
 
 const prisma = assertPrisma();
 
@@ -18,6 +18,9 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "POST") {
     try {
+      const user = await requireAdmin(req, res, prisma);
+      if (!user) return;
+
       const payload = insertServiceSchema.parse(ensureParsedBody(req));
       const maxOrder = await prisma.serviceItem.aggregate({ _max: { order: true } });
       const nextOrder = (maxOrder._max.order ?? -1) + 1;
