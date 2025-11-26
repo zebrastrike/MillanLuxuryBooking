@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { assertPrisma } from "./db/prismaClient";
 import {
   insertContactMessageSchema,
   insertGalleryItemSchema,
@@ -84,7 +84,7 @@ const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => 
       }
 
       const clerkUser = await clerkClient.users.getUser(auth.userId);
-      const userRecord = await storage.getUser(auth.userId);
+      const userRecord = await prisma.user.findUnique({ where: { id: auth.userId } });
       const isAdmin = isAdminUser(clerkUser) || Boolean(userRecord?.isAdmin);
 
       if (!isAdmin) {
@@ -103,6 +103,8 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   if (!env.clerkEnabled) {
     console.warn("[WARN] Clerk keys not configured. Admin access will be denied.");
   }
+
+  const prisma = assertPrisma();
 
   const requireAdmin = createRequireAdminMiddleware(env.clerkEnabled);
   const requireAuthMiddleware: RequestHandler = env.clerkEnabled
@@ -128,14 +130,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       // Try to get existing user from database
-      let user = await storage.getUser(auth.userId);
+      let user = await prisma.user.findUnique({ where: { id: auth.userId } });
 
       // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
         // Fetch full user data from Clerk
         const clerkUser = await clerkClient.users.getUser(auth.userId);
 
-        const existingUsers = await storage.getAllUsers();
+        const existingUsers = await prisma.user.findMany();
         const isFirstUser = existingUsers.length === 0;
 
         // Extract email with robust fallback logic for OAuth providers
@@ -164,19 +166,29 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         }
 
         // Create user record from Clerk data
-        user = await storage.upsertUser({
-          id: auth.userId,
-          email: email,
-          firstName: clerkUser.firstName || null,
-          lastName: clerkUser.lastName || null,
-          profileImageUrl: clerkUser.imageUrl || null,
-          isAdmin: isFirstUser || isAdminUser(clerkUser),
+        user = await prisma.user.upsert({
+          where: { id: auth.userId },
+          create: {
+            id: auth.userId,
+            email: email,
+            firstName: clerkUser.firstName || null,
+            lastName: clerkUser.lastName || null,
+            profileImageUrl: clerkUser.imageUrl || null,
+            isAdmin: isFirstUser || isAdminUser(clerkUser),
+          },
+          update: {
+            email: email,
+            firstName: clerkUser.firstName || null,
+            lastName: clerkUser.lastName || null,
+            profileImageUrl: clerkUser.imageUrl || null,
+            isAdmin: isFirstUser || isAdminUser(clerkUser),
+          },
         });
       } else {
         const clerkUser = await clerkClient.users.getUser(auth.userId);
         const isAdmin = isAdminUser(clerkUser) || user.isAdmin;
         if (user.isAdmin !== isAdmin) {
-          user = await storage.upsertUser({ ...user, isAdmin });
+          user = await prisma.user.update({ where: { id: user.id }, data: { isAdmin } });
         }
       }
 
@@ -229,7 +241,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.post("/api/contact", async (req, res) => {
     try {
       const validatedData = insertContactMessageSchema.parse(req.body);
-      const message = await storage.createContactMessage(validatedData);
+      const message = await prisma.contactMessage.create({ data: validatedData });
       
       res.status(201).json({
         success: true,
@@ -362,7 +374,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
 
     try {
-      const linkedAsset = await storage.getSiteAssetByUrl(url);
+      const linkedAsset = await prisma.siteAsset.findFirst({ where: { url } });
       if (linkedAsset) {
         res.status(400).json({
           error: `This image is currently used as ${linkedAsset.key}. Please change the asset first.`,
@@ -381,7 +393,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Site assets endpoints (Vercel Blob backed)
   app.get("/api/assets", async (_req, res) => {
     try {
-      const assets = await storage.getSiteAssets();
+      const assets = await prisma.siteAsset.findMany({ orderBy: { key: "asc" } });
       const map = assets.reduce<Record<string, ReturnType<typeof buildAssetPayload>>>((acc, asset) => {
         acc[asset.key] = buildAssetPayload(asset);
         return acc;
@@ -436,13 +448,23 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       const publicId = blob?.pathname ?? payload.publicId ?? getBlobPath(url);
       const filename = payload.filename ?? payload.name ?? req.file?.originalname ?? payload.key;
 
-      const asset = await storage.upsertSiteAsset({
-        key: payload.key,
-        url,
-        name: payload.name ?? filename,
-        filename,
-        publicId: publicId ?? undefined,
-        description: payload.description,
+      const asset = await prisma.siteAsset.upsert({
+        where: { key: payload.key },
+        update: {
+          url,
+          name: payload.name ?? filename,
+          filename,
+          publicId: publicId ?? undefined,
+          description: payload.description,
+        },
+        create: {
+          key: payload.key,
+          url,
+          name: payload.name ?? filename,
+          filename,
+          publicId: publicId ?? undefined,
+          description: payload.description,
+        },
       });
 
       res.status(201).json({
@@ -464,20 +486,30 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     try {
       const key = req.params.key;
       const updates = updateSiteAssetSchema.parse(req.body);
-      const existing = await storage.getSiteAssetByKey(key);
+      const existing = await prisma.siteAsset.findUnique({ where: { key } });
 
       if (!existing && !updates.url) {
         res.status(400).json({ error: "Provide a URL to create a new asset" });
         return;
       }
 
-      const asset = await storage.upsertSiteAsset({
-        key,
-        url: updates.url ?? existing?.url ?? "",
-        name: updates.name ?? existing?.name ?? key,
-        filename: updates.filename ?? existing?.filename ?? existing?.name ?? key,
-        publicId: updates.publicId ?? existing?.publicId ?? getBlobPath(updates.url ?? existing?.url ?? "") ?? undefined,
-        description: updates.description ?? existing?.description ?? null,
+      const asset = await prisma.siteAsset.upsert({
+        where: { key },
+        update: {
+          url: updates.url ?? existing?.url ?? "",
+          name: updates.name ?? existing?.name ?? key,
+          filename: updates.filename ?? existing?.filename ?? existing?.name ?? key,
+          publicId: updates.publicId ?? existing?.publicId ?? getBlobPath(updates.url ?? existing?.url ?? "") ?? undefined,
+          description: updates.description ?? existing?.description ?? null,
+        },
+        create: {
+          key,
+          url: updates.url ?? existing?.url ?? "",
+          name: updates.name ?? existing?.name ?? key,
+          filename: updates.filename ?? existing?.filename ?? existing?.name ?? key,
+          publicId: updates.publicId ?? existing?.publicId ?? getBlobPath(updates.url ?? existing?.url ?? "") ?? undefined,
+          description: updates.description ?? existing?.description ?? null,
+        },
       });
 
       res.json({ success: true, data: buildAssetPayload(asset), message: "Asset updated" });
@@ -493,7 +525,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   app.get("/api/contact", requireAdmin, async (req, res) => {
     try {
-      const messages = await storage.getContactMessages();
+      const messages = await prisma.contactMessage.findMany({ orderBy: { timestamp: "desc" } });
       res.json(messages);
     } catch (error) {
       res.status(500).json({
@@ -514,7 +546,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      const message = await storage.getContactMessage(id);
+      const message = await prisma.contactMessage.findUnique({ where: { id } });
       if (!message) {
         res.status(404).json({
           success: false,
@@ -537,7 +569,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Gallery endpoints
   app.get("/api/gallery", async (req, res) => {
     try {
-      const items = await storage.getGalleryItems();
+      const items = await prisma.galleryItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
       res.status(500).json({
@@ -558,7 +590,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      const item = await storage.getGalleryItem(id);
+      const item = await prisma.galleryItem.findUnique({ where: { id } });
       if (!item) {
         res.status(404).json({
           success: false,
@@ -581,7 +613,9 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.post("/api/gallery", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertGalleryItemSchema.parse(req.body);
-      const item = await storage.createGalleryItem(validatedData);
+      const maxOrder = await prisma.galleryItem.aggregate({ _max: { order: true } });
+      const nextOrder = (maxOrder._max.order ?? -1) + 1;
+      const item = await prisma.galleryItem.create({ data: { ...validatedData, order: nextOrder } });
       
       res.status(201).json({
         success: true,
@@ -625,15 +659,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const validatedData = updateGalleryItemSchema.parse(preprocessedBody);
-      const item = await storage.updateGalleryItem(id, validatedData);
-      
-      if (!item) {
+      const existing = await prisma.galleryItem.findUnique({ where: { id } });
+
+      if (!existing) {
         res.status(404).json({
           success: false,
           message: "Gallery item not found"
         });
         return;
       }
+
+      const item = await prisma.galleryItem.update({ where: { id }, data: validatedData });
       
       res.json({
         success: true,
@@ -682,16 +718,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      const existing = await storage.getGalleryItem(id);
-      const deleted = await storage.deleteGalleryItem(id);
+      const existing = await prisma.galleryItem.findUnique({ where: { id } });
 
-      if (!deleted || !existing) {
+      if (!existing) {
         res.status(404).json({
           success: false,
           message: "Gallery item not found"
         });
         return;
       }
+
+      await prisma.galleryItem.delete({ where: { id } });
 
       const blobTargets = [
         getBlobPath(existing.imagePublicId || existing.imageUrl),
@@ -722,7 +759,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Testimonials endpoints
   app.get("/api/testimonials", async (req, res) => {
     try {
-      const items = await storage.getTestimonials();
+      const items = await prisma.testimonial.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
       res.status(500).json({
@@ -735,7 +772,20 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     app.post("/api/testimonials", requireAdmin, async (req, res) => {
       try {
         const validatedData = insertTestimonialSchema.parse(req.body);
-        const item = await storage.createTestimonial(validatedData);
+        const maxOrder = await prisma.testimonial.aggregate({ _max: { order: true } });
+        const nextOrder = (maxOrder._max.order ?? -1) + 1;
+        const item = await prisma.testimonial.create({
+          data: {
+            author: validatedData.author ?? validatedData.name ?? "",
+            content: validatedData.content ?? (validatedData as any).review ?? "",
+            rating: validatedData.rating ?? 5,
+            source: (validatedData as any).source,
+            sourceUrl: (validatedData as any).sourceUrl,
+            name: (validatedData as any).name,
+            review: (validatedData as any).content ?? (validatedData as any).review,
+            order: nextOrder,
+          },
+        });
 
         res.status(201).json({
           success: true,
@@ -771,15 +821,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         }
 
         const updates = updateTestimonialSchema.parse(req.body);
-        const item = await storage.updateTestimonial(id, updates);
+        const existing = await prisma.testimonial.findUnique({ where: { id } });
 
-        if (!item) {
+        if (!existing) {
           res.status(404).json({
             success: false,
             message: "Testimonial not found"
           });
           return;
         }
+
+        const item = await prisma.testimonial.update({ where: { id }, data: updates });
 
         res.json({
           success: true,
@@ -810,15 +862,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      const deleted = await storage.deleteTestimonial(id);
-      
-      if (!deleted) {
+      const existing = await prisma.testimonial.findUnique({ where: { id } });
+
+      if (!existing) {
         res.status(404).json({
           success: false,
           message: "Testimonial not found"
         });
         return;
       }
+
+      await prisma.testimonial.delete({ where: { id } });
       
       res.json({
         success: true,
@@ -835,7 +889,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // FAQs endpoints
   app.get("/api/faqs", async (_req, res) => {
     try {
-      const items = await storage.getFaqs();
+      const items = await prisma.faqItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to retrieve FAQs" });
@@ -845,7 +899,9 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.post("/api/faqs", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertFaqSchema.parse(req.body);
-      const item = await storage.createFaq(validatedData);
+      const maxOrder = await prisma.faqItem.aggregate({ _max: { order: true } });
+      const nextOrder = (maxOrder._max.order ?? -1) + 1;
+      const item = await prisma.faqItem.create({ data: { ...validatedData, order: validatedData.order ?? nextOrder } });
 
       res.status(201).json({ success: true, message: "FAQ created successfully", data: item });
     } catch (error) {
@@ -867,12 +923,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const updates = updateFaqSchema.parse(req.body);
-      const item = await storage.updateFaq(id, updates);
+      const existing = await prisma.faqItem.findUnique({ where: { id } });
 
-      if (!item) {
+      if (!existing) {
         res.status(404).json({ success: false, message: "FAQ not found" });
         return;
       }
+
+      const item = await prisma.faqItem.update({ where: { id }, data: updates });
 
       res.json({ success: true, message: "FAQ updated successfully", data: item });
     } catch (error) {
@@ -897,12 +955,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      const deleted = await storage.deleteFaq(id);
+      const existing = await prisma.faqItem.findUnique({ where: { id } });
 
-      if (!deleted) {
+      if (!existing) {
         res.status(404).json({ success: false, message: "FAQ not found" });
         return;
       }
+
+      await prisma.faqItem.delete({ where: { id } });
 
       res.json({ success: true, message: "FAQ deleted successfully" });
     } catch (error) {
@@ -913,7 +973,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Services endpoints
   app.get("/api/services", async (req, res) => {
     try {
-      const items = await storage.getServices();
+      const items = await prisma.serviceItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
       res.status(500).json({
@@ -926,7 +986,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     app.post("/api/services", requireAdmin, async (req, res) => {
       try {
         const validatedData = insertServiceSchema.parse(req.body);
-        const item = await storage.createService(validatedData);
+        const maxOrder = await prisma.serviceItem.aggregate({ _max: { order: true } });
+        const nextOrder = (maxOrder._max.order ?? -1) + 1;
+        const item = await prisma.serviceItem.create({
+          data: {
+            ...validatedData,
+            title: (validatedData as any).title ?? (validatedData as any).name ?? "",
+            name: (validatedData as any).name ?? (validatedData as any).title ?? "",
+            order: nextOrder,
+          },
+        });
 
         res.status(201).json({
           success: true,
@@ -962,15 +1031,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         }
 
         const updates = updateServiceSchema.parse(req.body);
-        const item = await storage.updateService(id, updates);
+        const existing = await prisma.serviceItem.findUnique({ where: { id } });
 
-        if (!item) {
+        if (!existing) {
           res.status(404).json({
             success: false,
             message: "Service not found"
           });
           return;
         }
+
+        const item = await prisma.serviceItem.update({ where: { id }, data: updates });
 
         res.json({
           success: true,
@@ -1001,15 +1072,17 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      const deleted = await storage.deleteService(id);
-      
-      if (!deleted) {
+      const existing = await prisma.serviceItem.findUnique({ where: { id } });
+
+      if (!existing) {
         res.status(404).json({
           success: false,
           message: "Service not found"
         });
         return;
       }
+
+      await prisma.serviceItem.delete({ where: { id } });
       
       res.json({
         success: true,
@@ -1026,7 +1099,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Blog posts endpoints
   app.get("/api/posts", async (_req, res) => {
     try {
-      const posts = await storage.getPublishedPosts();
+      const posts = await prisma.post.findMany({ where: { published: true }, orderBy: { createdAt: "desc" } });
       res.json(posts);
     } catch (error) {
       res.status(500).json({
@@ -1038,7 +1111,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   app.get("/api/posts/admin", requireAdmin, async (_req, res) => {
     try {
-      const posts = await storage.getAllPosts();
+      const posts = await prisma.post.findMany({ orderBy: { createdAt: "desc" } });
       res.json(posts);
     } catch (error) {
       res.status(500).json({
@@ -1051,7 +1124,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.post("/api/posts", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertPostSchema.parse(req.body);
-      const post = await storage.createPost(validatedData);
+      const post = await prisma.post.create({ data: validatedData });
 
       res.status(201).json({
         success: true,
@@ -1080,12 +1153,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const updates = updatePostSchema.parse(req.body);
-      const post = await storage.updatePost(id, updates);
+      const existing = await prisma.post.findUnique({ where: { id } });
 
-      if (!post) {
+      if (!existing) {
         res.status(404).json({ success: false, message: "Post not found" });
         return;
       }
+
+      const post = await prisma.post.update({ where: { id }, data: { ...updates, updatedAt: new Date() } });
 
       res.json({
         success: true,
@@ -1110,12 +1185,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      const deleted = await storage.deletePost(id);
+      const existing = await prisma.post.findUnique({ where: { id } });
 
-      if (!deleted) {
+      if (!existing) {
         res.status(404).json({ success: false, message: "Post not found" });
         return;
       }
+
+      await prisma.post.delete({ where: { id } });
 
       res.json({ success: true, message: "Post deleted successfully" });
     } catch (error) {
@@ -1126,7 +1203,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.get("/api/posts/:slug", async (req, res) => {
     try {
       const { slug } = req.params;
-      const post = await storage.getPublishedPostBySlug(slug);
+      const post = await prisma.post.findFirst({ where: { slug, published: true } });
 
       if (!post) {
         res.status(404).json({ success: false, message: "Post not found" });
