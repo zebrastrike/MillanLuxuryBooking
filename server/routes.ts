@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { assertPrisma } from "./db/prismaClient";
+import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient";
 import {
   insertContactMessageSchema,
   insertGalleryItemSchema,
@@ -103,6 +103,20 @@ const createRequireAdminMiddleware = (prisma: PrismaClient, clerkEnabled: boolea
 export async function registerRoutes(app: Express, env: EnvConfig): Promise<Server> {
   if (!env.clerkEnabled) {
     console.warn("[WARN] Clerk keys not configured. Admin access will be denied.");
+  }
+
+  if (!hasDatabaseUrl) {
+    console.warn(
+      "[WARN] DATABASE_URL is not configured. All API routes will respond with 503 until a database connection string is provided.",
+    );
+
+    app.use("/api", (_req, res) => {
+      res.status(503).json({
+        message: "Database connection is not configured. Set DATABASE_URL to enable API routes.",
+      });
+    });
+
+    return createServer(app);
   }
 
   const prisma = assertPrisma();
