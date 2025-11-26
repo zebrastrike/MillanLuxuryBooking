@@ -28,7 +28,7 @@ export function ServicesManagement() {
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
   const { data: servicesPayload, isLoading, error } = useQuery<Service[]>({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services/get"],
     retry: false,
   });
 
@@ -86,19 +86,19 @@ export function ServicesManagement() {
 
   const addMutation = useMutation({
     mutationFn: async (data: ServiceFormData) => {
-      const res = await apiRequest("POST", "/api/services", data);
+      const res = await apiRequest("POST", "/api/services/add", data);
       const body = await res.json().catch(() => null);
       return (body?.data ?? body) as Service | null;
     },
     onSuccess: (service) => {
       if (service) {
-        queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) => {
+        queryClient.setQueryData<Service[]>(["/api/services/get"], (prev = []) => {
           const normalizedPrev = normalizeCachedServices(prev);
           const next = [...normalizedPrev, service];
           return next.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services/get"] });
       toast({
         title: "Success",
         description: "Service created successfully",
@@ -128,11 +128,11 @@ export function ServicesManagement() {
     },
     onSuccess: (service) => {
       if (service) {
-        queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
+        queryClient.setQueryData<Service[]>(["/api/services/get"], (prev = []) =>
           normalizeCachedServices(prev).map((item) => (item.id === service.id ? service : item))
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services/get"] });
       toast({
         title: "Success",
         description: "Service updated successfully",
@@ -160,10 +160,10 @@ export function ServicesManagement() {
       return id;
     },
     onSuccess: (id) => {
-      queryClient.setQueryData<Service[]>(["/api/services"], (prev = []) =>
+      queryClient.setQueryData<Service[]>(["/api/services/get"], (prev = []) =>
         normalizeCachedServices(prev).filter((item) => item.id !== id)
       );
-      queryClient.invalidateQueries({ queryKey: ["/api/services"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/services/get"] });
       toast({
         title: "Success",
         description: "Service deleted successfully",

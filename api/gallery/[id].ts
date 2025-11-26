@@ -1,9 +1,8 @@
 import { ZodError } from "zod";
-import { assertPrisma } from "../../server/db/prismaClient";
+import { getAuth } from "@clerk/vercel";
+import { prisma } from "../../lib/prisma";
 import { updateGalleryItemSchema } from "../../shared/types";
 import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
-
-const prisma = assertPrisma();
 
 export default async function handler(req: any, res: any) {
   const id = parseIdParam(req.query?.id);
@@ -27,6 +26,11 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "PATCH") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
     try {
       const preprocessedBody: Record<string, unknown> = {};
       const rawBody = ensureParsedBody(req) as Record<string, unknown>;
@@ -62,6 +66,11 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "DELETE") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
     try {
       const existing = await prisma.galleryItem.findUnique({ where: { id } });
       if (!existing) {

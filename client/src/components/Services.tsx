@@ -27,7 +27,7 @@ const bookingLinks: Record<string, string> = {
 
 export function Services() {
   const { data: services = [], isLoading, error } = useQuery<Service[]>({
-    queryKey: ["/api/services"]
+    queryKey: ["/api/services/get"],
   });
   const { data: assets = {} } = useSiteAssets();
 

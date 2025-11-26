@@ -1,9 +1,8 @@
 import { ZodError } from "zod";
-import { assertPrisma } from "../server/db/prismaClient";
+import { getAuth } from "@clerk/vercel";
 import { insertGalleryItemSchema } from "../shared/types";
 import { ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
-
-const prisma = assertPrisma();
+import { prisma } from "../lib/prisma";
 
 export default async function handler(req: any, res: any) {
   if (req.method === "GET") {
@@ -17,6 +16,11 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "POST") {
+    const auth = getAuth(req);
+    if (!auth?.userId) {
+      res.status(401).json({ success: false, message: "Authentication required" });
+      return;
+    }
     try {
       const payload = insertGalleryItemSchema.parse(ensureParsedBody(req));
       const maxOrder = await prisma.galleryItem.aggregate({ _max: { order: true } });

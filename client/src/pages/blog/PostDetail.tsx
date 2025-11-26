@@ -11,7 +11,7 @@ const formatDate = (value?: string | Date | null) => {
 
 export default function BlogPost({ params }: { params: { slug: string } }) {
   const { data: post, isLoading, error } = useQuery<Post>({
-    queryKey: [`/api/posts/${params.slug}`],
+    queryKey: [`/api/blog/${params.slug}`],
     retry: false,
   });
 
@@ -37,6 +37,11 @@ export default function BlogPost({ params }: { params: { slug: string } }) {
               <h1 className="text-4xl font-serif font-semibold leading-tight">{post.title}</h1>
             </div>
             <p className="text-lg text-muted-foreground">{post.excerpt}</p>
+            {post.imageUrl && (
+              <div className="overflow-hidden rounded-lg border border-primary/10">
+                <img src={post.imageUrl} alt={post.title} className="w-full h-80 object-cover" />
+              </div>
+            )}
             <div className="prose prose-invert max-w-none whitespace-pre-wrap">
               {post.body}
             </div>

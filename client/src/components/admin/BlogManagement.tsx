@@ -31,9 +31,10 @@ export function BlogManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
   const [deletingPostId, setDeletingPostId] = useState<number | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const { data: postsPayload, isLoading, error } = useQuery<Post[]>({
-    queryKey: ["/api/posts/admin"],
+    queryKey: ["/api/blog/get?admin=true"],
     retry: false,
   });
 
@@ -54,6 +55,47 @@ export function BlogManagement() {
     }
   }, [postsPayload, postsValid, isLoading, error]);
 
+  const uploadImageToBlob = async (
+    file: File,
+    form: ReturnType<typeof useForm<PostFormData>>,
+  ) => {
+    setIsUploadingImage(true);
+    try {
+      const res = await fetch(`/api/upload?prefix=blog-images`, {
+        method: "POST",
+        headers: {
+          "content-type": file.type,
+          "x-file-name": file.name,
+        },
+        body: file,
+        credentials: "include",
+      });
+
+      const payload = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message = payload?.message ?? "Upload failed";
+        throw new Error(message);
+      }
+
+      const url = (payload?.url ?? payload?.data?.url) as string | undefined;
+      if (!url) {
+        throw new Error("Upload failed");
+      }
+
+      form.setValue("imageUrl", url);
+      toast({ title: "Success", description: "Image uploaded successfully" });
+    } catch (uploadError) {
+      toast({
+        title: "Error",
+        description:
+          uploadError instanceof Error ? uploadError.message : "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const addForm = useForm<PostFormData>({
     resolver: zodResolver(insertPostSchema),
     defaultValues: {
@@ -61,6 +103,7 @@ export function BlogManagement() {
       slug: "",
       excerpt: "",
       body: "",
+      imageUrl: "",
       published: false,
     },
   });
@@ -72,24 +115,25 @@ export function BlogManagement() {
       slug: "",
       excerpt: "",
       body: "",
+      imageUrl: "",
       published: false,
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async (data: PostFormData) => {
-      const res = await apiRequest("POST", "/api/posts", data);
+      const res = await apiRequest("POST", "/api/blog/add", data);
       const body = await res.json().catch(() => null);
       return (body?.data ?? body) as Post | null;
     },
     onSuccess: (post) => {
       if (post) {
-        queryClient.setQueryData<Post[]>(["/api/posts/admin"], (prev = []) => {
+        queryClient.setQueryData<Post[]>(["/api/blog/get?admin=true"], (prev = []) => {
           const normalized = normalizeCachedPosts(prev);
           return sortPosts([...normalized, post]);
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/posts/admin"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/get?admin=true"] });
       toast({ title: "Success", description: "Post created successfully" });
       addForm.reset();
       setIsAddDialogOpen(false);
@@ -104,17 +148,17 @@ export function BlogManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<PostFormData> }) => {
-      const res = await apiRequest("PATCH", `/api/posts/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/blog/${id}`, data);
       const body = await res.json().catch(() => null);
       return (body?.data ?? body) as Post | null;
     },
     onSuccess: (post) => {
       if (post) {
-        queryClient.setQueryData<Post[]>(["/api/posts/admin"], (prev = []) =>
+        queryClient.setQueryData<Post[]>(["/api/blog/get?admin=true"], (prev = []) =>
           sortPosts(normalizeCachedPosts(prev).map((item) => (item.id === post.id ? post : item)))
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/posts/admin"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/get?admin=true"] });
       toast({ title: "Success", description: "Post updated successfully" });
       editForm.reset();
       setEditingPost(null);
@@ -129,14 +173,14 @@ export function BlogManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/posts/${id}`);
+      await apiRequest("DELETE", `/api/blog/${id}`);
       return id;
     },
     onSuccess: (id) => {
-      queryClient.setQueryData<Post[]>(["/api/posts/admin"], (prev = []) =>
+      queryClient.setQueryData<Post[]>(["/api/blog/get?admin=true"], (prev = []) =>
         normalizeCachedPosts(prev).filter((post) => post.id !== id)
       );
-      queryClient.invalidateQueries({ queryKey: ["/api/posts/admin"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blog/get?admin=true"] });
       toast({ title: "Success", description: "Post deleted successfully" });
       setDeletingPostId(null);
     },
@@ -153,6 +197,7 @@ export function BlogManagement() {
       slug: post.slug,
       excerpt: post.excerpt,
       body: post.body,
+      imageUrl: post.imageUrl ?? "",
       published: post.published ?? false,
     });
     setEditingPost(post);
@@ -225,6 +270,39 @@ export function BlogManagement() {
                     </FormItem>
                   )}
                 />
+                <FormField
+                  control={addForm.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Featured image URL (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-2">
+                  <FormLabel className="text-sm">Upload image</FormLabel>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        uploadImageToBlob(file, addForm);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                  {isUploadingImage && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Uploading image...
+                    </p>
+                  )}
+                </div>
                 <FormField
                   control={addForm.control}
                   name="body"
@@ -348,24 +426,57 @@ export function BlogManagement() {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={editForm.control}
-                name="excerpt"
-                render={({ field }) => (
-                  <FormItem>
+                <FormField
+                  control={editForm.control}
+                  name="excerpt"
+                  render={({ field }) => (
+                    <FormItem>
                     <FormLabel>Excerpt</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Short summary of the post" rows={3} {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="body"
-                render={({ field }) => (
-                  <FormItem>
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Featured image URL (optional)</FormLabel>
+                      <FormControl>
+                        <Input placeholder="https://..." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <div className="space-y-2">
+                  <FormLabel className="text-sm">Upload image</FormLabel>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (file) {
+                        uploadImageToBlob(file, editForm);
+                        event.target.value = "";
+                      }
+                    }}
+                  />
+                  {isUploadingImage && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Uploading image...
+                    </p>
+                  )}
+                </div>
+                <FormField
+                  control={editForm.control}
+                  name="body"
+                  render={({ field }) => (
+                    <FormItem>
                     <FormLabel>Body</FormLabel>
                     <FormControl>
                       <Textarea placeholder="Full post content" rows={6} {...field} />

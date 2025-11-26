@@ -277,13 +277,14 @@ export function GalleryManagement() {
     const handleFileUpload = async (file: File, fieldName: 'imageUrl' | 'beforeImageUrl' | 'afterImageUrl') => {
       setUploading(true);
       try {
-        const formData = new FormData();
-        formData.append('file', file);
-
         const prefix = fieldPrefixMap[fieldName];
-        const response = await fetch(`/api/blob/upload?prefix=${prefix}`, {
+        const response = await fetch(`/api/upload?prefix=${prefix}`, {
           method: 'POST',
-          body: formData,
+          headers: {
+            'content-type': file.type,
+            'x-file-name': file.name,
+          },
+          body: file,
           credentials: 'include',
         });
 
