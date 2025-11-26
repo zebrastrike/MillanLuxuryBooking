@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { getAuth } from "@clerk/express";
+import { getAuth } from "@clerk/clerk-sdk-node";
 import { hasDatabaseUrl } from "../server/db/prismaClient";
 
 const clerkEnabled = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY);
@@ -25,6 +25,15 @@ export function parseIdParam(value: any): number | null {
 export function methodNotAllowed(res: any, methods: string[]) {
   res.setHeader("Allow", methods.join(", "));
   res.status(405).json({ message: "Method Not Allowed" });
+}
+
+export function requireAuth(req: any) {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+
+  if (!userId) throw new Error("Unauthorized");
+
+  return userId;
 }
 
 export function handleUnknownError(res: any, error: unknown, message: string) {
