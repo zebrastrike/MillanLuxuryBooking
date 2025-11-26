@@ -18,7 +18,8 @@ import type { GalleryItem, InsertGalleryItem } from "@shared/schema";
 import { insertGalleryItemSchema } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import { BlobBrowserModal } from "./BlobBrowserModal";
+import { BlobBrowserModal, type BlobBrowserModalProps } from "./BlobBrowserModal";
+import type { BlobImage } from "@/types/blob";
 
 type GalleryFormData = InsertGalleryItem;
 const placeholderImage = "https://placehold.co/600x600?text=Image+coming+soon";
@@ -30,6 +31,13 @@ export function GalleryManagement() {
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
   const [blobBrowserOpen, setBlobBrowserOpen] = useState(false);
   const [blobTargetField, setBlobTargetField] = useState<"imageUrl" | "beforeImageUrl" | "afterImageUrl">("imageUrl");
+  const [blobPrefix, setBlobPrefix] = useState<BlobBrowserModalProps["prefix"]>("gallery");
+
+  const fieldPrefixMap: Record<typeof blobTargetField, BlobBrowserModalProps["prefix"]> = {
+    imageUrl: "gallery",
+    beforeImageUrl: "before",
+    afterImageUrl: "after",
+  };
 
   const { data: galleryPayload, isLoading, error } = useQuery<GalleryItem[]>({
     queryKey: ["/api/gallery"],
@@ -234,6 +242,30 @@ export function GalleryManagement() {
     );
   }
 
+  const metaMap: Record<typeof blobTargetField, { publicId: keyof GalleryFormData; filename: keyof GalleryFormData }> = {
+    imageUrl: { publicId: "imagePublicId", filename: "imageFilename" },
+    beforeImageUrl: { publicId: "beforeImagePublicId", filename: "beforeImageFilename" },
+    afterImageUrl: { publicId: "afterImagePublicId", filename: "afterImageFilename" },
+  };
+
+  const setImageFieldFromBlob = (image: BlobImage, fieldName: typeof blobTargetField) => {
+    const filename = image.pathname.split("/").pop();
+    const mapping = metaMap[fieldName];
+
+    addForm.setValue(fieldName, image.url);
+    editForm.setValue(fieldName, image.url);
+
+    if (mapping) {
+      addForm.setValue(mapping.publicId, image.pathname as GalleryFormData[keyof GalleryFormData]);
+      editForm.setValue(mapping.publicId, image.pathname as GalleryFormData[keyof GalleryFormData]);
+
+      if (filename) {
+        addForm.setValue(mapping.filename, filename as GalleryFormData[keyof GalleryFormData]);
+        editForm.setValue(mapping.filename, filename as GalleryFormData[keyof GalleryFormData]);
+      }
+    }
+  };
+
   const GalleryForm = ({ form, onSubmit, isPending }: { 
     form: ReturnType<typeof useForm<GalleryFormData>>; 
     onSubmit: (data: GalleryFormData) => void;
@@ -247,37 +279,37 @@ export function GalleryManagement() {
       try {
         const formData = new FormData();
         formData.append('file', file);
-        
-        const response = await fetch('/api/upload', {
+
+        const prefix = fieldPrefixMap[fieldName];
+        const response = await fetch(`/api/blob/upload?prefix=${prefix}`, {
           method: 'POST',
           body: formData,
           credentials: 'include',
         });
-        
+
+        const payload = await response.json().catch(() => null);
+
         if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Upload failed');
+          const errorMessage = payload?.error || payload?.message || 'Upload failed';
+          throw new Error(errorMessage);
         }
-        
-        const { data } = await response.json();
+
+        const data = (payload?.data ?? payload) as Partial<BlobImage> & { url?: string; pathname?: string };
+
+        if (!data?.url || !data.pathname) {
+          throw new Error('Upload failed');
+        }
+
         form.setValue(fieldName, data.url);
 
-        const metaMap = {
-          imageUrl: { publicId: 'imagePublicId', filename: 'imageFilename' },
-          beforeImageUrl: { publicId: 'beforeImagePublicId', filename: 'beforeImageFilename' },
-          afterImageUrl: { publicId: 'afterImagePublicId', filename: 'afterImageFilename' },
-        } as const;
-
         const mapping = metaMap[fieldName];
+        const filename = data.pathname.split('/').pop() || file.name;
+
         if (mapping) {
-          if (data.publicId) {
-            form.setValue(mapping.publicId as keyof GalleryFormData, data.publicId);
-          }
-          if (data.filename) {
-            form.setValue(mapping.filename as keyof GalleryFormData, data.filename);
-          }
+          form.setValue(mapping.publicId as keyof GalleryFormData, data.pathname);
+          form.setValue(mapping.filename as keyof GalleryFormData, filename);
         }
-        
+
         toast({
           title: "Success",
           description: "Image uploaded successfully",
@@ -361,6 +393,7 @@ export function GalleryManagement() {
                         size="sm"
                         onClick={() => {
                           setBlobTargetField("imageUrl");
+                          setBlobPrefix(fieldPrefixMap.imageUrl);
                           setBlobBrowserOpen(true);
                         }}
                       >
@@ -368,8 +401,13 @@ export function GalleryManagement() {
                       </Button>
                     </div>
                     {field.value && (
-                      <div className="text-sm text-muted-foreground truncate">
-                        Uploaded: {field.value}
+                      <div className="flex items-center gap-3">
+                        <div className="h-16 w-16 rounded border overflow-hidden bg-muted">
+                          <img src={field.value} alt="Selected gallery" className="h-full w-full object-cover" />
+                        </div>
+                        <div className="text-xs text-muted-foreground break-all">
+                          {field.value}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -407,6 +445,7 @@ export function GalleryManagement() {
                           size="sm"
                           onClick={() => {
                             setBlobTargetField("beforeImageUrl");
+                            setBlobPrefix(fieldPrefixMap.beforeImageUrl);
                             setBlobBrowserOpen(true);
                           }}
                         >
@@ -414,8 +453,13 @@ export function GalleryManagement() {
                         </Button>
                       </div>
                       {field.value && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          Uploaded
+                        <div className="flex items-center gap-3">
+                          <div className="h-14 w-14 rounded border overflow-hidden bg-muted">
+                            <img src={field.value} alt="Selected before image" className="h-full w-full object-cover" />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground break-all">
+                            {field.value}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -450,6 +494,7 @@ export function GalleryManagement() {
                           size="sm"
                           onClick={() => {
                             setBlobTargetField("afterImageUrl");
+                            setBlobPrefix(fieldPrefixMap.afterImageUrl);
                             setBlobBrowserOpen(true);
                           }}
                         >
@@ -457,8 +502,13 @@ export function GalleryManagement() {
                         </Button>
                       </div>
                       {field.value && (
-                        <div className="text-xs text-muted-foreground truncate">
-                          Uploaded
+                        <div className="flex items-center gap-3">
+                          <div className="h-14 w-14 rounded border overflow-hidden bg-muted">
+                            <img src={field.value} alt="Selected after image" className="h-full w-full object-cover" />
+                          </div>
+                          <div className="text-[11px] text-muted-foreground break-all">
+                            {field.value}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -629,11 +679,10 @@ export function GalleryManagement() {
 
       <BlobBrowserModal
         open={blobBrowserOpen}
-        prefix="gallery/"
+        prefix={blobPrefix}
         onClose={() => setBlobBrowserOpen(false)}
-        onSelect={(url) => {
-          addForm.setValue(blobTargetField, url);
-          editForm.setValue(blobTargetField, url);
+        onSelect={(image) => {
+          setImageFieldFromBlob(image, blobTargetField);
         }}
       />
     </div>

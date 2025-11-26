@@ -5,30 +5,23 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ImageIcon, Loader2 } from "lucide-react";
+import type { BlobImage } from "@/types/blob";
 
 export type BlobBrowserModalProps = {
   open: boolean;
   onClose: () => void;
-  onSelect: (url: string) => void;
-  prefix: "assets/" | "gallery/";
-};
-
-type BlobFile = {
-  url: string;
-  pathname: string;
-  size?: number;
-  uploadedAt?: string;
+  onSelect: (image: BlobImage) => void;
+  prefix: "branding" | "gallery" | "before" | "after" | "testimonials";
 };
 
 export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowserModalProps) {
-  const { data, isLoading, isError, error } = useQuery<BlobFile[]>({
+  const { data, isLoading, isError, error } = useQuery<BlobImage[]>({
     queryKey: ["blob-files", prefix],
     enabled: open,
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (prefix) params.set("prefix", prefix);
+      const params = new URLSearchParams({ prefix });
 
-      const res = await fetch(`/api/blob?${params.toString()}`, {
+      const res = await fetch(`/api/blob/list?${params.toString()}`, {
         credentials: "include",
       });
 
@@ -38,7 +31,7 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
       }
 
       const payload = await res.json();
-      const files = payload?.data ?? payload;
+      const files = payload?.images ?? payload?.data ?? payload;
       return Array.isArray(files) ? files : [];
     },
   });
@@ -47,7 +40,7 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
 
   return (
     <Dialog open={open} onOpenChange={(value) => { if (!value) onClose(); }}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-4xl max-h-[80vh]">
         <DialogHeader>
           <DialogTitle>Choose an Image</DialogTitle>
           <DialogDescription>Select from existing uploads in Vercel Blob.</DialogDescription>
@@ -76,7 +69,7 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
                   type="button"
                   className="group overflow-hidden rounded border bg-muted/40 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary"
                   onClick={() => {
-                    onSelect(file.url);
+                    onSelect(file);
                     onClose();
                   }}
                 >

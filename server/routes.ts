@@ -23,9 +23,19 @@ import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset } from "@shared/schema";
 import type { EnvConfig } from "./env";
-import { deleteBlob, listBlobs, uploadBlob } from "./blob";
+import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+const blobPrefixMap = {
+  branding: "branding",
+  gallery: "gallery",
+  before: "gallery/before",
+  after: "gallery/after",
+  testimonials: "testimonials",
+} as const;
+
+type BlobPrefix = keyof typeof blobPrefixMap;
 
 const getBlobPath = (value?: string | null) => {
   if (!value) return null;
@@ -185,7 +195,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      if (!env.blob.token) {
+      if (!env.blobEnabled) {
         res.status(400).json({
           error:
             "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
@@ -198,11 +208,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      const filename = `gallery/${Date.now()}-${req.file.originalname}`;
-
-      const blob = await uploadBlob(filename, req.file.buffer, {
-        access: 'public',
-      });
+      const blob = await uploadBlobFile("gallery", req.file);
 
       res.json({
         success: true,
@@ -246,8 +252,68 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
+  app.get("/api/blob/list", requireAdmin, async (req, res) => {
+    if (!env.blobEnabled) {
+      res.status(503).json({ error: "Blob storage is not configured." });
+      return;
+    }
+
+    const parsed = z
+      .object({ prefix: z.enum(Object.keys(blobPrefixMap) as [BlobPrefix, ...BlobPrefix[]]).default("gallery") })
+      .safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid blob prefix" });
+      return;
+    }
+
+    try {
+      const prefix = blobPrefixMap[parsed.data.prefix];
+      const images = await listBlobFiles(prefix);
+      res.json({ images });
+    } catch (error) {
+      console.error("Failed to list blobs", error);
+      res.status(500).json({ error: "Failed to load blob files" });
+    }
+  });
+
+  app.post("/api/blob/upload", requireAdmin, upload.single("file"), async (req, res) => {
+    if (!env.blobEnabled) {
+      res.status(503).json({ error: "Blob storage is not configured." });
+      return;
+    }
+
+    const parsed = z
+      .object({ prefix: z.enum(Object.keys(blobPrefixMap) as [BlobPrefix, ...BlobPrefix[]]).default("gallery") })
+      .safeParse(req.query);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "Invalid blob prefix" });
+      return;
+    }
+
+    if (!req.file) {
+      res.status(400).json({ error: "No file provided" });
+      return;
+    }
+
+    if (!req.file.mimetype?.startsWith("image/")) {
+      res.status(400).json({ error: "Only image uploads are allowed" });
+      return;
+    }
+
+    try {
+      const prefix = blobPrefixMap[parsed.data.prefix];
+      const image = await uploadBlobFile(prefix, req.file);
+      res.json({ url: image.url, pathname: image.pathname, size: image.size });
+    } catch (error) {
+      console.error("Blob upload failed", error);
+      res.status(500).json({ error: "Failed to upload blob" });
+    }
+  });
+
   app.get("/api/blob", requireAdmin, async (req, res) => {
-    if (!env.blob.token) {
+    if (!env.blobEnabled) {
       res.status(503).json({ error: "Blob storage is not configured." });
       return;
     }
@@ -264,13 +330,8 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
 
     try {
-      const { blobs = [] } = await listBlobs(parsed.data.prefix || undefined);
-      const files = blobs.map((blob) => ({
-        url: blob.url,
-        pathname: blob.pathname,
-        size: blob.size,
-        uploadedAt: blob.uploadedAt,
-      }));
+      const prefix = parsed.data.prefix ?? "static/";
+      const files = await listBlobFiles(prefix);
 
       res.json({ data: files });
     } catch (error) {
@@ -280,6 +341,11 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   });
 
   app.delete("/api/blob", requireAdmin, async (req, res) => {
+    if (!env.blobEnabled) {
+      res.status(503).json({ error: "Blob storage is not configured." });
+      return;
+    }
+
     const parsed = z
       .object({ url: z.string().url().min(1) })
       .safeParse(req.body);
@@ -304,7 +370,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      await deleteBlob(url);
+      await removeBlob(url);
       res.json({ success: true });
     } catch (error) {
       console.error("Failed to delete blob", error);
@@ -346,7 +412,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         })
         .parse(req.body);
 
-      if (req.file && !env.blob.token) {
+      if (req.file && !env.blobEnabled) {
         res.status(400).json({
           error:
             "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
@@ -359,11 +425,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      const blob = req.file
-        ? await uploadBlob(`assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
-            access: 'public',
-          })
-        : null;
+      const blob = req.file ? await uploadBlobFile("branding", req.file) : null;
 
       const url = blob?.url ?? payload.url;
       if (!url) {
@@ -638,10 +700,10 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       ].filter((path): path is string => Boolean(path));
 
       if (blobTargets.length > 0) {
-        if (!env.blob.token) {
+        if (!env.blobEnabled) {
           console.warn("BLOB_READ_WRITE_TOKEN missing - skipped blob deletion for gallery item", id);
         } else {
-          await deleteBlob(blobTargets);
+          await removeBlob(blobTargets);
         }
       }
 
