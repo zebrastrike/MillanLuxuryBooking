@@ -1,3 +1,7 @@
+/**
+ * @clerk/vercel-edge is not supported in the Node/Express environment.
+ * Use the Clerk Node SDK for serverless functions.
+ */
 import type { PrismaClient } from "@prisma/client";
 import { getAuth } from "@clerk/clerk-sdk-node";
 import { hasDatabaseUrl } from "../server/db/prismaClient";
