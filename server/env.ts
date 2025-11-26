@@ -12,6 +12,7 @@ const envSchema = z.object({
   BLOB_READ_WRITE_TOKEN: z.string().trim().optional(),
   Blob_Evans_READ_WRITE_TOKEN: z.string().trim().optional(),
   DATABASE_URL: z.string().trim().optional(),
+  DIRECT_URL: z.string().trim().optional(),
 });
 
 export type EnvConfig = ReturnType<typeof loadEnv>;
@@ -33,7 +34,7 @@ export function loadEnv() {
 
   const rawBlobToken = env.BLOB_READ_WRITE_TOKEN ?? env.Blob_Evans_READ_WRITE_TOKEN;
 
-  const databaseUrl = env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL;
+  const databaseUrl = env.DATABASE_URL;
 
   if (!databaseUrl) {
     console.warn("[WARN] DATABASE_URL is not set. Database-backed API routes will be disabled until it is configured.");

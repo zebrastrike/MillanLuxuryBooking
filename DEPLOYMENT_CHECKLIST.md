@@ -18,7 +18,8 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 
 | Variable Name | Value | Source |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require` | Neon connection string |
+| `DATABASE_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=10` | Neon pooled connection string (for Prisma on Vercel) |
+| `DIRECT_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe.us-west-2.aws.neon.tech/neondb?sslmode=require` | Neon direct (non-pooler) connection for migrations |
 | `CLERK_SECRET_KEY` | Your Clerk secret key | Clerk Dashboard → API Keys |
 | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...` | Clerk Dashboard → API Keys |
 | `BLOB_READ_WRITE_TOKEN` | Your Vercel Blob token | Vercel Project → Storage → Blob |
