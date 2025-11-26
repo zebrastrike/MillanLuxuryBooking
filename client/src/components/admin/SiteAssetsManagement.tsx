@@ -30,8 +30,8 @@ export function SiteAssetsManagement() {
   const assetValues = useMemo(() => data ?? {}, [data]);
 
   const updateMutation = useMutation({
-    mutationFn: async ({ key, url }: { key: string; url: string }) => {
-      const res = await apiRequest("PUT", `/api/assets/${key}`, { url });
+    mutationFn: async ({ key, url, publicId, filename }: { key: string; url: string; publicId?: string; filename?: string }) => {
+      const res = await apiRequest("PUT", `/api/assets/${key}`, { url, publicId, filename });
       const body = await res.json();
       return (body?.data ?? body) as { key: string; url: string; publicId?: string; filename?: string };
     },
@@ -164,14 +164,15 @@ export function SiteAssetsManagement() {
 
       <BlobBrowserModal
         open={blobBrowserOpen}
-        prefix="assets/"
+        prefix="branding"
         onClose={() => {
           setBlobBrowserOpen(false);
           setBlobTargetKey(null);
         }}
-        onSelect={(url) => {
+        onSelect={(image) => {
           if (blobTargetKey) {
-            updateMutation.mutate({ key: blobTargetKey, url });
+            const filename = image.pathname.split("/").pop();
+            updateMutation.mutate({ key: blobTargetKey, url: image.url, publicId: image.pathname, filename: filename ?? undefined });
           }
         }}
       />

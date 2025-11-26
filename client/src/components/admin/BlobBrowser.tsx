@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { ImageIcon, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { BlobImage } from "@/types/blob";
 
 const assetKeys = [
   { key: "logo", label: "Logo" },
@@ -17,27 +18,27 @@ const assetKeys = [
   { key: "aboutPortrait", label: "Owner Portrait" },
 ];
 
-export type BlobSummary = {
-  url: string;
-  pathname: string;
-  size?: number;
-  uploadedAt?: string;
-};
+const blobPrefixOptions = [
+  { value: "branding", label: "Branding" },
+  { value: "gallery", label: "Gallery" },
+  { value: "before", label: "Gallery - Before" },
+  { value: "after", label: "Gallery - After" },
+  { value: "testimonials", label: "Testimonials" },
+] as const;
 
 export function BlobBrowser() {
-  const [prefix, setPrefix] = useState("");
+  const [prefix, setPrefix] = useState<(typeof blobPrefixOptions)[number]["value"]>("gallery");
   const [selectedKeys, setSelectedKeys] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data, isFetching, isLoading, error, refetch } = useQuery<BlobSummary[]>({
-    queryKey: ["/api/blob", prefix],
+  const { data, isFetching, isLoading, error, refetch } = useQuery<BlobImage[]>({
+    queryKey: ["/api/blob/list", prefix],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (prefix) params.set("prefix", prefix);
-      const res = await apiRequest("GET", `/api/blob${params.size ? `?${params.toString()}` : ""}`);
+      const params = new URLSearchParams({ prefix });
+      const res = await apiRequest("GET", `/api/blob/list?${params.toString()}`);
       const payload = await res.json();
-      const blobs = payload?.data ?? payload;
+      const blobs = payload?.images ?? payload?.data ?? payload;
       return Array.isArray(blobs) ? blobs : [];
     },
   });
@@ -45,7 +46,7 @@ export function BlobBrowser() {
   const files = useMemo(() => data ?? [], [data]);
 
   const setAssetMutation = useMutation({
-    mutationFn: async ({ key, blob }: { key: string; blob: BlobSummary }) => {
+    mutationFn: async ({ key, blob }: { key: string; blob: BlobImage }) => {
       const filename = blob.pathname.split("/").pop() ?? key;
       const res = await apiRequest("PUT", `/api/assets/${key}`, {
         url: blob.url,
@@ -70,7 +71,7 @@ export function BlobBrowser() {
       return await res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/blob"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blob/list"] });
       queryClient.invalidateQueries({ queryKey: ["/api/assets"] });
       toast({ title: "Deleted", description: "Blob removed successfully." });
     },
@@ -114,12 +115,18 @@ export function BlobBrowser() {
           <CardDescription>Browse, assign, and delete images stored in Vercel Blob.</CardDescription>
         </div>
         <div className="flex items-center gap-2">
-          <Input
-            placeholder="Filter by prefix (e.g. assets/, gallery/)"
-            value={prefix}
-            onChange={(event) => setPrefix(event.target.value)}
-            className="w-56"
-          />
+          <Select value={prefix} onValueChange={(value) => setPrefix(value as (typeof blobPrefixOptions)[number]["value"])}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Choose folder" />
+            </SelectTrigger>
+            <SelectContent>
+              {blobPrefixOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="icon" onClick={() => refetch()} disabled={isFetching}>
             {isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
           </Button>
