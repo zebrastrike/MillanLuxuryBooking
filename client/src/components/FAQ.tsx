@@ -12,7 +12,7 @@ import type { Faq } from "@shared/types";
 
 export function FAQ() {
   const { data: faqsPayload, isLoading, error } = useQuery<Faq[]>({
-    queryKey: ["/api/faqs"],
+    queryKey: ["/api/faq/get"],
     retry: false,
   });
 

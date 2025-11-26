@@ -41,7 +41,7 @@ Your current app uses **Replit Auth** which will NOT work on Vercel. Before depl
 - Configure environment variables for new auth system
 
 ### Database
-✅ Your PostgreSQL database (Neon) works perfectly with Vercel!
+✅ Vercel Postgres works perfectly with Vercel deployments.
 
 ## Pre-Deployment Checklist
 
@@ -50,7 +50,9 @@ You need to add these in Vercel Dashboard → Settings → Environment Variables
 
 ```bash
 # Database (Required)
-DATABASE_URL=your_neon_database_connection_string
+POSTGRES_URL=vercel_generated_pool_connection
+PRISMA_DATABASE_URL=vercel_generated_prisma_connection
+DATABASE_URL=$PRISMA_DATABASE_URL
 
 # Session Secret (Required)
 SESSION_SECRET=your_random_secret_key_here

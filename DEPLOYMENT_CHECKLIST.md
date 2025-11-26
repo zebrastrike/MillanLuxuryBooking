@@ -4,7 +4,7 @@
 
 - ✅ Full-stack app (React + Express + TypeScript)
 - ✅ Clerk authentication configured
-- ✅ Neon PostgreSQL database set up and populated
+- ✅ Vercel Postgres database set up and populated
 - ✅ Vercel Blob storage configured with all images
 - ✅ Admin dashboard ready (gallery, testimonials, services, contact messages)
 - ✅ SEO files created (robots.txt, sitemap.xml)
@@ -18,7 +18,9 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 
 | Variable Name | Value | Source |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require` | Neon connection string |
+| `POSTGRES_URL` | Vercel-provided pooled connection string | Vercel Project → Storage → Postgres |
+| `PRISMA_DATABASE_URL` | Vercel-provided Prisma connection string | Vercel Project → Storage → Postgres |
+| `DATABASE_URL` | Same as `PRISMA_DATABASE_URL` for Prisma datasource | Vercel Project → Storage → Postgres |
 | `CLERK_SECRET_KEY` | Your Clerk secret key | Clerk Dashboard → API Keys |
 | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...` | Clerk Dashboard → API Keys |
 | `BLOB_READ_WRITE_TOKEN` | Your Vercel Blob token | Vercel Project → Storage → Blob |
@@ -77,7 +79,7 @@ Once logged in as admin, you can:
 ## Important Notes
 
 ### Database
-- Using Neon PostgreSQL (free tier available)
+- Using Vercel Postgres (auto-provisioned)
 - All data persists across deployments
 - Database connection through environment variables
 
@@ -113,7 +115,7 @@ Once logged in as admin, you can:
 
 ### Database errors?
 - Check `DATABASE_URL` is correct
-- Verify Neon database is accessible
+- Verify the Vercel Postgres database is accessible
 - Database tables were auto-created via `npm run db:push`
 
 ---
@@ -138,4 +140,3 @@ If you encounter any issues:
 
 For Clerk issues: https://clerk.com/docs
 For Vercel issues: https://vercel.com/docs
-For Neon issues: https://neon.tech/docs

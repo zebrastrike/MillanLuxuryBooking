@@ -34,7 +34,7 @@ export function FaqManagement() {
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
 
   const { data: faqsPayload, isLoading, error } = useQuery<Faq[]>({
-    queryKey: ["/api/faqs"],
+    queryKey: ["/api/faq/get"],
     retry: false,
   });
 
@@ -81,13 +81,13 @@ export function FaqManagement() {
 
   const addMutation = useMutation({
     mutationFn: async (data: FaqFormData) => {
-      const res = await apiRequest("POST", "/api/faqs", data);
+      const res = await apiRequest("POST", "/api/faq/add", data);
       const body = await res.json().catch(() => null);
       return (body?.data ?? body) as Faq | null;
     },
     onSuccess: (item) => {
       if (item) {
-        queryClient.setQueryData<Faq[]>(["/api/faqs"], (prev = []) => {
+        queryClient.setQueryData<Faq[]>(["/api/faq/get"], (prev = []) => {
           const normalizedPrev = normalizeCachedFaqs(prev);
           const next = [...normalizedPrev, item];
           return next.sort((a, b) => {
@@ -96,7 +96,7 @@ export function FaqManagement() {
           });
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/faq/get"] });
       toast({
         title: "Success",
         description: "FAQ created successfully",
@@ -120,17 +120,17 @@ export function FaqManagement() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<FaqFormData> }) => {
-      const res = await apiRequest("PATCH", `/api/faqs/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/faq/${id}`, data);
       const body = await res.json().catch(() => null);
       return (body?.data ?? body) as Faq | null;
     },
     onSuccess: (item) => {
       if (item) {
-        queryClient.setQueryData<Faq[]>(["/api/faqs"], (prev = []) =>
+        queryClient.setQueryData<Faq[]>(["/api/faq/get"], (prev = []) =>
           normalizeCachedFaqs(prev).map((faq) => (faq.id === item.id ? item : faq))
         );
       }
-      queryClient.invalidateQueries({ queryKey: ["/api/faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/faq/get"] });
       toast({
         title: "Success",
         description: "FAQ updated successfully",
@@ -154,14 +154,14 @@ export function FaqManagement() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/faqs/${id}`);
+      await apiRequest("DELETE", `/api/faq/${id}`);
       return id;
     },
     onSuccess: (id) => {
-      queryClient.setQueryData<Faq[]>(["/api/faqs"], (prev = []) =>
+      queryClient.setQueryData<Faq[]>(["/api/faq/get"], (prev = []) =>
         normalizeCachedFaqs(prev).filter((item) => item.id !== id)
       );
-      queryClient.invalidateQueries({ queryKey: ["/api/faqs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/faq/get"] });
       toast({
         title: "Success",
         description: "FAQ deleted successfully",

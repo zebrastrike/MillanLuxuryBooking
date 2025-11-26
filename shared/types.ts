@@ -116,6 +116,7 @@ export interface Post {
   slug: string;
   excerpt: string;
   body: string;
+  imageUrl?: string | null;
   published: boolean;
   createdAt: string | Date;
   updatedAt: string | Date;
@@ -229,6 +230,7 @@ export const createPostSchema = z.object({
   slug: z.string().min(1).regex(slugRegex, "Slug must be URL-safe"),
   excerpt: z.string().min(1, "Excerpt is required"),
   body: z.string().min(1, "Body is required"),
+  imageUrl: optionalUrl.optional(),
   published: z.boolean().optional().default(false),
 });
 export type CreatePost = z.infer<typeof createPostSchema>;

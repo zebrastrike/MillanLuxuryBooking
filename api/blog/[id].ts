@@ -1,14 +1,14 @@
 import { ZodError } from "zod";
 import { getAuth } from "@clerk/vercel";
 import { prisma } from "../../lib/prisma";
-import { updateServiceSchema } from "../../shared/types";
+import { updatePostSchema } from "../../shared/types";
 import { ensureParsedBody, methodNotAllowed, parseIdParam } from "../_utils";
 
 export default async function handler(req: any, res: any) {
   const id = parseIdParam(req.query?.id);
 
   if (!id) {
-    res.status(400).json({ message: "Invalid service id" });
+    res.status(400).json({ message: "Invalid post id" });
     return;
   }
 
@@ -25,27 +25,27 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "DELETE") {
     try {
-      await prisma.serviceItem.delete({ where: { id } });
+      await prisma.post.delete({ where: { id } });
       res.status(204).end();
     } catch (error) {
-      console.error("Failed to delete service", error);
-      res.status(500).json({ message: "Failed to delete service" });
+      console.error("Failed to delete post", error);
+      res.status(500).json({ message: "Failed to delete post" });
     }
     return;
   }
 
   try {
     const payload = ensureParsedBody(req);
-    const data = updateServiceSchema.parse(payload);
-    const updated = await prisma.serviceItem.update({ where: { id }, data });
-    res.status(200).json(updated);
+    const data = updatePostSchema.parse(payload);
+    const post = await prisma.post.update({ where: { id }, data: { ...data, updatedAt: new Date() } });
+    res.status(200).json(post);
   } catch (error) {
     if (error instanceof ZodError) {
-      res.status(400).json({ message: "Invalid service data", errors: error.issues });
+      res.status(400).json({ message: "Invalid post data", errors: error.issues });
       return;
     }
 
-    console.error("Failed to update service", error);
-    res.status(500).json({ message: "Failed to update service" });
+    console.error("Failed to update post", error);
+    res.status(500).json({ message: "Failed to update post" });
   }
 }

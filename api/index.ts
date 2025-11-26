@@ -1,9 +1,6 @@
-import { assertPrisma } from "../server/db/prismaClient";
-
 // Basic health/info endpoint for Vercel serverless runtime
 export default async function handler(_req: any, res: any) {
   try {
-    assertPrisma();
     res.status(200).json({
       name: "Millan Luxury Cleaning API",
       status: "ok",

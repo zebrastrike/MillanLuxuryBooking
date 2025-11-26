@@ -11,7 +11,7 @@ const formatDate = (value?: string | Date | null) => {
 
 export default function BlogIndex() {
   const { data: posts = [], isLoading, error } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
+    queryKey: ["/api/blog/get"],
     retry: false,
   });
 
@@ -42,6 +42,15 @@ export default function BlogIndex() {
           {sortedPosts.map((post) => (
             <Link key={post.id} href={`/blog/${post.slug}`} className="block group">
               <article className="rounded-xl border border-primary/10 bg-card/60 p-6 transition hover:border-primary/40 hover:shadow-lg">
+                {post.imageUrl && (
+                  <div className="mb-4 overflow-hidden rounded-lg border border-primary/10">
+                    <img
+                      src={post.imageUrl}
+                      alt={post.title}
+                      className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
+                    />
+                  </div>
+                )}
                 <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
                   <span>{formatDate(post.createdAt)}</span>
                   <span>•</span>

@@ -1,8 +1,6 @@
-import { assertPrisma } from "../server/db/prismaClient";
 import { insertContactMessageSchema } from "../shared/types";
 import { ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
-
-const prisma = assertPrisma();
+import { prisma } from "../lib/prisma";
 
 export default async function handler(req: any, res: any) {
   if (req.method === "GET") {
