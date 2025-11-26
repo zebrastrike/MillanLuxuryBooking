@@ -47,7 +47,8 @@ git push origin main
    - **Build Command**: `npm run vercel-build`
    - **Output Directory**: `dist/public`
 4. Add Environment Variables:
-   - `DATABASE_URL` = your Neon PostgreSQL connection string
+   - `DATABASE_URL` = Neon pooled connection string (`...pooler...?...sslmode=require&pgbouncer=true&connect_timeout=10`)
+   - `DIRECT_URL` = Neon direct connection string (`...primary...?...sslmode=require`)
    - `SESSION_SECRET` = any random secret key
    - `BLOB_READ_WRITE_TOKEN` = get from Vercel Storage → Blob (see below)
    - `NODE_ENV` = production

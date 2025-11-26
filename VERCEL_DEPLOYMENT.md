@@ -50,7 +50,8 @@ You need to add these in Vercel Dashboard → Settings → Environment Variables
 
 ```bash
 # Database (Required)
-DATABASE_URL=your_neon_database_connection_string
+DATABASE_URL=postgresql://neondb_owner:******@ep-your-neon-pooler.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=10
+DIRECT_URL=postgresql://neondb_owner:******@ep-your-neon-primary.aws.neon.tech/neondb?sslmode=require
 
 # Session Secret (Required)
 SESSION_SECRET=your_random_secret_key_here
