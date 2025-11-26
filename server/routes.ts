@@ -664,10 +664,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       
-      // Preprocess: strip empty strings to undefined
+      // Preprocess: strip empty strings to undefined. Guard against missing/invalid bodies
+      const incomingBody = req.body;
+      const entries =
+        incomingBody && typeof incomingBody === "object"
+          ? Object.entries(incomingBody)
+          : [];
+
       const preprocessedBody: any = {};
-      for (const [key, value] of Object.entries(req.body)) {
-        if (typeof value === 'string' && value.trim() === '') {
+      for (const [key, value] of entries) {
+        if (typeof value === "string" && value.trim() === "") {
           continue;
         }
         preprocessedBody[key] = value;
