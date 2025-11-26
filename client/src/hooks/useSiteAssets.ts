@@ -48,18 +48,16 @@ export function useSiteAssets() {
       }
 
       if (assets && typeof assets === "object") {
-        const safeAssets = assets as Record<string, SiteAssetResponseRecord> | undefined;
+        const safeAssets = !Array.isArray(assets) && assets ? assets : {};
+        const entries = Object.entries((safeAssets as Record<string, SiteAssetResponseRecord>) ?? {});
 
-        return Object.entries(safeAssets ?? {}).reduce<SiteAssetMap>(
-          (acc, [key, value]) => {
-            const normalized = normalizeAsset(value, key);
-            if (normalized) {
-              acc[key] = normalized;
-            }
-            return acc;
-          },
-          {},
-        );
+        return entries.reduce<SiteAssetMap>((acc, [key, value]) => {
+          const normalized = normalizeAsset(value, key);
+          if (normalized) {
+            acc[key] = normalized;
+          }
+          return acc;
+        }, {});
       }
 
       return {};
