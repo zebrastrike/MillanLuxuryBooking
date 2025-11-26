@@ -3,7 +3,8 @@
  * Use the Clerk Node SDK for serverless functions.
  */
 import type { PrismaClient } from "@prisma/client";
-import { getAuth } from "@clerk/clerk-sdk-node";
+import { clerkClient, getAuth } from "@clerk/clerk-sdk-node";
+import { isAdminUser } from "../shared/auth";
 import { hasDatabaseUrl } from "../server/db/prismaClient";
 
 const clerkEnabled = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY);
@@ -60,17 +61,56 @@ export async function requireAdmin(req: any, res: any, prisma: PrismaClient) {
     return null;
   }
 
-  const auth = getAuth(req);
-  if (!auth?.userId) {
-    res.status(401).json({ message: "Unauthorized" });
+  try {
+    const auth = getAuth(req);
+    const userId = auth?.userId;
+
+    if (!userId) {
+      res.status(401).json({ message: "Unauthorized" });
+      return null;
+    }
+
+    const [dbUser, clerkUser] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId } }),
+      clerkClient.users.getUser(userId),
+    ]);
+
+    const adminFromClerk = isAdminUser(clerkUser);
+    const userIsAdmin = Boolean(dbUser?.isAdmin) || adminFromClerk;
+
+    if (!userIsAdmin) {
+      res.status(403).json({ message: "Forbidden - admin access required" });
+      return null;
+    }
+
+    if (dbUser) return dbUser;
+
+    const email =
+      clerkUser.primaryEmailAddress?.emailAddress ||
+      clerkUser.emailAddresses.find((address) => address.emailAddress)?.emailAddress ||
+      null;
+
+    return prisma.user.upsert({
+      where: { id: userId },
+      update: {
+        email,
+        firstName: clerkUser.firstName || null,
+        lastName: clerkUser.lastName || null,
+        profileImageUrl: clerkUser.imageUrl || null,
+        isAdmin: userIsAdmin,
+      },
+      create: {
+        id: userId,
+        email,
+        firstName: clerkUser.firstName || null,
+        lastName: clerkUser.lastName || null,
+        profileImageUrl: clerkUser.imageUrl || null,
+        isAdmin: userIsAdmin,
+      },
+    });
+  } catch (error) {
+    console.error("Admin verification failed", error);
+    res.status(500).json({ message: "Failed to verify admin status" });
     return null;
   }
-
-  const user = await prisma.user.findUnique({ where: { id: auth.userId } });
-  if (!user?.isAdmin) {
-    res.status(403).json({ message: "Forbidden - admin access required" });
-    return null;
-  }
-
-  return user;
 }
