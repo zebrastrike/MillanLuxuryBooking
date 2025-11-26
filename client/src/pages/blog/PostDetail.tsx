@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import type { Post } from "@shared/schema";
+import type { Post } from "@shared/types";
 import { ApiError } from "@/lib/queryClient";
 
 const formatDate = (value?: string | Date | null) => {

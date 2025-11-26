@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Mail, Calendar, User } from "lucide-react";
 import { format } from "date-fns";
-import type { ContactMessage } from "@shared/schema";
+import type { ContactMessage } from "@shared/types";
 import { handleUnauthorizedError } from "@/lib/authUtils";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect } from "react";

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import type { Post } from "@shared/schema";
+import type { Post } from "@shared/types";
 
 const formatDate = (value?: string | Date | null) => {
   if (!value) return "";

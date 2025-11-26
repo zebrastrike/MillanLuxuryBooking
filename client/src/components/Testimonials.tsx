@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Star, ExternalLink } from "lucide-react";
-import type { Testimonial } from "@shared/schema";
+import type { Testimonial } from "@shared/types";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 
 export function Testimonials() {

@@ -15,8 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
-import type { InsertPost, Post } from "@shared/schema";
-import { insertPostSchema } from "@shared/schema";
+import type { InsertPost, Post } from "@shared/types";
+import { insertPostSchema } from "@shared/types";
 import { Edit, Loader2, Plus, Trash2 } from "lucide-react";
 
 const sortPosts = (items: Post[]) =>

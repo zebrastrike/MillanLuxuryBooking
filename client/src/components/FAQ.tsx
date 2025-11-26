@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import { Skeleton } from "@/components/ui/skeleton";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import type { Faq } from "@shared/schema";
+import type { Faq } from "@shared/types";
 
 export function FAQ() {
   const { data: faqsPayload, isLoading, error } = useQuery<Faq[]>({

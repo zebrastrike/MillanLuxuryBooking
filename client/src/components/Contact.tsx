@@ -16,7 +16,7 @@ import { BusinessHours } from "./BusinessHours";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { insertContactMessageSchema, type InsertContactMessage } from "@shared/schema";
+import { insertContactMessageSchema, type InsertContactMessage } from "@shared/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";

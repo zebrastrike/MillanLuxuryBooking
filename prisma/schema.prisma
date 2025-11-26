@@ -1,0 +1,150 @@
+// Prisma schema for Millan Luxury Cleaning
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String   @id
+  email           String?  @unique
+  firstName       String?
+  lastName        String?
+  profileImageUrl String?
+  isAdmin         Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("users")
+}
+
+model Session {
+  sid    String   @id
+  sess   Json
+  expire DateTime
+
+  @@index([expire])
+  @@map("sessions")
+}
+
+model ContactMessage {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  service   String
+  message   String
+  timestamp DateTime @default(now())
+
+  @@map("contact_messages")
+}
+
+model GalleryItem {
+  id                   Int      @id @default(autoincrement())
+  title                String
+  category             String
+  imageUrl             String?
+  imagePublicId        String?
+  imageFilename        String?
+  imageMetadata        Json?
+  beforeImageUrl       String?
+  beforeImagePublicId  String?
+  beforeImageFilename  String?
+  beforeImageMetadata  Json?
+  afterImageUrl        String?
+  afterImagePublicId   String?
+  afterImageFilename   String?
+  afterImageMetadata   Json?
+  order                Int      @default(0)
+  createdAt            DateTime @default(now())
+
+  @@map("gallery_items")
+}
+
+model ServiceItem {
+  id           Int      @id @default(autoincrement())
+  title        String
+  description  String
+  iconUrl      String?
+  imageUrl     String?
+  iconMetadata Json?
+  imageMetadata Json?
+  createdAt    DateTime @default(now())
+
+  // Legacy compatibility
+  name     String?
+  features String[] @default([])
+  order    Int      @default(0)
+
+  @@map("services")
+}
+
+model Testimonial {
+  id        Int      @id @default(autoincrement())
+  author    String
+  rating    Int
+  content   String
+  createdAt DateTime @default(now())
+
+  // Legacy compatibility
+  name     String?
+  review   String?
+  source   String?
+  sourceUrl String?
+  order    Int      @default(0)
+
+  @@map("testimonials")
+}
+
+model FaqItem {
+  id        Int      @id @default(autoincrement())
+  question  String
+  answer    String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@map("faqs")
+}
+
+model BrandingAsset {
+  id            Int      @id @default(autoincrement())
+  logoUrl       String?
+  heroCrownUrl  String?
+  backgroundUrl String?
+  logoMetadata       Json?
+  heroCrownMetadata  Json?
+  backgroundMetadata Json?
+  updatedAt     DateTime @updatedAt
+
+  @@map("branding_assets")
+}
+
+model SiteAsset {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  url         String
+  name        String?
+  filename    String?
+  publicId    String?
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("site_assets")
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  slug      String   @unique
+  excerpt   String
+  body      String
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("posts")
+}

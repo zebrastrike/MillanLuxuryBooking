@@ -1,6 +1,6 @@
 import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
 import { useQuery } from "@tanstack/react-query";
-import type { User } from "@shared/schema";
+import type { User } from "@shared/types";
 import { isAdminUser } from "@shared/auth";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
 
