@@ -1,11 +1,12 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../server/db/prismaClient";
 import { insertGalleryItemSchema } from "../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed, requireAdmin } from "./_utils";
-
-const prisma = assertPrisma();
+import { ensureDatabase, ensureParsedBody, handleUnknownError, methodNotAllowed, requireAdmin } from "./_utils";
 
 export default async function handler(req: any, res: any) {
+  if (!ensureDatabase(res)) return;
+  const prisma = assertPrisma();
+
   if (req.method === "GET") {
     try {
       const items = await prisma.galleryItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });

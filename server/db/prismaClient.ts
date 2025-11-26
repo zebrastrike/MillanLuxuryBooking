@@ -2,7 +2,14 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const hasDatabaseUrl = Boolean(process.env.DATABASE_URL);
+const databaseUrl =
+  process.env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL;
+
+if (databaseUrl && !process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = databaseUrl;
+}
+
+export const hasDatabaseUrl = Boolean(databaseUrl);
 
 export const prisma = hasDatabaseUrl
   ? globalForPrisma.prisma ??

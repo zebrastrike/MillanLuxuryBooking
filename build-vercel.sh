@@ -8,6 +8,8 @@ echo "Starting Vercel build..."
 echo "Node version: $(node --version)"
 echo "Current directory: $(pwd)"
 
+export DATABASE_URL=${DATABASE_URL:-${POSTGRES_URL:-${PRISMA_DATABASE_URL:-}}}
+
 if [ -z "$DATABASE_URL" ]; then
   echo "Skipping Prisma setup because DATABASE_URL is not set."
 else

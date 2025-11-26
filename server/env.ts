@@ -33,7 +33,9 @@ export function loadEnv() {
 
   const rawBlobToken = env.BLOB_READ_WRITE_TOKEN ?? env.Blob_Evans_READ_WRITE_TOKEN;
 
-  if (!env.DATABASE_URL) {
+  const databaseUrl = env.DATABASE_URL ?? process.env.POSTGRES_URL ?? process.env.PRISMA_DATABASE_URL;
+
+  if (!databaseUrl) {
     console.warn("[WARN] DATABASE_URL is not set. Database-backed API routes will be disabled until it is configured.");
   }
 
@@ -59,6 +61,6 @@ export function loadEnv() {
     blob: {
       token: blobToken,
     },
-    databaseUrl: env.DATABASE_URL,
+    databaseUrl,
   } as const;
 }

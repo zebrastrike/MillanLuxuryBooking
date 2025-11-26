@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@prisma/client";
 import { getAuth } from "@clerk/vercel-edge";
+import { hasDatabaseUrl } from "../server/db/prismaClient";
 
 const clerkEnabled = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY);
 
@@ -29,6 +30,15 @@ export function methodNotAllowed(res: any, methods: string[]) {
 export function handleUnknownError(res: any, error: unknown, message: string) {
   console.error(message, error);
   res.status(500).json({ success: false, message });
+}
+
+export function ensureDatabase(res: any) {
+  if (hasDatabaseUrl) return true;
+
+  res.status(503).json({
+    message: "Database connection is not configured. Set DATABASE_URL to enable API routes.",
+  });
+  return false;
 }
 
 export async function requireAdmin(req: any, res: any, prisma: PrismaClient) {

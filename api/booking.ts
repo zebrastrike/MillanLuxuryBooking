@@ -1,10 +1,11 @@
 import { assertPrisma } from "../server/db/prismaClient";
 import { insertContactMessageSchema } from "../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
-
-const prisma = assertPrisma();
+import { ensureDatabase, ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
 
 export default async function handler(req: any, res: any) {
+  if (!ensureDatabase(res)) return;
+  const prisma = assertPrisma();
+
   if (req.method === "POST") {
     try {
       const payload = insertContactMessageSchema.parse(ensureParsedBody(req));
