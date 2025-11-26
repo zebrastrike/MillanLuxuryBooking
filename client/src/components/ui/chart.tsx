@@ -69,11 +69,10 @@ const ChartContainer = React.forwardRef<
 ChartContainer.displayName = "Chart"
 
 const ChartStyle = ({ id, config }: { id: string; config?: ChartConfig }) => {
-  if (!config || typeof config !== "object") {
-    return null
-  }
+  const safeConfig =
+    config && typeof config === "object" ? config : ({} as ChartConfig)
 
-  const colorConfig = Object.entries(config).filter(
+  const colorConfig = Object.entries(safeConfig).filter(
     ([, config]) => config.theme || config.color
   )
 

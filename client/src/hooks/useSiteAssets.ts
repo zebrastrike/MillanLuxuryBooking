@@ -48,7 +48,9 @@ export function useSiteAssets() {
       }
 
       if (assets && typeof assets === "object") {
-        return Object.entries(assets as Record<string, SiteAssetResponseRecord>).reduce<SiteAssetMap>(
+        const safeAssets = assets as Record<string, SiteAssetResponseRecord> | undefined;
+
+        return Object.entries(safeAssets ?? {}).reduce<SiteAssetMap>(
           (acc, [key, value]) => {
             const normalized = normalizeAsset(value, key);
             if (normalized) {
