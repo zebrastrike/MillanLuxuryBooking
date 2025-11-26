@@ -11,20 +11,31 @@ declare global {
 }
 
 function initializeAnalytics() {
-  if (window.dataLayer) return;
+  if (typeof window === "undefined") return;
 
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = (...args: unknown[]) => {
-    window.dataLayer.push(args);
-  };
+  try {
+    if (window.dataLayer) return;
 
-  window.gtag("js", new Date());
-  window.gtag("config", GA_MEASUREMENT_ID, { send_page_view: false });
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = (...args: unknown[]) => {
+      window.dataLayer.push(args);
+    };
 
-  const script = document.createElement("script");
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
-  document.head.appendChild(script);
+    window.gtag("js", new Date());
+    window.gtag("config", GA_MEASUREMENT_ID, { send_page_view: false });
+
+    const script = document.createElement("script");
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
+    script.onerror = () => {
+      // eslint-disable-next-line no-console
+      console.warn("[Analytics] Failed to load Google Tag Manager script");
+    };
+    document.head.appendChild(script);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.warn("[Analytics] Initialization failed", error);
+  }
 }
 
 export function Analytics() {
