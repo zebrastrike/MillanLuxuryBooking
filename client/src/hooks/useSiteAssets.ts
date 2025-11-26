@@ -33,10 +33,14 @@ export function useSiteAssets() {
         throw new Error("Failed to load site assets");
       }
       const payload = await res.json();
-      const assets = payload?.data ?? payload ?? {};
+      const rawAssets = payload?.data !== undefined ? payload.data : payload;
+      const assets =
+        rawAssets && typeof rawAssets === "object" && !Array.isArray(rawAssets)
+          ? rawAssets
+          : undefined;
 
-      if (Array.isArray(assets)) {
-        return (assets as SiteAssetResponseRecord[]).reduce<SiteAssetMap>((acc, asset) => {
+      if (Array.isArray(rawAssets)) {
+        return (rawAssets as SiteAssetResponseRecord[]).reduce<SiteAssetMap>((acc, asset) => {
           if (asset?.key && asset?.url) {
             const normalized = normalizeAsset(asset);
             if (normalized) {
@@ -49,7 +53,7 @@ export function useSiteAssets() {
 
       if (assets && typeof assets === "object") {
         const safeAssets = !Array.isArray(assets) && assets ? assets : {};
-        const entries = Object.entries((safeAssets as Record<string, SiteAssetResponseRecord>) ?? {});
+        const entries = Object.entries((safeAssets as Record<string, SiteAssetResponseRecord>) || {});
 
         return entries.reduce<SiteAssetMap>((acc, [key, value]) => {
           const normalized = normalizeAsset(value, key);

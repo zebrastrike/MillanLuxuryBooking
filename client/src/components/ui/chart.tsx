@@ -42,10 +42,13 @@ const ChartContainer = React.forwardRef<
       typeof RechartsPrimitive.ResponsiveContainer
     >["children"]
   }
->(({ id, className, children, config, ...props }, ref) => {
+  >(({ id, className, children, config, ...props }, ref) => {
   const uniqueId = React.useId()
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
-  const safeConfig = (config && typeof config === "object" ? config : {}) as ChartConfig
+  const safeConfig =
+    config && typeof config === "object" && !Array.isArray(config)
+      ? (config as ChartConfig)
+      : ({} as ChartConfig)
 
   return (
     <ChartContext.Provider value={{ config: safeConfig }}>
@@ -70,9 +73,11 @@ ChartContainer.displayName = "Chart"
 
 const ChartStyle = ({ id, config }: { id: string; config?: ChartConfig }) => {
   const safeConfig =
-    config && typeof config === "object" ? config : ({} as ChartConfig)
+    config && typeof config === "object" && !Array.isArray(config)
+      ? config
+      : ({} as ChartConfig)
 
-  const colorConfig = Object.entries(safeConfig).filter(
+  const colorConfig = Object.entries(safeConfig || {}).filter(
     ([, config]) => config.theme || config.color
   )
 
