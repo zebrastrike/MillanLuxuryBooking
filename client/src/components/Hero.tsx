@@ -35,6 +35,9 @@ export function Hero() {
               alt="Gold Crown"
               className="w-64 mx-auto drop-shadow-xl object-contain"
             />
+            <span className="crown-sparkle sparkle-1" aria-hidden="true" />
+            <span className="crown-sparkle sparkle-2" aria-hidden="true" />
+            <span className="crown-sparkle sparkle-3" aria-hidden="true" />
           </div>
         </div>
         

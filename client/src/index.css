@@ -194,32 +194,116 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.12) 45%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0.12) 55%, transparent 100%);
+  background: linear-gradient(
+    115deg,
+    rgba(255, 255, 255, 0) 10%,
+    rgba(255, 255, 255, 0.07) 35%,
+    rgba(255, 255, 255, 0.3) 50%,
+    rgba(255, 255, 255, 0.08) 65%,
+    rgba(255, 255, 255, 0) 90%
+  );
   transform: translateX(-120%);
-  animation: crown-gleam 4s ease-in-out infinite;
+  animation: crown-gleam 5.2s ease-in-out infinite;
   mix-blend-mode: screen;
   pointer-events: none;
   will-change: transform, opacity;
 }
 
+.crown-sparkle {
+  position: absolute;
+  display: block;
+  width: 18%;
+  aspect-ratio: 1;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.78) 0%, rgba(255, 255, 255, 0.45) 32%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+  filter: drop-shadow(0 0 6px rgba(255, 234, 174, 0.35));
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.75);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: crown-sparkle 6.5s ease-in-out infinite;
+}
+
+.crown-sparkle::after {
+  content: "";
+  position: absolute;
+  inset: 30% 45%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.85), transparent);
+  transform: rotate(45deg);
+  border-radius: 999px;
+  opacity: 0.7;
+}
+
+.crown-sparkle::before {
+  content: "";
+  position: absolute;
+  inset: 45% 30%;
+  background: linear-gradient(0deg, transparent, rgba(255, 255, 255, 0.9), transparent);
+  transform: rotate(45deg);
+  border-radius: 999px;
+  opacity: 0.75;
+}
+
+.crown-sparkle.sparkle-1 {
+  top: 28%;
+  left: 28%;
+  animation-delay: 0.8s;
+}
+
+.crown-sparkle.sparkle-2 {
+  top: 18%;
+  right: 15%;
+  width: 15%;
+  animation-delay: 2.2s;
+}
+
+.crown-sparkle.sparkle-3 {
+  bottom: 12%;
+  left: 50%;
+  width: 12%;
+  animation-delay: 3.7s;
+}
+
 @keyframes crown-gleam {
   0% {
-    transform: translateX(-120%);
+    transform: translateX(-130%);
     opacity: 0;
   }
-  20% {
-    opacity: 0.85;
-  }
-  50% {
-    transform: translateX(110%);
+  18% {
     opacity: 0.75;
   }
-  70% {
-    opacity: 0;
+  45% {
+    transform: translateX(115%);
+    opacity: 0.6;
+  }
+  65% {
+    opacity: 0.08;
   }
   100% {
-    transform: translateX(110%);
+    transform: translateX(115%);
     opacity: 0;
+  }
+}
+
+@keyframes crown-sparkle {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.65);
+  }
+  12% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  24% {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  55% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.75);
   }
 }
 
