@@ -18,7 +18,8 @@ import {
   updateFaqSchema,
 } from "@shared/types";
 import { z, ZodError } from "zod";
-import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
+import { clerkMiddleware, requireAuth } from "@clerk/express";
+import { getAuth, clerkClient } from "@clerk/clerk-sdk-node";
 import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
