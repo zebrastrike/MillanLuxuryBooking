@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../../server/db/prismaClient";
 import { updateServiceSchema } from "../../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
+import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam, requireAdmin } from "../_utils";
 
 const prisma = assertPrisma();
 
@@ -14,6 +14,9 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "PATCH") {
     try {
+      const user = await requireAdmin(req, res, prisma);
+      if (!user) return;
+
       const updates = updateServiceSchema.parse(ensureParsedBody(req));
       const existing = await prisma.serviceItem.findUnique({ where: { id } });
       if (!existing) {
@@ -35,6 +38,9 @@ export default async function handler(req: any, res: any) {
 
   if (req.method === "DELETE") {
     try {
+      const user = await requireAdmin(req, res, prisma);
+      if (!user) return;
+
       const existing = await prisma.serviceItem.findUnique({ where: { id } });
       if (!existing) {
         res.status(404).json({ success: false, message: "Service not found" });
