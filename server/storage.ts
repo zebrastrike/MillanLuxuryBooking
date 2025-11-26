@@ -78,6 +78,7 @@ export interface IStorage {
   upsertSiteAsset(asset: InsertSiteAsset): Promise<SiteAsset>;
   getSiteAssets(): Promise<SiteAsset[]>;
   getSiteAssetByKey(key: string): Promise<SiteAsset | undefined>;
+  getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined>;
 
   // Posts
   createPost(post: InsertPost): Promise<Post>;
@@ -467,6 +468,11 @@ export class DatabaseStorage implements IStorage {
     const [asset] = await this.db.select().from(siteAssets).where(eq(siteAssets.key, key));
     return asset || undefined;
   }
+
+  async getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined> {
+    const [asset] = await this.db.select().from(siteAssets).where(eq(siteAssets.url, url));
+    return asset || undefined;
+  }
 }
 
 class InMemoryStorage implements IStorage {
@@ -494,6 +500,14 @@ class InMemoryStorage implements IStorage {
           filename: "millan-logo.png",
           publicId: "static/millan-logo.png",
           description: "Primary logo"
+        },
+        {
+          key: "heroCrown",
+          url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png",
+          name: "Hero Crown",
+          filename: "millan-logo-edited.png",
+          publicId: "static/millan-logo-edited.png",
+          description: "Hero crown image",
         },
         {
           key: "heroBackground",
@@ -902,6 +916,10 @@ class InMemoryStorage implements IStorage {
 
   async getSiteAssetByKey(key: string): Promise<SiteAsset | undefined> {
     return this.siteAssetsData.find((asset) => asset.key === key);
+  }
+
+  async getSiteAssetByUrl(url: string): Promise<SiteAsset | undefined> {
+    return this.siteAssetsData.find((asset) => asset.url === url);
   }
 }
 

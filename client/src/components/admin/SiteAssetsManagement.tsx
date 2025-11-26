@@ -13,6 +13,7 @@ import { BlobBrowserModal } from "./BlobBrowserModal";
 
 const assetFields = [
   { key: "logo", label: "Logo URL", description: "Shown in navigation and hero." },
+  { key: "heroCrown", label: "Hero Crown", description: "Main crown image in the hero section." },
   { key: "heroBackground", label: "Hero Background", description: "Large landing background image." },
   { key: "servicesBackground", label: "Services Background", description: "Behind the services section." },
   { key: "aboutBackground", label: "About Background", description: "Behind the about section." },

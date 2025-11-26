@@ -166,6 +166,14 @@ async function seed() {
       description: "Primary logo",
     },
     {
+      key: "heroCrown",
+      url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png",
+      name: "Hero Crown",
+      filename: "millan-logo-edited.png",
+      publicId: "static/millan-logo-edited.png",
+      description: "Hero crown image",
+    },
+    {
       key: "heroBackground",
       url: "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png",
       name: "Hero Background",

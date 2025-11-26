@@ -25,7 +25,10 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
     queryKey: ["blob-files", prefix],
     enabled: open,
     queryFn: async () => {
-      const res = await fetch(`/api/blob/list?prefix=${encodeURIComponent(prefix)}`, {
+      const params = new URLSearchParams();
+      if (prefix) params.set("prefix", prefix);
+
+      const res = await fetch(`/api/blob?${params.toString()}`, {
         credentials: "include",
       });
 
@@ -35,7 +38,8 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
       }
 
       const payload = await res.json();
-      return Array.isArray(payload) ? payload : [];
+      const files = payload?.data ?? payload;
+      return Array.isArray(files) ? files : [];
     },
   });
 
