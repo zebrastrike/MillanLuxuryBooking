@@ -13,6 +13,7 @@ import { ServicesManagement } from "@/components/admin/ServicesManagement";
 import { SiteAssetsManagement } from "@/components/admin/SiteAssetsManagement";
 import { BlogManagement } from "@/components/admin/BlogManagement";
 import { FaqManagement } from "@/components/admin/FaqManagement";
+import { BlobBrowser } from "@/components/admin/BlobBrowser";
 
 export default function Admin() {
   const { user, isLoading, isLoaded, isSignedIn, isAdmin, error } = useAuth();
@@ -112,7 +113,7 @@ export default function Admin() {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs defaultValue="gallery" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 max-w-5xl">
+          <TabsList className="grid w-full grid-cols-8 max-w-5xl">
             <TabsTrigger value="gallery" data-testid="tab-gallery">
               <ImageIcon className="mr-2 h-4 w-4" />
               Gallery
@@ -120,6 +121,10 @@ export default function Admin() {
             <TabsTrigger value="branding" data-testid="tab-branding">
               <ImageIcon className="mr-2 h-4 w-4" />
               Branding
+            </TabsTrigger>
+            <TabsTrigger value="assets" data-testid="tab-assets">
+              <ImageIcon className="mr-2 h-4 w-4" />
+              Assets
             </TabsTrigger>
             <TabsTrigger value="testimonials" data-testid="tab-testimonials">
               <Star className="mr-2 h-4 w-4" />
@@ -161,6 +166,16 @@ export default function Admin() {
               </p>
             </div>
             <SiteAssetsManagement />
+          </TabsContent>
+
+          <TabsContent value="assets" className="mt-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-serif font-semibold mb-2">Blob Assets</h2>
+              <p className="text-muted-foreground">
+                Browse all images stored in Vercel Blob, set brand assets, and delete old uploads.
+              </p>
+            </div>
+            <BlobBrowser />
           </TabsContent>
 
           <TabsContent value="testimonials" className="mt-6">

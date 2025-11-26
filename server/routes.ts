@@ -18,14 +18,14 @@ import {
 } from "@shared/schema";
 import { z, ZodError } from "zod";
 import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
-import { del, list, put } from "@vercel/blob";
 import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset } from "@shared/schema";
 import type { EnvConfig } from "./env";
+import { deleteBlob, listBlobs, uploadBlob } from "./blob";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const getBlobPath = (value?: string | null) => {
   if (!value) return null;
@@ -181,26 +181,27 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.post("/api/upload", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
-        res.status(400).json({
-          success: false,
-          message: "No file provided"
-        });
+        res.status(400).json({ error: "No file provided" });
         return;
       }
 
       if (!env.blob.token) {
         res.status(400).json({
-          success: false,
-          message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads."
+          error:
+            "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
         });
+        return;
+      }
+
+      if (!req.file.mimetype?.startsWith("image/")) {
+        res.status(400).json({ error: "Only image uploads are allowed" });
         return;
       }
 
       const filename = `gallery/${Date.now()}-${req.file.originalname}`;
 
-      const blob = await put(filename, req.file.buffer, {
+      const blob = await uploadBlob(filename, req.file.buffer, {
         access: 'public',
-        token: env.blob.token,
       });
 
       res.json({
@@ -214,10 +215,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       });
     } catch (error) {
       console.error("Upload error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Failed to upload file"
-      });
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 
@@ -248,36 +246,69 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
-  app.get("/api/blob/list", requireAdmin, async (req, res) => {
+  app.get("/api/blob", requireAdmin, async (req, res) => {
     if (!env.blob.token) {
-      res.status(503).json({ message: "Blob storage is not configured." });
+      res.status(503).json({ error: "Blob storage is not configured." });
       return;
     }
 
     const parsed = z
       .object({
-        prefix: z.enum(["assets/", "gallery/"]),
+        prefix: z.string().trim().optional(),
       })
       .safeParse(req.query);
 
     if (!parsed.success) {
-      res.status(400).json({ message: "Invalid blob prefix. Use assets/ or gallery/." });
+      res.status(400).json({ error: "Invalid blob query parameters" });
       return;
     }
 
     try {
-      const { blobs } = await list({ prefix: parsed.data.prefix, limit: 100, token: env.blob.token });
-      const files = (blobs ?? []).map((blob) => ({
+      const { blobs = [] } = await listBlobs(parsed.data.prefix || undefined);
+      const files = blobs.map((blob) => ({
         url: blob.url,
         pathname: blob.pathname,
         size: blob.size,
         uploadedAt: blob.uploadedAt,
       }));
 
-      res.json(files);
+      res.json({ data: files });
     } catch (error) {
       console.error("Failed to list blobs", error);
-      res.status(500).json({ message: "Failed to load blob files" });
+      res.status(500).json({ error: "Failed to load blob files" });
+    }
+  });
+
+  app.delete("/api/blob", requireAdmin, async (req, res) => {
+    const parsed = z
+      .object({ url: z.string().url().min(1) })
+      .safeParse(req.body);
+
+    if (!parsed.success) {
+      res.status(400).json({ error: "A valid blob URL is required" });
+      return;
+    }
+
+    const { url } = parsed.data;
+    if (!url.includes(".public.blob.vercel-storage.com")) {
+      res.status(400).json({ error: "Blob URL must point to Vercel Blob storage" });
+      return;
+    }
+
+    try {
+      const linkedAsset = await storage.getSiteAssetByUrl(url);
+      if (linkedAsset) {
+        res.status(400).json({
+          error: `This image is currently used as ${linkedAsset.key}. Please change the asset first.`,
+        });
+        return;
+      }
+
+      await deleteBlob(url);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to delete blob", error);
+      res.status(500).json({ error: "Failed to delete blob" });
     }
   });
 
@@ -285,10 +316,15 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   app.get("/api/assets", async (_req, res) => {
     try {
       const assets = await storage.getSiteAssets();
-      res.json(assets.map((asset) => buildAssetPayload(asset)));
+      const map = assets.reduce<Record<string, ReturnType<typeof buildAssetPayload>>>((acc, asset) => {
+        acc[asset.key] = buildAssetPayload(asset);
+        return acc;
+      }, {});
+
+      res.json({ data: map });
     } catch (error) {
       console.error("Failed to load site assets", error);
-      res.status(500).json({ message: "Failed to load site assets" });
+      res.status(500).json({ error: "Failed to load site assets" });
     }
   });
 
@@ -312,22 +348,26 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
       if (req.file && !env.blob.token) {
         res.status(400).json({
-          success: false,
-          message: "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
+          error:
+            "Vercel Blob storage not configured. Set BLOB_READ_WRITE_TOKEN environment variable or deploy to Vercel to enable file uploads.",
         });
         return;
       }
 
+      if (req.file && !req.file.mimetype?.startsWith("image/")) {
+        res.status(400).json({ error: "Only image uploads are allowed" });
+        return;
+      }
+
       const blob = req.file
-        ? await put(`assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
+        ? await uploadBlob(`assets/${Date.now()}-${req.file.originalname}`, req.file.buffer, {
             access: 'public',
-            token: env.blob.token,
           })
         : null;
 
       const url = blob?.url ?? payload.url;
       if (!url) {
-        res.status(400).json({ success: false, message: "Unable to resolve upload URL" });
+        res.status(400).json({ error: "Unable to resolve upload URL" });
         return;
       }
 
@@ -354,7 +394,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         res.status(400).json({ success: false, message: "Invalid asset payload", errors: error.issues });
         return;
       }
-      res.status(500).json({ success: false, message: "Failed to save asset" });
+      res.status(500).json({ error: "Failed to save asset" });
     }
   });
 
@@ -365,7 +405,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       const existing = await storage.getSiteAssetByKey(key);
 
       if (!existing && !updates.url) {
-        res.status(400).json({ success: false, message: "Provide a URL to create a new asset" });
+        res.status(400).json({ error: "Provide a URL to create a new asset" });
         return;
       }
 
@@ -385,7 +425,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
       console.error("Asset update error:", error);
-      res.status(500).json({ success: false, message: "Failed to update asset" });
+      res.status(500).json({ error: "Failed to update asset" });
     }
   });
 
@@ -601,7 +641,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         if (!env.blob.token) {
           console.warn("BLOB_READ_WRITE_TOKEN missing - skipped blob deletion for gallery item", id);
         } else {
-          await del(blobTargets, { token: env.blob.token });
+          await deleteBlob(blobTargets);
         }
       }
 
