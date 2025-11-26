@@ -1,11 +1,12 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../../server/db/prismaClient";
 import { updateGalleryItemSchema } from "../../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
-
-const prisma = assertPrisma();
+import { ensureDatabase, ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
 
 export default async function handler(req: any, res: any) {
+  if (!ensureDatabase(res)) return;
+  const prisma = assertPrisma();
+
   const id = parseIdParam(req.query?.id);
   if (!id) {
     res.status(400).json({ success: false, message: "Invalid ID" });

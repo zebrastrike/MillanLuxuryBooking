@@ -1,7 +1,14 @@
-import { assertPrisma } from "../server/db/prismaClient";
+import { assertPrisma, hasDatabaseUrl } from "../server/db/prismaClient";
 
 // Basic health/info endpoint for Vercel serverless runtime
 export default async function handler(_req: any, res: any) {
+  if (!hasDatabaseUrl) {
+    res.status(503).json({
+      message: "Database connection is not configured. Set DATABASE_URL to enable API routes.",
+    });
+    return;
+  }
+
   try {
     assertPrisma();
     res.status(200).json({
