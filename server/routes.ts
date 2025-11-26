@@ -1,3 +1,4 @@
+import type { PrismaClient } from "@prisma/client";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { assertPrisma } from "./db/prismaClient";
@@ -69,7 +70,7 @@ const respondAuthUnavailable: RequestHandler = (_req, res) => {
   res.status(503).json({ message: "Authentication is not configured." });
 };
 
-const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+const createRequireAdminMiddleware = (prisma: PrismaClient, clerkEnabled: boolean): RequestHandler => {
   if (!clerkEnabled) {
     return respondAuthUnavailable;
   }
@@ -106,7 +107,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(env.clerkEnabled);
+  const requireAdmin = createRequireAdminMiddleware(prisma, env.clerkEnabled);
   const requireAuthMiddleware: RequestHandler = env.clerkEnabled
     ? requireAuth()
     : respondAuthUnavailable;
