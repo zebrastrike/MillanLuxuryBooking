@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { getAuth } from "@clerk/express";
+import { getAuth } from "@clerk/clerk-sdk-node";
 import { hasDatabaseUrl } from "../server/db/prismaClient";
 
 const clerkEnabled = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY);
@@ -48,12 +48,14 @@ export async function requireAdmin(req: any, res: any, prisma: PrismaClient) {
   }
 
   const auth = getAuth(req);
-  if (!auth?.userId) {
+  const userId = auth?.userId;
+
+  if (!userId) {
     res.status(401).json({ message: "Unauthorized" });
     return null;
   }
 
-  const user = await prisma.user.findUnique({ where: { id: auth.userId } });
+  const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user?.isAdmin) {
     res.status(403).json({ message: "Forbidden - admin access required" });
     return null;
