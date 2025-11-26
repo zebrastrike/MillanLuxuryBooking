@@ -33,7 +33,10 @@ export function loadEnv() {
 
   const rawBlobToken = env.BLOB_READ_WRITE_TOKEN ?? env.Blob_Evans_READ_WRITE_TOKEN;
 
-  requireInProduction(env.DATABASE_URL, "DATABASE_URL");
+  if (!env.DATABASE_URL) {
+    console.warn("[WARN] DATABASE_URL is not set. Database-backed API routes will be disabled until it is configured.");
+  }
+
   requireInProduction(env.CLERK_SECRET_KEY, "CLERK_SECRET_KEY");
   requireInProduction(env.CLERK_PUBLISHABLE_KEY, "CLERK_PUBLISHABLE_KEY");
   requireInProduction(rawBlobToken, "BLOB_READ_WRITE_TOKEN (or Blob_Evans_READ_WRITE_TOKEN)");

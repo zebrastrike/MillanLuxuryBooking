@@ -124,6 +124,13 @@ export interface Post {
 const urlSchema = z.string().trim().url({ message: "Must be a valid URL" });
 const optionalUrl = urlSchema.or(z.literal(""));
 
+const optionalize = <T extends z.ZodRawShape>(shape: T) =>
+  z.object(
+    Object.fromEntries(
+      Object.entries(shape).map(([key, schema]) => [key, (schema as z.ZodTypeAny).optional()]),
+    ) as { [K in keyof T]: z.ZodOptional<T[K]> },
+  );
+
 export const createContactMessageSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
@@ -156,7 +163,7 @@ export const createGalleryItemSchema = z.object({
   }
 });
 export type CreateGalleryItem = z.infer<typeof createGalleryItemSchema>;
-export const updateGalleryItemSchema = createGalleryItemSchema.partial();
+export const updateGalleryItemSchema = optionalize(createGalleryItemSchema.shape);
 export type UpdateGalleryItem = z.infer<typeof updateGalleryItemSchema>;
 
 export const createServiceSchema = z.object({
@@ -172,7 +179,7 @@ export const createServiceSchema = z.object({
   }
 });
 export type CreateService = z.infer<typeof createServiceSchema>;
-export const updateServiceSchema = createServiceSchema.partial();
+export const updateServiceSchema = optionalize(createServiceSchema.shape);
 export type UpdateService = z.infer<typeof updateServiceSchema>;
 
 export const createTestimonialSchema = z.object({
@@ -192,7 +199,7 @@ export const createTestimonialSchema = z.object({
   }
 });
 export type CreateTestimonial = z.infer<typeof createTestimonialSchema>;
-export const updateTestimonialSchema = createTestimonialSchema.partial();
+export const updateTestimonialSchema = optionalize(createTestimonialSchema.shape);
 export type UpdateTestimonial = z.infer<typeof updateTestimonialSchema>;
 
 export const createFaqSchema = z.object({
@@ -201,7 +208,7 @@ export const createFaqSchema = z.object({
   order: z.number().min(0).optional(),
 });
 export type CreateFaq = z.infer<typeof createFaqSchema>;
-export const updateFaqSchema = createFaqSchema.partial();
+export const updateFaqSchema = optionalize(createFaqSchema.shape);
 export type UpdateFaq = z.infer<typeof updateFaqSchema>;
 
 export const brandingAssetSchema = z.object({
@@ -219,7 +226,7 @@ export const insertSiteAssetSchema = z.object({
   publicId: z.string().optional(),
   description: z.string().optional(),
 });
-export const updateSiteAssetSchema = insertSiteAssetSchema.partial();
+export const updateSiteAssetSchema = optionalize(insertSiteAssetSchema.shape);
 
 export const testimonialSourceSchema = z.enum(["manual", "google", "thumbtack"]);
 
@@ -232,7 +239,7 @@ export const createPostSchema = z.object({
   published: z.boolean().optional().default(false),
 });
 export type CreatePost = z.infer<typeof createPostSchema>;
-export const updatePostSchema = createPostSchema.partial();
+export const updatePostSchema = optionalize(createPostSchema.shape);
 export type UpdatePost = z.infer<typeof updatePostSchema>;
 
 // Legacy aliases for existing imports
