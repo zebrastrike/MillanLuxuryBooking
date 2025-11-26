@@ -163,7 +163,9 @@ export const createGalleryItemSchema = z.object({
   }
 });
 export type CreateGalleryItem = z.infer<typeof createGalleryItemSchema>;
-export const updateGalleryItemSchema = optionalize(createGalleryItemSchema.shape);
+export const updateGalleryItemSchema = optionalize(
+  (createGalleryItemSchema as any)._def.schema.shape,
+);
 export type UpdateGalleryItem = z.infer<typeof updateGalleryItemSchema>;
 
 export const createServiceSchema = z.object({
@@ -179,7 +181,9 @@ export const createServiceSchema = z.object({
   }
 });
 export type CreateService = z.infer<typeof createServiceSchema>;
-export const updateServiceSchema = optionalize(createServiceSchema.shape);
+export const updateServiceSchema = optionalize(
+  (createServiceSchema as any)._def.schema.shape,
+);
 export type UpdateService = z.infer<typeof updateServiceSchema>;
 
 export const createTestimonialSchema = z.object({
@@ -199,7 +203,9 @@ export const createTestimonialSchema = z.object({
   }
 });
 export type CreateTestimonial = z.infer<typeof createTestimonialSchema>;
-export const updateTestimonialSchema = optionalize(createTestimonialSchema.shape);
+export const updateTestimonialSchema = optionalize(
+  (createTestimonialSchema as any)._def.schema.shape,
+);
 export type UpdateTestimonial = z.infer<typeof updateTestimonialSchema>;
 
 export const createFaqSchema = z.object({
