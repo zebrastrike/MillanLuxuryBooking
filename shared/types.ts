@@ -124,6 +124,39 @@ export interface Post {
 const urlSchema = z.string().trim().url({ message: "Must be a valid URL" });
 const optionalUrl = urlSchema.or(z.literal(""));
 
+const ensureGalleryImages: z.SuperRefinement<{ imageUrl?: string; beforeImageUrl?: string; afterImageUrl?: string }> = (
+  data,
+  ctx,
+) => {
+  const hasPrimary = Boolean(data.imageUrl);
+  const hasBeforeAfter = Boolean(data.beforeImageUrl && data.afterImageUrl);
+  if (!hasPrimary && !hasBeforeAfter) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Provide a main image or both before/after images",
+      path: ["imageUrl"],
+    });
+  }
+};
+
+const ensureServiceTitleOrName: z.SuperRefinement<{ title?: string; name?: string }> = (data, ctx) => {
+  if (!data.title && !data.name) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide a title or name" });
+  }
+};
+
+const ensureTestimonialAuthorAndContent: z.SuperRefinement<{ author?: string; name?: string; content?: string; review?: string }> = (
+  data,
+  ctx,
+) => {
+  if (!data.author && !data.name) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Author is required" });
+  }
+  if (!data.content && !data.review) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Content is required" });
+  }
+};
+
 const optionalize = <T extends z.ZodRawShape>(shape: T) =>
   z.object(
     Object.fromEntries(
@@ -152,18 +185,12 @@ export const createGalleryItemSchema = z.object({
   afterImagePublicId: z.string().optional(),
   afterImageFilename: z.string().optional(),
 }).superRefine((data, ctx) => {
-  const hasPrimary = Boolean(data.imageUrl);
-  const hasBeforeAfter = Boolean(data.beforeImageUrl && data.afterImageUrl);
-  if (!hasPrimary && !hasBeforeAfter) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Provide a main image or both before/after images",
-      path: ["imageUrl"],
-    });
-  }
+  ensureGalleryImages(data, ctx);
 });
 export type CreateGalleryItem = z.infer<typeof createGalleryItemSchema>;
-export const updateGalleryItemSchema = optionalize(createGalleryItemSchema.shape);
+export const updateGalleryItemSchema = z
+  .object(optionalize(createGalleryItemSchema.shape).shape)
+  .superRefine((data, ctx) => ensureGalleryImages(data, ctx));
 export type UpdateGalleryItem = z.infer<typeof updateGalleryItemSchema>;
 
 export const createServiceSchema = z.object({
@@ -174,12 +201,12 @@ export const createServiceSchema = z.object({
   imageUrl: optionalUrl.optional(),
   features: z.array(z.string().min(1)).optional(),
 }).superRefine((data, ctx) => {
-  if (!data.title && !data.name) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide a title or name" });
-  }
+  ensureServiceTitleOrName(data, ctx);
 });
 export type CreateService = z.infer<typeof createServiceSchema>;
-export const updateServiceSchema = optionalize(createServiceSchema.shape);
+export const updateServiceSchema = z
+  .object(optionalize(createServiceSchema.shape).shape)
+  .superRefine((data, ctx) => ensureServiceTitleOrName(data, ctx));
 export type UpdateService = z.infer<typeof updateServiceSchema>;
 
 export const createTestimonialSchema = z.object({
@@ -191,15 +218,12 @@ export const createTestimonialSchema = z.object({
   source: z.string().optional(),
   sourceUrl: optionalUrl.optional(),
 }).superRefine((data, ctx) => {
-  if (!data.author && !data.name) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Author is required" });
-  }
-  if (!data.content && !data.review) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Content is required" });
-  }
+  ensureTestimonialAuthorAndContent(data, ctx);
 });
 export type CreateTestimonial = z.infer<typeof createTestimonialSchema>;
-export const updateTestimonialSchema = optionalize(createTestimonialSchema.shape);
+export const updateTestimonialSchema = z
+  .object(optionalize(createTestimonialSchema.shape).shape)
+  .superRefine((data, ctx) => ensureTestimonialAuthorAndContent(data, ctx));
 export type UpdateTestimonial = z.infer<typeof updateTestimonialSchema>;
 
 export const createFaqSchema = z.object({
