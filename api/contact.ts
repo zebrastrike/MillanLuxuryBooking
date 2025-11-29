@@ -1,11 +1,13 @@
 import { assertPrisma } from "../server/db/prismaClient";
 import { insertContactMessageSchema } from "../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
+import { ensureAdmin, ensureParsedBody, handleUnknownError, methodNotAllowed } from "./_utils";
 
 const prisma = assertPrisma();
 
 export default async function handler(req: any, res: any) {
   if (req.method === "GET") {
+    if (!(await ensureAdmin(req, res))) return;
+
     try {
       const messages = await prisma.contactMessage.findMany({ orderBy: { timestamp: "desc" } });
       res.status(200).json(messages);
