@@ -24,6 +24,7 @@ import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset } from "@shared/types";
 import type { EnvConfig } from "./env";
 import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService";
+import type { PrismaClient } from "@prisma/client";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -69,7 +70,7 @@ const respondAuthUnavailable: RequestHandler = (_req, res) => {
   res.status(503).json({ message: "Authentication is not configured." });
 };
 
-const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => {
+const createRequireAdminMiddleware = (clerkEnabled: boolean, prismaClient: PrismaClient): RequestHandler => {
   if (!clerkEnabled) {
     return respondAuthUnavailable;
   }
@@ -84,7 +85,7 @@ const createRequireAdminMiddleware = (clerkEnabled: boolean): RequestHandler => 
       }
 
       const clerkUser = await clerkClient.users.getUser(auth.userId);
-      const userRecord = await prisma.user.findUnique({ where: { id: auth.userId } });
+      const userRecord = await prismaClient.user.findUnique({ where: { id: auth.userId } });
       const isAdmin = isAdminUser(clerkUser) || Boolean(userRecord?.isAdmin);
 
       if (!isAdmin) {
@@ -106,7 +107,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(env.clerkEnabled);
+  const requireAdmin = createRequireAdminMiddleware(env.clerkEnabled, prisma);
   const requireAuthMiddleware: RequestHandler = env.clerkEnabled
     ? requireAuth()
     : respondAuthUnavailable;
