@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { getAuth } from "@clerk/vercel-edge";
+import { getAuth } from "@clerk/express";
 
 const clerkEnabled = Boolean(process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY);
 
