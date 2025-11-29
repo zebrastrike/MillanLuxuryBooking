@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../../server/db/prismaClient";
 import { updateServiceSchema } from "../../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
+import { ensureAdmin, ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
 
 const prisma = assertPrisma();
 
@@ -13,6 +13,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "PATCH") {
+    if (!(await ensureAdmin(req, res))) return;
+
     try {
       const updates = updateServiceSchema.parse(ensureParsedBody(req));
       const existing = await prisma.serviceItem.findUnique({ where: { id } });
@@ -34,6 +36,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "DELETE") {
+    if (!(await ensureAdmin(req, res))) return;
+
     try {
       const existing = await prisma.serviceItem.findUnique({ where: { id } });
       if (!existing) {

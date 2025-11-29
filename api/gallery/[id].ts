@@ -1,7 +1,7 @@
 import { ZodError } from "zod";
 import { assertPrisma } from "../../server/db/prismaClient";
 import { updateGalleryItemSchema } from "../../shared/types";
-import { ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
+import { ensureAdmin, ensureParsedBody, handleUnknownError, methodNotAllowed, parseIdParam } from "../_utils";
 
 const prisma = assertPrisma();
 
@@ -27,6 +27,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "PATCH") {
+    if (!(await ensureAdmin(req, res))) return;
+
     try {
       const preprocessedBody: Record<string, unknown> = {};
       const rawBody = ensureParsedBody(req) as Record<string, unknown>;
@@ -62,6 +64,8 @@ export default async function handler(req: any, res: any) {
   }
 
   if (req.method === "DELETE") {
+    if (!(await ensureAdmin(req, res))) return;
+
     try {
       const existing = await prisma.galleryItem.findUnique({ where: { id } });
       if (!existing) {
