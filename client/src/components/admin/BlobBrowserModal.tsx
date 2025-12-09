@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ImageIcon, Loader2 } from "lucide-react";
+import { parseJsonResponse, throwIfResNotOk } from "@/lib/queryClient";
 import type { BlobImage } from "@/types/blob";
 
 export type BlobBrowserModalProps = {
@@ -25,12 +26,8 @@ export function BlobBrowserModal({ open, onClose, onSelect, prefix }: BlobBrowse
         credentials: "include",
       });
 
-      if (!res.ok) {
-        const message = (await res.json().catch(() => null))?.message || "Failed to load files";
-        throw new Error(message);
-      }
-
-      const payload = await res.json();
+      await throwIfResNotOk(res);
+      const payload = await parseJsonResponse(res, "/api/blob/list");
       const files = payload?.images ?? payload?.data ?? payload;
       return Array.isArray(files) ? files : [];
     },

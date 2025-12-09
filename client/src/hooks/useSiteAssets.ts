@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Asset, SiteAsset } from "@shared/types";
+import { parseJsonResponse, throwIfResNotOk } from "@/lib/queryClient";
 
 export type SiteAssetMap = Record<string, Asset>;
 
@@ -43,10 +44,8 @@ export function useSiteAssets() {
     queryKey: ["/api/assets"],
     queryFn: async () => {
       const res = await fetch("/api/assets", { credentials: "include" });
-      if (!res.ok) {
-        throw new Error("Failed to load site assets");
-      }
-      const payload = await res.json();
+      await throwIfResNotOk(res);
+      const payload = await parseJsonResponse(res, "/api/assets");
       const rawAssets = payload?.data !== undefined ? payload.data : payload;
       const assets = safeObj<Record<string, SiteAssetResponseRecord>>(rawAssets);
 

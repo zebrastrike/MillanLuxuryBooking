@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, parseJsonResponse } from "@/lib/queryClient";
 import { useSiteAssets, type SiteAssetMap } from "@/hooks/useSiteAssets";
 import { Loader2, Upload } from "lucide-react";
 import { BlobBrowserModal } from "./BlobBrowserModal";
@@ -60,10 +60,10 @@ export function SiteAssetsManagement() {
       formData.append("file", file);
       formData.append("name", file.name);
 
-      const res = await fetch("/api/assets", { method: "POST", body: formData, credentials: "include" });
-      const body = await res.json();
+      const res = await apiRequest("POST", "/api/assets", formData);
+      const body = await parseJsonResponse(res, "/api/assets");
 
-      if (!res.ok || !body?.data?.url) {
+      if (!body?.data?.url) {
         throw new Error(body?.message || "Upload failed");
       }
 
