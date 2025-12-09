@@ -16,7 +16,7 @@ import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { ImageIcon, Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import type { GalleryItem, InsertGalleryItem } from "@shared/types";
 import { insertGalleryItemSchema } from "@shared/types";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, parseJsonResponse, queryClient, throwIfResNotOk } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
 import { BlobBrowserModal, type BlobBrowserModalProps } from "./BlobBrowserModal";
 import type { BlobImage } from "@/types/blob";
@@ -287,12 +287,8 @@ export function GalleryManagement() {
           credentials: 'include',
         });
 
-        const payload = await response.json().catch(() => null);
-
-        if (!response.ok) {
-          const errorMessage = payload?.error || payload?.message || 'Upload failed';
-          throw new Error(errorMessage);
-        }
+        await throwIfResNotOk(response);
+        const payload = await parseJsonResponse(response, `/api/blob/upload?prefix=${prefix}`);
 
         const data = (payload?.data ?? payload) as Partial<BlobImage> & { url?: string; pathname?: string };
 
