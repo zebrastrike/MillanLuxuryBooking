@@ -6,6 +6,44 @@ import { CLERK_ENABLED } from "@/lib/clerkConfig";
 
 const IS_PRODUCTION = import.meta.env.MODE === "production";
 
+async function fetchAuthedUser(): Promise<User | null> {
+  const response = await fetch("/api/auth/user", {
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const contentType = response.headers.get("content-type") ?? "";
+  const rawBody = await response.text();
+  const trimmedBody = rawBody.trim();
+  const looksLikeHtml =
+    contentType.includes("text/html") ||
+    trimmedBody.startsWith("<") ||
+    trimmedBody.startsWith("<!DOCTYPE") ||
+    trimmedBody.startsWith("<html");
+
+  if (looksLikeHtml) {
+    throw new Error("Received HTML response from /api/auth/user");
+  }
+
+  let parsedBody: unknown = null;
+
+  if (trimmedBody.length > 0) {
+    try {
+      parsedBody = JSON.parse(trimmedBody);
+    } catch (parseError) {
+      throw new Error("Failed to parse JSON from /api/auth/user");
+    }
+  }
+
+  if (!response.ok) {
+    const message = (parsedBody as { message?: string } | null)?.message;
+    throw new Error(message || `Request failed with status ${response.status}`);
+  }
+
+  return parsedBody as User | null;
+}
+
 function useDisabledClerkAuth() {
   if (IS_PRODUCTION) {
     return {
@@ -52,6 +90,7 @@ function useClerkBackedAuth() {
     queryKey: ["/api/auth/user"],
     enabled: Boolean(isSignedIn && clerkLoaded),
     retry: 2, // Retry failed requests twice
+    queryFn: fetchAuthedUser,
   });
 
   const resolvedUser = dbUser ?? null;
