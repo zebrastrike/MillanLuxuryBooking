@@ -23,7 +23,7 @@ import { getAuth, clerkClient } from "@clerk/clerk-sdk-node";
 import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
-import type { Asset, SiteAsset } from "@shared/types";
+import type { Asset, SiteAsset, User } from "@shared/types";
 import type { EnvConfig } from "./env";
 import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService";
 
@@ -71,9 +71,15 @@ const respondAuthUnavailable: RequestHandler = (_req, res) => {
   res.status(503).json({ message: "Authentication is not configured." });
 };
 
-const createRequireAdminMiddleware = (prisma: PrismaClient, clerkEnabled: boolean): RequestHandler => {
-  if (!clerkEnabled) {
-    return respondAuthUnavailable;
+const localDevAuthMiddleware: RequestHandler = (req, _res, next) => {
+  const authRequest = req as AuthedRequest;
+  authRequest.auth = authRequest.auth ?? ({ userId: "local-dev-admin" } as ReturnType<typeof getAuth>);
+  next();
+};
+
+const createRequireAdminMiddleware = (prisma: PrismaClient, env: EnvConfig): RequestHandler => {
+  if (!env.clerkEnabled) {
+    return env.nodeEnv === "production" ? respondAuthUnavailable : localDevAuthMiddleware;
   }
 
   return async (req, res, next) => {
@@ -103,7 +109,8 @@ const createRequireAdminMiddleware = (prisma: PrismaClient, clerkEnabled: boolea
 
 export async function registerRoutes(app: Express, env: EnvConfig): Promise<Server> {
   if (!env.clerkEnabled) {
-    console.warn("[WARN] Clerk keys not configured. Admin access will be denied.");
+    const mode = env.nodeEnv === "production" ? "BLOCKING admin access" : "running with local dev admin bypass";
+    console.warn(`[WARN] Clerk keys not configured. ${mode}.`);
   }
 
   if (!hasDatabaseUrl) {
@@ -122,10 +129,12 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(prisma, env.clerkEnabled);
+  const requireAdmin = createRequireAdminMiddleware(prisma, env);
   const requireAuthMiddleware: RequestHandler = env.clerkEnabled
     ? requireAuth()
-    : respondAuthUnavailable;
+    : env.nodeEnv === "production"
+      ? respondAuthUnavailable
+      : localDevAuthMiddleware;
 
   // Setup Clerk middleware with configuration
   if (env.clerkEnabled) {
@@ -138,6 +147,25 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Auth routes - Get current user (with auto-provisioning)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     try {
+      if (!env.clerkEnabled) {
+        if (env.nodeEnv === "production") {
+          return res.status(503).json({ message: "Clerk configuration is required in production." });
+        }
+
+        const localUser: User = {
+          id: "local-dev-admin",
+          email: "local-admin@example.com",
+          firstName: "Local",
+          lastName: "Admin",
+          profileImageUrl: null,
+          isAdmin: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        return res.json(localUser);
+      }
+
       const authRequest = req as AuthedRequest;
       const auth = authRequest.auth ?? getAuth(authRequest);
 
