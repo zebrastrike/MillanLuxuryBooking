@@ -4,16 +4,40 @@ import type { User } from "@shared/types";
 import { isAdminUser } from "@shared/auth";
 import { CLERK_ENABLED } from "@/lib/clerkConfig";
 
+const IS_PRODUCTION = import.meta.env.MODE === "production";
+
 function useDisabledClerkAuth() {
+  if (IS_PRODUCTION) {
+    return {
+      user: null,
+      email: null,
+      isLoaded: true,
+      isLoading: false,
+      isAuthenticated: false,
+      isSignedIn: false,
+      isAdmin: false,
+      error: new Error("Clerk is not configured. Admin access is unavailable."),
+    };
+  }
+
   return {
-    user: null,
-    email: null,
+    user: {
+      id: "local-dev-admin",
+      email: "local-admin@example.com",
+      firstName: "Local",
+      lastName: "Admin",
+      profileImageUrl: null,
+      isAdmin: true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    email: "local-admin@example.com",
     isLoaded: true,
     isLoading: false,
-    isAuthenticated: false,
-    isSignedIn: false,
-    isAdmin: false,
-    error: new Error("Clerk is not configured. Admin access is unavailable."),
+    isAuthenticated: true,
+    isSignedIn: true,
+    isAdmin: true,
+    error: null,
   };
 }
 
