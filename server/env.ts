@@ -12,7 +12,6 @@ const envSchema = z.object({
   BLOB_READ_WRITE_TOKEN: z.string().trim().optional(),
   Blob_Evans_READ_WRITE_TOKEN: z.string().trim().optional(),
   DATABASE_URL: z.string().trim().optional(),
-  DIRECT_URL: z.string().trim().optional(),
 });
 
 export type EnvConfig = ReturnType<typeof loadEnv>;

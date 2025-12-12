@@ -41,7 +41,7 @@ Your current app uses **Replit Auth** which will NOT work on Vercel. Before depl
 - Configure environment variables for new auth system
 
 ### Database
-✅ Your PostgreSQL database (Neon) works perfectly with Vercel!
+✅ Your PostgreSQL database (Supabase) works perfectly with Vercel!
 
 ## Pre-Deployment Checklist
 
@@ -50,8 +50,7 @@ You need to add these in Vercel Dashboard → Settings → Environment Variables
 
 ```bash
 # Database (Required)
-DATABASE_URL=postgresql://neondb_owner:******@ep-your-neon-pooler.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=10
-DIRECT_URL=postgresql://neondb_owner:******@ep-your-neon-primary.aws.neon.tech/neondb?sslmode=require
+DATABASE_URL=postgresql://<user>:<password>@<project>.supabase.co:5432/postgres?sslmode=require
 
 # Session Secret (Required)
 SESSION_SECRET=your_random_secret_key_here
