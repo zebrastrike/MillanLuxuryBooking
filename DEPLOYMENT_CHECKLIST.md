@@ -116,6 +116,8 @@ Once logged in as admin, you can:
 - Check `DATABASE_URL` is correct
 - Verify Neon database is accessible
 - Database tables were auto-created via `npm run db:push`
+- To re-apply the schema and smoke-test connectivity, run `npm run db:verify` with
+  `DATABASE_URL` (and `DIRECT_URL` for faster migrations) populated in your environment.
 
 ---
 
