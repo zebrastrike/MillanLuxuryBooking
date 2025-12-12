@@ -131,7 +131,23 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const requireAdmin = createRequireAdminMiddleware(prisma, env);
   const requireAuthMiddleware: RequestHandler = env.clerkEnabled
-    ? requireAuth()
+    ? (req, res, next) => {
+        try {
+          const authRequest = req as AuthedRequest;
+          const auth = getAuth(authRequest);
+
+          authRequest.auth = auth;
+
+          if (!auth?.userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+          }
+
+          next();
+        } catch (error) {
+          console.error("Auth check failed:", error);
+          res.status(401).json({ message: "Unauthorized" });
+        }
+      }
     : env.nodeEnv === "production"
       ? respondAuthUnavailable
       : localDevAuthMiddleware;
