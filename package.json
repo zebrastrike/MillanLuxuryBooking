@@ -8,7 +8,7 @@
     "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc",
-    "db:push": "prisma migrate deploy",
+    "db:push": "bash db/push-schema.sh",
     "db:verify": "tsx scripts/db-verify.ts"
   },
   "prisma": {
