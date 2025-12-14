@@ -4,7 +4,7 @@
 
 - ✅ Full-stack app (React + Express + TypeScript)
 - ✅ Clerk authentication configured
-- ✅ Neon PostgreSQL database set up and populated
+- ✅ Supabase PostgreSQL database set up and populated
 - ✅ Vercel Blob storage configured with all images
 - ✅ Admin dashboard ready (gallery, testimonials, services, contact messages)
 - ✅ SEO files created (robots.txt, sitemap.xml)
@@ -18,8 +18,7 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 
 | Variable Name | Value | Source |
 |---|---|---|
-| `DATABASE_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=10` | Neon pooled connection string (for Prisma on Vercel) |
-| `DIRECT_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe.us-west-2.aws.neon.tech/neondb?sslmode=require` | Neon direct (non-pooler) connection for migrations |
+| `DATABASE_URL` | `postgresql://<user>:<password>@<project>.supabase.co:5432/postgres?sslmode=require` | Supabase connection string (Project Settings → Database) |
 | `CLERK_SECRET_KEY` | Your Clerk secret key | Clerk Dashboard → API Keys |
 | `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...` | Clerk Dashboard → API Keys |
 | `BLOB_READ_WRITE_TOKEN` | Your Vercel Blob token | Vercel Project → Storage → Blob |
@@ -78,7 +77,7 @@ Once logged in as admin, you can:
 ## Important Notes
 
 ### Database
-- Using Neon PostgreSQL (free tier available)
+- Using Supabase PostgreSQL (managed Postgres)
 - All data persists across deployments
 - Database connection through environment variables
 
@@ -114,10 +113,10 @@ Once logged in as admin, you can:
 
 ### Database errors?
 - Check `DATABASE_URL` is correct
-- Verify Neon database is accessible
+- Verify Supabase database is accessible
 - Database tables were auto-created via `npm run db:push`
 - To re-apply the schema and smoke-test connectivity, run `npm run db:verify` with
-  `DATABASE_URL` (and `DIRECT_URL` for faster migrations) populated in your environment.
+  `DATABASE_URL` populated in your environment.
 
 ---
 
@@ -141,4 +140,4 @@ If you encounter any issues:
 
 For Clerk issues: https://clerk.com/docs
 For Vercel issues: https://vercel.com/docs
-For Neon issues: https://neon.tech/docs
+For Supabase issues: https://supabase.com/docs
