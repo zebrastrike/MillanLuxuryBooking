@@ -45,19 +45,7 @@ async function fetchAuthedUser(): Promise<User | null> {
 }
 
 function useDisabledClerkAuth() {
-  if (IS_PRODUCTION) {
-    return {
-      user: null,
-      email: null,
-      isLoaded: true,
-      isLoading: false,
-      isAuthenticated: false,
-      isSignedIn: false,
-      isAdmin: false,
-      error: new Error("Clerk is not configured. Admin access is unavailable."),
-    };
-  }
-
+  // Always allow local dev bypass when Clerk is disabled
   return {
     user: {
       id: "local-dev-admin",

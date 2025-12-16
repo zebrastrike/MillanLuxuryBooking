@@ -5,3 +5,11 @@ server/public
 vite.config.ts.*
 *.tar.gz
 .env
+
+# Windows reserved device names
+nul
+con
+prn
+aux
+com[1-9]
+lpt[1-9]

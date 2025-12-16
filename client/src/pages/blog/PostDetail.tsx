@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import type { Post } from "@shared/types";
 import { ApiError } from "@/lib/queryClient";
+import { Navigation } from "@/components/Navigation";
 
 const formatDate = (value?: string | Date | null) => {
   if (!value) return "";
@@ -19,7 +20,8 @@ export default function BlogPost({ params }: { params: { slug: string } }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 py-12 max-w-3xl">
+      <Navigation />
+      <div className="container mx-auto px-6 py-12 max-w-3xl pt-32">
         <div className="mb-6 text-sm">
           <Link href="/blog" className="text-primary hover:underline">
             ← Back to blog

@@ -282,66 +282,76 @@ async function seedGallery() {
   const count = await prisma.galleryItem.count();
   if (count > 0) return;
 
+  // Using actual images from Vercel Blob storage
+  const baseUrl = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com";
+
   const galleryItems = [
+    // Real cleaning images from actual jobs
     {
-      title: "Arcadia Chef's Kitchen Reset",
-      category: "Kitchen",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Luxury Home Deep Clean",
+      category: "deep-cleaning",
+      imageUrl: `${baseUrl}/images/192153C5-389B-43C7-9236-4CB60F896D3E_1_105_c.jpeg`,
       order: 0,
     },
     {
-      title: "Paradise Valley Spa Bath",
-      category: "Bathroom",
-      imageUrl: "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1400&q=80",
+      title: "Kitchen Transformation",
+      category: "deep-cleaning",
+      imageUrl: `${baseUrl}/images/2D597695-AEF5-4F74-9121-82DC642A7B32_1_105_c.jpeg`,
       order: 1,
     },
     {
-      title: "Scottsdale Great Room Shine",
-      category: "Living",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Bathroom Spa Detail",
+      category: "deep-cleaning",
+      imageUrl: `${baseUrl}/images/7ED002D8-4758-4885-8A5C-E43C7F02ACC3_1_105_c.jpeg`,
       order: 2,
     },
     {
-      title: "Biltmore Penthouse Detail",
-      category: "Condo",
-      imageUrl: "https://images.unsplash.com/photo-1505693415763-3ed5e04ba4cd?auto=format&fit=crop&w=1400&q=80",
+      title: "Living Room Reset",
+      category: "all",
+      imageUrl: `${baseUrl}/images/8264BBFB-BB18-4D5B-93EF-23173A5963BB_1_105_c.jpeg`,
       order: 3,
     },
     {
-      title: "Camelback Patio Refresh",
-      category: "Outdoor",
-      imageUrl: "https://images.unsplash.com/photo-1493663284031-b7e3aefcae8e?auto=format&fit=crop&w=1400&q=80",
+      title: "Luxury Interior Detail",
+      category: "all",
+      imageUrl: `${baseUrl}/images/8C012EF9-D9D4-4D15-AB07-E259D1E033FF_1_105_c.jpeg`,
       order: 4,
     },
     {
-      title: "Designer Closet Reset",
-      category: "Closet",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Move-In Preparation",
+      category: "move-in-out",
+      imageUrl: `${baseUrl}/images/905FF31F-CBFF-4041-A43C-3DBCC33B8F58_1_105_c.jpeg`,
       order: 5,
     },
     {
-      title: "Luxury High-Rise Glow",
-      category: "High-Rise",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Home Staging Ready",
+      category: "move-in-out",
+      imageUrl: `${baseUrl}/images/9927DB61-8C20-406C-903A-E90A636C616C_1_105_c.jpeg`,
       order: 6,
     },
     {
-      title: "Post-Event Ballroom Reset",
-      category: "Event",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Premium Detail Work",
+      category: "all",
+      imageUrl: `${baseUrl}/images/41EF78DB-708F-4622-9D84-0002704C035B_1_102_o.jpeg`,
       order: 7,
     },
     {
-      title: "Move-In Ready Suite",
-      category: "Move-In",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Elegant Space Refresh",
+      category: "all",
+      imageUrl: `${baseUrl}/images/7EA82D2F-E177-413E-8D5D-CE33DCBAC003_1_102_o.jpeg`,
       order: 8,
     },
     {
-      title: "Mid-Century Revival",
-      category: "Design",
-      imageUrl: "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80",
+      title: "Scottsdale Estate Cleaning",
+      category: "all",
+      imageUrl: `${baseUrl}/images/B21BCCA3-CAE3-481F-B7EA-68AAF86B562A_1_102_o.jpeg`,
       order: 9,
+    },
+    {
+      title: "Paradise Valley Detail",
+      category: "all",
+      imageUrl: `${baseUrl}/images/C9823912-B95C-40C3-B209-D3FE06C30941_1_102_o.jpeg`,
+      order: 10,
     },
   ];
 

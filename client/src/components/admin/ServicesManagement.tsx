@@ -12,12 +12,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
-import { Briefcase, Plus, Edit, Trash2, X, Loader2 } from "lucide-react";
+import { Briefcase, Plus, Edit, Trash2, X, Loader2, ImageIcon } from "lucide-react";
 import type { Service } from "@shared/types";
 import { insertServiceSchema } from "@shared/types";
 import { z } from "zod";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, throwIfResNotOk, parseJsonResponse } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
+import { BlobBrowserModal } from "./BlobBrowserModal";
+import type { BlobImage } from "@/types/blob";
 
 type ServiceFormData = z.infer<typeof insertServiceSchema> & FieldValues;
 
@@ -26,6 +28,9 @@ export function ServicesManagement() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Service | null>(null);
   const [deletingItemId, setDeletingItemId] = useState<number | null>(null);
+  const [blobBrowserOpen, setBlobBrowserOpen] = useState(false);
+  const [blobTargetForm, setBlobTargetForm] = useState<'add' | 'edit'>('add');
+  const [uploading, setUploading] = useState(false);
 
   const { data: servicesPayload, isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"],
@@ -188,8 +193,53 @@ export function ServicesManagement() {
       name: item.name,
       description: item.description,
       features: (item.features && item.features.length > 0) ? item.features : [""],
+      imageUrl: item.imageUrl || undefined,
     });
     setEditingItem(item);
+  };
+
+  const handleFileUpload = async (file: File, form: typeof addForm | typeof editForm) => {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/blob/upload?prefix=gallery', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      await throwIfResNotOk(response);
+      const payload = await parseJsonResponse(response, '/api/blob/upload?prefix=gallery');
+
+      const data = (payload?.data ?? payload) as Partial<BlobImage> & { url?: string };
+
+      if (!data?.url) {
+        throw new Error('Upload failed');
+      }
+
+      form.setValue('imageUrl', data.url as any);
+
+      toast({
+        title: "Success",
+        description: "Image uploaded successfully",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to upload image",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleBlobSelect = (image: BlobImage) => {
+    const targetForm = blobTargetForm === 'add' ? addForm : editForm;
+    targetForm.setValue('imageUrl', image.url as any);
+    setBlobBrowserOpen(false);
   };
 
   const onAddSubmit = (data: ServiceFormData) => {
@@ -274,6 +324,63 @@ export function ServicesManagement() {
                       <FormLabel>Description</FormLabel>
                       <FormControl>
                         <Textarea {...field} placeholder="Describe the service..." data-testid="textarea-description" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={addForm.control}
+                  name="imageUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Service Image (Optional)</FormLabel>
+                      <FormControl>
+                        <div className="space-y-2">
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <Input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) handleFileUpload(file, addForm);
+                              }}
+                              disabled={uploading}
+                              data-testid="input-imageUrl-file"
+                            />
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setBlobTargetForm('add');
+                                setBlobBrowserOpen(true);
+                              }}
+                            >
+                              <ImageIcon className="mr-2 h-4 w-4" />
+                              Browse
+                            </Button>
+                          </div>
+                          {field.value && (
+                            <div className="flex items-center gap-3">
+                              <div className="h-16 w-16 rounded border overflow-hidden bg-muted">
+                                <img src={field.value} alt="Service" className="h-full w-full object-cover" />
+                              </div>
+                              <div className="text-xs text-muted-foreground break-all flex-1">
+                                {field.value}
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => addForm.setValue('imageUrl', undefined as any)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -442,6 +549,63 @@ export function ServicesManagement() {
                 )}
               />
 
+              <FormField
+                control={editForm.control}
+                name="imageUrl"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Image (Optional)</FormLabel>
+                    <FormControl>
+                      <div className="space-y-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleFileUpload(file, editForm);
+                            }}
+                            disabled={uploading}
+                            data-testid="input-edit-imageUrl-file"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setBlobTargetForm('edit');
+                              setBlobBrowserOpen(true);
+                            }}
+                          >
+                            <ImageIcon className="mr-2 h-4 w-4" />
+                            Browse
+                          </Button>
+                        </div>
+                        {field.value && (
+                          <div className="flex items-center gap-3">
+                            <div className="h-16 w-16 rounded border overflow-hidden bg-muted">
+                              <img src={field.value} alt="Service" className="h-full w-full object-cover" />
+                            </div>
+                            <div className="text-xs text-muted-foreground break-all flex-1">
+                              {field.value}
+                            </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => editForm.setValue('imageUrl', undefined as any)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <div>
                 <FormLabel className="mb-2 block">Features</FormLabel>
                 <div className="space-y-2">
@@ -525,6 +689,13 @@ export function ServicesManagement() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <BlobBrowserModal
+        open={blobBrowserOpen}
+        onOpenChange={setBlobBrowserOpen}
+        onSelect={handleBlobSelect}
+        prefix="gallery"
+      />
     </div>
   );
 }

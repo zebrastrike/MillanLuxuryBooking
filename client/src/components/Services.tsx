@@ -100,13 +100,29 @@ export function Services() {
               const bookingLink = bookingLinks[service.name] || "https://millanluxurycleaning.square.site/";
               
               return (
-                <Card 
+                <Card
                   key={service.id}
-                  className={`hover-elevate transition-all duration-300 ${
+                  className={`hover-elevate transition-all duration-300 overflow-hidden ${
                     isFeatured ? 'border-2 border-primary shadow-xl' : ''
                   }`}
                   data-testid={`card-service-${service.id}`}
                 >
+                  {/* Service Image */}
+                  {service.imageUrl && (
+                    <div className="relative w-full h-48 overflow-hidden">
+                      <img
+                        src={service.imageUrl}
+                        alt={service.name}
+                        className="w-full h-full object-cover"
+                      />
+                      {isFeatured && (
+                        <span className="absolute top-3 right-3 text-xs font-semibold text-white bg-primary px-3 py-1 rounded-full shadow-lg">
+                          MOST POPULAR
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <CardHeader className="space-y-0 pb-4">
                     <div className="flex items-start justify-between gap-4 mb-3">
                       <div className={`p-3 rounded-lg ${
@@ -114,7 +130,7 @@ export function Services() {
                       }`}>
                         <Icon className="w-6 h-6" />
                       </div>
-                      {isFeatured && (
+                      {isFeatured && !service.imageUrl && (
                         <span className="text-xs font-semibold text-primary bg-primary/10 px-3 py-1 rounded-full">
                           MOST POPULAR
                         </span>

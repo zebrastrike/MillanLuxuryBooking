@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import type { Post } from "@shared/types";
+import { Navigation } from "@/components/Navigation";
 
 const formatDate = (value?: string | Date | null) => {
   if (!value) return "";
@@ -22,7 +23,8 @@ export default function BlogIndex() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-6 py-12 max-w-4xl">
+      <Navigation />
+      <div className="container mx-auto px-6 py-12 max-w-4xl pt-32">
         <div className="mb-10 text-center">
           <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground mb-3">Blog</p>
           <h1 className="text-4xl font-serif font-semibold mb-3">Latest Updates</h1>

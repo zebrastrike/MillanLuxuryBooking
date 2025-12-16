@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
@@ -44,36 +44,36 @@ model ContactMessage {
 }
 
 model GalleryItem {
-  id                   Int      @id @default(autoincrement())
-  title                String
-  category             String
-  imageUrl             String?
-  imagePublicId        String?
-  imageFilename        String?
-  imageMetadata        Json?
-  beforeImageUrl       String?
-  beforeImagePublicId  String?
-  beforeImageFilename  String?
-  beforeImageMetadata  Json?
-  afterImageUrl        String?
-  afterImagePublicId   String?
-  afterImageFilename   String?
-  afterImageMetadata   Json?
-  order                Int      @default(0)
-  createdAt            DateTime @default(now())
+  id                  Int      @id @default(autoincrement())
+  title               String
+  category            String
+  imageUrl            String?
+  imagePublicId       String?
+  imageFilename       String?
+  imageMetadata       Json?
+  beforeImageUrl      String?
+  beforeImagePublicId String?
+  beforeImageFilename String?
+  beforeImageMetadata Json?
+  afterImageUrl       String?
+  afterImagePublicId  String?
+  afterImageFilename  String?
+  afterImageMetadata  Json?
+  order               Int      @default(0)
+  createdAt           DateTime @default(now())
 
   @@map("gallery_items")
 }
 
 model ServiceItem {
-  id           Int      @id @default(autoincrement())
-  title        String
-  description  String
-  iconUrl      String?
-  imageUrl     String?
-  iconMetadata Json?
+  id            Int      @id @default(autoincrement())
+  title         String
+  description   String
+  iconUrl       String?
+  imageUrl      String?
+  iconMetadata  Json?
   imageMetadata Json?
-  createdAt    DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   // Legacy compatibility
   name     String?
@@ -91,11 +91,11 @@ model Testimonial {
   createdAt DateTime @default(now())
 
   // Legacy compatibility
-  name     String?
-  review   String?
-  source   String?
+  name      String?
+  review    String?
+  source    String?
   sourceUrl String?
-  order    Int      @default(0)
+  order     Int     @default(0)
 
   @@map("testimonials")
 }
@@ -111,14 +111,14 @@ model FaqItem {
 }
 
 model BrandingAsset {
-  id            Int      @id @default(autoincrement())
-  logoUrl       String?
-  heroCrownUrl  String?
-  backgroundUrl String?
+  id                 Int      @id @default(autoincrement())
+  logoUrl            String?
+  heroCrownUrl       String?
+  backgroundUrl      String?
   logoMetadata       Json?
   heroCrownMetadata  Json?
   backgroundMetadata Json?
-  updatedAt     DateTime @updatedAt
+  updatedAt          DateTime @updatedAt
 
   @@map("branding_assets")
 }
