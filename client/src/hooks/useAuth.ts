@@ -8,6 +8,7 @@ const IS_PRODUCTION = import.meta.env.MODE === "production";
 
 async function fetchAuthedUser(): Promise<User | null> {
   const response = await fetch("/api/auth/user", {
+    credentials: "include",
     headers: {
       Accept: "application/json",
     },
@@ -34,6 +35,10 @@ async function fetchAuthedUser(): Promise<User | null> {
     } catch (parseError) {
       throw new Error("Failed to parse JSON from /api/auth/user");
     }
+  }
+
+  if (response.status === 401) {
+    return null;
   }
 
   if (!response.ok) {
@@ -74,7 +79,7 @@ function useClerkBackedAuth() {
   const primaryEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
 
   // Fetch user data from our database (only if signed in with Clerk)
-  const { data: dbUser, isLoading: dbLoading, error } = useQuery<User>({
+  const { data: dbUser, isLoading: dbLoading, error } = useQuery<User | null>({
     queryKey: ["/api/auth/user"],
     enabled: Boolean(isSignedIn && clerkLoaded),
     retry: 2, // Retry failed requests twice
