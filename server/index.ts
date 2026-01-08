@@ -1,7 +1,12 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite, serveStatic, log } from "./vite";
 import { loadEnv } from "./env";
+
+// Dynamic import for vite utilities to avoid bundling dev dependencies
+async function loadViteUtils() {
+  const viteModule = await import("./vite");
+  return viteModule;
+}
 
 // Millan Luxury Cleaning - Express Server
 // Production-ready application with Clerk authentication and Vercel Blob storage
@@ -50,7 +55,7 @@ app.use((req, res, next) => {
         logLine = logLine.slice(0, 79) + "…";
       }
 
-      log(logLine);
+      console.log(logLine); // Use console.log directly instead of log()
     }
   });
 
@@ -106,10 +111,12 @@ async function initializeApp(): Promise<Express> {
     // setting up all the other routes so the catch-all route
     // doesn't interfere with the other routes
     if (app.get("env") === "development") {
+      const { setupVite } = await loadViteUtils();
       await setupVite(app, server);
     } else if (!process.env.VERCEL) {
       // Only serve static files in production non-Vercel environments
       // Vercel handles static files through its CDN
+      const { serveStatic } = await loadViteUtils();
       serveStatic(app);
     }
 
@@ -118,7 +125,7 @@ async function initializeApp(): Promise<Express> {
     if (!process.env.VERCEL) {
       const port = env.port;
       server.listen(port, "0.0.0.0", () => {
-        log(`serving on port ${port}`);
+        console.log(`serving on port ${port}`);
       });
     } else {
       console.log('[VERCEL] Express app initialized and ready');
