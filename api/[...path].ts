@@ -1,4 +1,4 @@
-// Vercel serverless function handler for Express app
+// Vercel serverless catch-all handler for all /api/* routes
 // This imports the Express app and handles all API requests
 
 let app: any = null;

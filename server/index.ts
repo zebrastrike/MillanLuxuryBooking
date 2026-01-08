@@ -11,6 +11,10 @@ console.log('[INFO] Using Clerk for authentication');
 
 const app = express();
 
+// Track initialization status for Vercel serverless
+// @ts-ignore
+app.isInitialized = false;
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
@@ -91,12 +95,25 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = env.port;
-  server.listen(port, "0.0.0.0", () => {
-    log(`serving on port ${port}`);
-  });
+  // In Vercel (serverless), skip .listen() and export the app instead
+  // In local dev, start the server normally
+  if (!process.env.VERCEL) {
+    const port = env.port;
+    server.listen(port, "0.0.0.0", () => {
+      log(`serving on port ${port}`);
+    });
+  } else {
+    // Export app for Vercel serverless - set it globally when initialized
+    // @ts-ignore
+    global.viteapp = app;
+    console.log('[VERCEL] Express app initialized and exported');
+  }
+
+  // Mark app as fully initialized
+  // @ts-ignore
+  app.isInitialized = true;
 })();
+
+// For Vercel: export the app after initialization
+// Note: The async IIFE above will complete before first serverless request
+export default app;
