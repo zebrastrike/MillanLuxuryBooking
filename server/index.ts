@@ -91,7 +91,9 @@ app.use((req, res, next) => {
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
     await setupVite(app, server);
-  } else {
+  } else if (!process.env.VERCEL) {
+    // Only serve static files in production non-Vercel environments
+    // Vercel handles static files through its CDN
     serveStatic(app);
   }
 
