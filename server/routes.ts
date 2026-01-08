@@ -615,9 +615,11 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       const items = await prisma.galleryItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
+      console.error('[API] Error in GET /api/gallery:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to retrieve gallery items"
+        message: "Failed to retrieve gallery items",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
@@ -1025,9 +1027,11 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       const items = await prisma.serviceItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
       res.json(items);
     } catch (error) {
+      console.error('[API] Error in GET /api/services:', error);
       res.status(500).json({
         success: false,
-        message: "Failed to retrieve services"
+        message: "Failed to retrieve services",
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   });
