@@ -57,7 +57,8 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+// Async initialization Promise for Vercel serverless
+const initPromise = (async () => {
   const env = loadEnv();
 
   const server = await registerRoutes(app, env);
@@ -105,17 +106,12 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     });
   } else {
-    // Export app for Vercel serverless - set it globally when initialized
-    // @ts-ignore
-    global.viteapp = app;
-    console.log('[VERCEL] Express app initialized and exported');
+    console.log('[VERCEL] Express app initialized and ready');
   }
 
-  // Mark app as fully initialized
-  // @ts-ignore
-  app.isInitialized = true;
+  // Return the fully initialized app
+  return app;
 })();
 
-// For Vercel: export the app after initialization
-// Note: The async IIFE above will complete before first serverless request
-export default app;
+// For Vercel: export promise that resolves to initialized app
+export default initPromise;

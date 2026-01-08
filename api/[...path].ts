@@ -7,25 +7,14 @@ export default async function handler(req: any, res: any) {
   // Load the Express app on first request (cold start)
   if (!app) {
     try {
-      console.log('[Vercel] Loading Express app...');
-      // Import the Express app from the built server
-      const module = await import('../dist/index.js');
-      app = module.default;
-
-      // Wait for app initialization to complete
-      const maxWait = 5000; // 5 seconds max
-      const startTime = Date.now();
-      while (!app.isInitialized && Date.now() - startTime < maxWait) {
-        await new Promise(resolve => setTimeout(resolve, 50));
-      }
-
-      if (!app.isInitialized) {
-        throw new Error('App initialization timeout');
-      }
-
-      console.log('[Vercel] Express app loaded and initialized');
+      console.log('[Vercel] Initializing Express app...');
+      // Import the initialization promise from the built server
+      const initPromise = await import('../dist/index.js');
+      // Await the promise to get the fully initialized app
+      app = await initPromise.default;
+      console.log('[Vercel] Express app fully initialized and ready');
     } catch (error) {
-      console.error('Failed to load Express app:', error);
+      console.error('Failed to initialize Express app:', error);
       res.status(500).json({
         error: 'Server initialization failed',
         details: error instanceof Error ? error.message : String(error)
