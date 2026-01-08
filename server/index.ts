@@ -1,10 +1,10 @@
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
-import { loadEnv } from "./env";
+import { registerRoutes } from "./routes.js";
+import { loadEnv } from "./env.js";
 
 // Dynamic import for vite utilities to avoid bundling dev dependencies
 async function loadViteUtils() {
-  const viteModule = await import("./vite");
+  const viteModule = await import("./vite.js");
   return viteModule;
 }
 

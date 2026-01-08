@@ -1,5 +1,5 @@
 import { del, list, put, type PutBlobResult } from "@vercel/blob";
-import { loadEnv } from "./env";
+import { loadEnv } from "./env.js";
 
 const env = loadEnv();
 

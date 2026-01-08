@@ -1,4 +1,4 @@
-import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient";
+import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient.js";
 
 if (!hasDatabaseUrl) {
   console.error("DATABASE_URL must be set to seed the database. Aborting.");

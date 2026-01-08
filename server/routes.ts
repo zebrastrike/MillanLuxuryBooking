@@ -1,7 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient";
+import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient.js";
 import {
   insertContactMessageSchema,
   insertGalleryItemSchema,
@@ -23,8 +23,8 @@ import multer from "multer";
 import type { Request, RequestHandler } from "express";
 import { isAdminUser } from "@shared/auth";
 import type { Asset, SiteAsset, User } from "@shared/types";
-import type { EnvConfig } from "./env";
-import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService";
+import type { EnvConfig } from "./env.js";
+import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 

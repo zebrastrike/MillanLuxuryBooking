@@ -21,7 +21,7 @@ import type {
   UpdatePost,
   BlobMetadata,
 } from "@shared/types";
-import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient";
+import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient.js";
 import { Prisma } from "@prisma/client";
 
 export type UpsertUser = Pick<User, "id" | "email" | "firstName" | "lastName" | "profileImageUrl"> & {

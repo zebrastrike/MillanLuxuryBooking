@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { del as deleteBlob, list as listBlobs, put } from "@vercel/blob";
-import { loadEnv } from "./env";
+import { loadEnv } from "./env.js";
 
 const ROOT_PREFIX = "static/";
 
