@@ -5,7 +5,7 @@ export default async function handler(req: any, res: any) {
   try {
     // Try to import and use Prisma
     console.log('[DB-Test] Importing Prisma client...');
-    const { prisma, assertPrisma } = await import('../server/db/prismaClient');
+    const { prisma, assertPrisma } = await import('../dist/server/db/prismaClient.js');
 
     console.log('[DB-Test] Prisma imported, checking connection...');
     const db = assertPrisma();

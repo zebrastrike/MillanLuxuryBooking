@@ -8,8 +8,8 @@ export default async function handler(req: any, res: any) {
   if (!app) {
     try {
       console.log('[Vercel] Initializing Express app...');
-      // Import the initialization function from the built server
-      const { default: initializeApp } = await import('../dist/index.js');
+      // Import the initialization function from the transpiled server
+      const { default: initializeApp } = await import('../dist/server/index.js');
       // Call the function to get the initialized app
       app = await initializeApp();
       console.log('[Vercel] Express app fully initialized and ready');
