@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import type { Express } from "express";
+import type { Express, Request, RequestHandler, Response } from "express";
 import { createServer, type Server } from "http";
 import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient.js";
 import {
@@ -16,15 +16,13 @@ import {
   updateSiteAssetSchema,
   updatePostSchema,
   updateFaqSchema,
-} from "@shared/types";
+} from "../shared/types.js";
 import { z, ZodError } from "zod";
-import { clerkMiddleware, requireAuth, getAuth, clerkClient } from "@clerk/express";
 import multer from "multer";
-import type { Request, RequestHandler } from "express";
-import { isAdminUser } from "@shared/auth";
-import type { Asset, SiteAsset, User } from "@shared/types";
+import type { Asset, SiteAsset } from "../shared/types.js";
 import type { EnvConfig } from "./env.js";
 import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService.js";
+import { getUserFromRequest, isUserAdmin } from "./supabase.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -64,52 +62,47 @@ const buildAssetPayload = (asset: SiteAsset): Asset & { key: string; path: strin
   };
 };
 
-type AuthedRequest = Request & { auth?: ReturnType<typeof getAuth> | null };
+type AuthedUser = { userId: string; email: string };
+type AuthedRequest = Request & { user?: AuthedUser | null };
 
-const respondAuthUnavailable: RequestHandler = (_req, res) => {
-  res.status(503).json({ message: "Authentication is not configured." });
-};
-
-const localDevAuthMiddleware: RequestHandler = (req, _res, next) => {
-  const authRequest = req as AuthedRequest;
-  authRequest.auth = authRequest.auth ?? ({ userId: "local-dev-admin" } as ReturnType<typeof getAuth>);
-  next();
-};
-
-const createRequireAdminMiddleware = (prisma: PrismaClient, env: EnvConfig): RequestHandler => {
-  if (!env.clerkEnabled) {
-    return env.nodeEnv === "production" ? respondAuthUnavailable : localDevAuthMiddleware;
-  }
-
+const createRequireAuthMiddleware = (): RequestHandler => {
   return async (req, res, next) => {
-    try {
-      const authRequest = req as AuthedRequest;
-      const auth = authRequest.auth ?? getAuth(authRequest);
+    const user = await getUserFromRequest(req);
 
-      if (!auth?.userId) {
-        return res.status(401).json({ message: "Unauthorized" });
-      }
-
-      const clerkUser = await clerkClient.users.getUser(auth.userId);
-      const userRecord = await prisma.user.findUnique({ where: { id: auth.userId } });
-      const isAdmin = isAdminUser(clerkUser) || Boolean(userRecord?.isAdmin);
-
-      if (!isAdmin) {
-        return res.status(403).json({ message: "Forbidden - admin access required" });
-      }
-
-      next();
-    } catch (error) {
-      console.error("Admin check error:", error);
-      res.status(500).json({ message: "Failed to verify admin status" });
+    if (!user) {
+      res.status(401).json({ message: "Unauthorized - Please sign in" });
+      return;
     }
+
+    (req as AuthedRequest).user = user;
+    next();
+  };
+};
+
+const createRequireAdminMiddleware = (prisma: PrismaClient): RequestHandler => {
+  return async (req, res, next) => {
+    const user = await getUserFromRequest(req);
+
+    if (!user) {
+      res.status(401).json({ message: "Unauthorized - Please sign in" });
+      return;
+    }
+
+    const isAdmin = await isUserAdmin(user.userId, prisma);
+
+    if (!isAdmin) {
+      res.status(403).json({ message: "Forbidden - Admin access required" });
+      return;
+    }
+
+    (req as AuthedRequest).user = user;
+    next();
   };
 };
 
 export async function registerRoutes(app: Express, env: EnvConfig): Promise<Server> {
-  if (!env.clerkEnabled) {
-    const mode = env.nodeEnv === "production" ? "BLOCKING admin access" : "running with local dev admin bypass";
-    console.warn(`[WARN] Clerk keys not configured. ${mode}.`);
+  if (!env.supabaseEnabled) {
+    console.warn("[WARN] Supabase is not configured. Authentication will not work until SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are set.");
   }
 
   if (!hasDatabaseUrl) {
@@ -128,111 +121,44 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(prisma, env);
-  const requireAuthMiddleware: RequestHandler = env.clerkEnabled
-    ? requireAuth()
-    : env.nodeEnv === "production"
-      ? respondAuthUnavailable
-      : localDevAuthMiddleware;
+  const requireAdmin = createRequireAdminMiddleware(prisma);
+  const requireAuthMiddleware = createRequireAuthMiddleware();
 
-  // Setup Clerk middleware with configuration
-  if (env.clerkEnabled) {
-    app.use(clerkMiddleware({
-      publishableKey: env.clerk.publishableKey,
-      secretKey: env.clerk.secretKey,
-    }));
-  }
-
-  // Auth routes - Get current user (with auto-provisioning)
+  // Auth routes - Get current user (with auto-provisioning from Supabase Auth)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
     try {
-      if (!env.clerkEnabled) {
-        if (env.nodeEnv === "production") {
-          return res.status(503).json({ message: "Clerk configuration is required in production." });
-        }
-
-        const localUser: User = {
-          id: "local-dev-admin",
-          email: "local-admin@example.com",
-          firstName: "Local",
-          lastName: "Admin",
-          profileImageUrl: null,
-          isAdmin: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        return res.json(localUser);
-      }
-
       const authRequest = req as AuthedRequest;
-      const auth = authRequest.auth ?? getAuth(authRequest);
+      const authUser = authRequest.user;
 
-      if (!auth?.userId) {
+      if (!authUser) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       // Try to get existing user from database
-      let user = await prisma.user.findUnique({ where: { id: auth.userId } });
+      let user = await prisma.user.findUnique({ where: { id: authUser.userId } });
 
       // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
-        // Fetch full user data from Clerk
-        const clerkUser = await clerkClient.users.getUser(auth.userId);
-
         const existingUsers = await prisma.user.findMany();
         const isFirstUser = existingUsers.length === 0;
 
-        // Extract email with robust fallback logic for OAuth providers
-        let email: string | null = null;
-        
-        // Try primaryEmailAddress first (works for most OAuth providers)
-        if (clerkUser.primaryEmailAddress?.emailAddress) {
-          email = clerkUser.primaryEmailAddress.emailAddress;
-        } 
-        // Fallback: find first non-revoked email (handles OAuth with null verification status)
-        else if (clerkUser.emailAddresses?.length > 0) {
-          const usableEmail = clerkUser.emailAddresses.find((e) => {
-            const status = e.verification?.status as string | undefined;
-            return e.emailAddress && status !== "revoked";
-          });
-          if (usableEmail?.emailAddress) {
-            email = usableEmail.emailAddress;
-          }
-        }
-        
-        // Reject if no usable email found
-        if (!email) {
-          return res.status(400).json({ 
-            message: "Your account must have an email address. Please add an email in your Clerk account settings and try again." 
-          });
-        }
+        // Extract name parts from email if not provided
+        const emailPrefix = authUser.email.split('@')[0];
+        const nameParts = emailPrefix.split(/[._-]/);
+        const firstName = nameParts[0] || 'User';
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : null;
 
-        // Create user record from Clerk data
-        user = await prisma.user.upsert({
-          where: { id: auth.userId },
-          create: {
-            id: auth.userId,
-            email: email,
-            firstName: clerkUser.firstName || null,
-            lastName: clerkUser.lastName || null,
-            profileImageUrl: clerkUser.imageUrl || null,
-            isAdmin: isFirstUser || isAdminUser(clerkUser),
-          },
-          update: {
-            email: email,
-            firstName: clerkUser.firstName || null,
-            lastName: clerkUser.lastName || null,
-            profileImageUrl: clerkUser.imageUrl || null,
-            isAdmin: isFirstUser || isAdminUser(clerkUser),
+        // Create user record from Supabase auth data
+        user = await prisma.user.create({
+          data: {
+            id: authUser.userId,
+            email: authUser.email,
+            firstName: firstName,
+            lastName: lastName,
+            profileImageUrl: null,
+            isAdmin: isFirstUser, // First user is automatically admin
           },
         });
-      } else {
-        const clerkUser = await clerkClient.users.getUser(auth.userId);
-        const isAdmin = isAdminUser(clerkUser) || user.isAdmin;
-        if (user.isAdmin !== isAdmin) {
-          user = await prisma.user.update({ where: { id: user.id }, data: { isAdmin } });
-        }
       }
 
       res.json(user);

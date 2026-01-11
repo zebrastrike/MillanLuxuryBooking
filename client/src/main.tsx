@@ -1,22 +1,12 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
-import { CLERK_ENABLED, CLERK_FRONTEND_API, CLERK_PUBLISHABLE_KEY } from "./lib/clerkConfig";
 import "./index.css";
 
+// Supabase client is initialized in lib/supabase.ts and used directly in hooks
 const app = (
   <StrictMode>
-    {CLERK_ENABLED ? (
-      <ClerkProvider
-        publishableKey={CLERK_PUBLISHABLE_KEY || CLERK_FRONTEND_API || ""}
-        afterSignOutUrl="/"
-      >
-        <App />
-      </ClerkProvider>
-    ) : (
-      <App />
-    )}
+    <App />
   </StrictMode>
 );
 

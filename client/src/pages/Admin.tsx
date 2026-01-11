@@ -1,8 +1,8 @@
-import { RedirectToSignIn, UserButton } from "@clerk/clerk-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/hooks/useAuth";
-import { CLERK_ENABLED } from "@/lib/clerkConfig";
+import { UserMenu } from "@/components/auth/UserMenu";
+import { SignInButton } from "@/components/auth/SignInButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, ImageIcon, MessageSquare, Star, Briefcase, BookOpen, HelpCircle } from "lucide-react";
@@ -25,8 +25,9 @@ export default function Admin() {
     }
   }, [isAdmin, isLoaded, isSignedIn, location, setLocation]);
 
-  if (CLERK_ENABLED && !isLoading && isLoaded && !isSignedIn) {
-    return <RedirectToSignIn redirectUrl="/admin" />;
+  // Show sign-in screen if not signed in
+  if (!isLoading && isLoaded && !isSignedIn) {
+    return <SignInButton redirectTo="/admin" />;
   }
 
   // Show loading spinner while checking user permissions
@@ -91,12 +92,6 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background">
-      {!CLERK_ENABLED && (
-        <div className="bg-amber-100 border-b border-amber-300 text-amber-900 px-6 py-3 text-sm">
-          Authentication is disabled. You're viewing the admin dashboard in development mode with a local admin account.
-        </div>
-      )}
-
       {/* Header */}
       <header className="border-b">
         <div className="container mx-auto px-6 py-4 flex items-center justify-between">
@@ -106,7 +101,7 @@ export default function Admin() {
               Welcome, {user?.firstName || user?.email || "Admin"}
             </p>
           </div>
-          {CLERK_ENABLED && <UserButton afterSignOutUrl="/" data-testid="button-user" />}
+          <UserMenu />
         </div>
       </header>
 

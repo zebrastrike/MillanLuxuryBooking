@@ -1,15 +1,14 @@
-import { useAuth as useClerkAuth, useUser } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { User } from "@shared/types";
-import { isAdminUser } from "@shared/auth";
-import { CLERK_ENABLED } from "@/lib/clerkConfig";
+import { supabase } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
 
-const IS_PRODUCTION = import.meta.env.MODE === "production";
-
-async function fetchAuthedUser(): Promise<User | null> {
+async function fetchAuthedUser(accessToken: string): Promise<User | null> {
   const response = await fetch("/api/auth/user", {
     headers: {
       Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
     },
   });
 
@@ -44,61 +43,53 @@ async function fetchAuthedUser(): Promise<User | null> {
   return parsedBody as User | null;
 }
 
-function useDisabledClerkAuth() {
-  // Always allow local dev bypass when Clerk is disabled
-  return {
-    user: {
-      id: "local-dev-admin",
-      email: "local-admin@example.com",
-      firstName: "Local",
-      lastName: "Admin",
-      profileImageUrl: null,
-      isAdmin: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
-    email: "local-admin@example.com",
-    isLoaded: true,
-    isLoading: false,
-    isAuthenticated: true,
-    isSignedIn: true,
-    isAdmin: true,
-    error: null,
-  };
-}
+export function useAuth() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-function useClerkBackedAuth() {
-  const { isSignedIn, isLoaded: authLoaded } = useClerkAuth();
-  const { user: clerkUser, isLoaded: userLoaded } = useUser();
-  const clerkLoaded = authLoaded && userLoaded;
-  const primaryEmail = clerkUser?.primaryEmailAddress?.emailAddress ?? null;
+  // Listen for auth state changes
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setIsLoaded(true);
+    });
 
-  // Fetch user data from our database (only if signed in with Clerk)
+    // Listen for changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setIsLoaded(true);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const accessToken = session?.access_token;
+
+  // Fetch user data from our database (only if signed in)
   const { data: dbUser, isLoading: dbLoading, error } = useQuery<User>({
-    queryKey: ["/api/auth/user"],
-    enabled: Boolean(isSignedIn && clerkLoaded),
-    retry: 2, // Retry failed requests twice
-    queryFn: fetchAuthedUser,
+    queryKey: ["/api/auth/user", accessToken],
+    enabled: Boolean(session && accessToken),
+    retry: 2,
+    queryFn: () => fetchAuthedUser(accessToken!),
   });
 
-  const resolvedUser = dbUser ?? null;
-  const isAdmin = isAdminUser(clerkUser) || Boolean(dbUser?.isAdmin);
-  const isAuthenticated = Boolean(clerkLoaded && isSignedIn);
-  const isLoaded = clerkLoaded && (!isSignedIn || !dbLoading);
-  const isLoading = !isLoaded;
+  const isSignedIn = Boolean(session);
+  const isAuthenticated = isSignedIn;
+  const isAdmin = Boolean(dbUser?.isAdmin);
+  const isLoading = !isLoaded || (isSignedIn && dbLoading);
 
   return {
-    user: resolvedUser,
-    email: primaryEmail || resolvedUser?.email || null,
-    isLoaded,
+    user: dbUser ?? null,
+    email: session?.user?.email || dbUser?.email || null,
+    isLoaded: isLoaded && (!isSignedIn || !dbLoading),
     isLoading,
     isAuthenticated,
     isSignedIn,
     isAdmin,
     error: error as Error | null,
+    session,
   };
-}
-
-export function useAuth() {
-  return CLERK_ENABLED ? useClerkBackedAuth() : useDisabledClerkAuth();
 }

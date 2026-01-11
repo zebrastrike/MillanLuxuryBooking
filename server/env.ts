@@ -3,8 +3,9 @@ import { z } from "zod";
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.string().optional(),
-  CLERK_PUBLISHABLE_KEY: z.string().trim().optional(),
-  CLERK_SECRET_KEY: z.string().trim().optional(),
+  SUPABASE_URL: z.string().trim().optional(),
+  SUPABASE_ANON_KEY: z.string().trim().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().trim().optional(),
   /**
    * Vercel dashboard currently exposes the blob token as `Blob_Evans_READ_WRITE_TOKEN`.
    * Keep supporting the previous `BLOB_READ_WRITE_TOKEN` name to avoid breaking local dev.
@@ -40,11 +41,15 @@ export function loadEnv() {
     console.warn("[WARN] DATABASE_URL is not set. Database-backed API routes will be disabled until it is configured.");
   }
 
-  requireInProduction(env.CLERK_SECRET_KEY, "CLERK_SECRET_KEY");
-  requireInProduction(env.CLERK_PUBLISHABLE_KEY, "CLERK_PUBLISHABLE_KEY");
-  requireInProduction(rawBlobToken, "BLOB_READ_WRITE_TOKEN (or Blob_Evans_READ_WRITE_TOKEN)");
+  const supabaseConfigured = Boolean(env.SUPABASE_URL && (env.SUPABASE_ANON_KEY || env.SUPABASE_SERVICE_ROLE_KEY));
 
-  const clerkEnabled = Boolean(env.CLERK_SECRET_KEY && env.CLERK_PUBLISHABLE_KEY);
+  if (!supabaseConfigured) {
+    console.warn("[WARN] Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (or SUPABASE_ANON_KEY) to enable authentication.");
+  }
+
+  if (env.NODE_ENV === "production" && !rawBlobToken) {
+    console.warn("[WARN] Blob storage token is missing. Upload endpoints will be unavailable.");
+  }
   const blobToken = rawBlobToken ?? "";
   const blobEnabled = Boolean(rawBlobToken);
 
@@ -53,11 +58,12 @@ export function loadEnv() {
   return {
     nodeEnv: env.NODE_ENV,
     port,
-    clerkEnabled,
+    supabaseEnabled: supabaseConfigured,
     blobEnabled,
-    clerk: {
-      publishableKey: env.CLERK_PUBLISHABLE_KEY,
-      secretKey: env.CLERK_SECRET_KEY,
+    supabase: {
+      url: env.SUPABASE_URL,
+      anonKey: env.SUPABASE_ANON_KEY,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY,
     },
     blob: {
       token: blobToken,
