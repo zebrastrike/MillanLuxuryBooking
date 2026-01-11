@@ -9,7 +9,11 @@
       "Bash(taskkill:*)",
       "Bash(npm run dev:backend:*)",
       "Bash(npm run dev:frontend:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(gh api:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix: Always generate Prisma client during Vercel build\n\n- Remove DATABASE_URL check that was preventing Prisma client generation\n- Prisma generate doesn''t need DB connection, only schema file\n- Add explicit error handling for failed generation\n- Prevents runtime 500 errors from missing Prisma client\n\nThis fixes production 500 errors on /api/gallery, /api/testimonials, \n/api/faqs, and /api/services endpoints.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
     ]
   }
 }
