@@ -8,12 +8,14 @@ echo "Starting Vercel build..."
 echo "Node version: $(node --version)"
 echo "Current directory: $(pwd)"
 
-if [ -z "$DATABASE_URL" ]; then
-  echo "Skipping Prisma setup because DATABASE_URL is not set."
+# ALWAYS generate Prisma client (doesn't need DB connection, only schema file)
+# This prevents runtime errors when Prisma client is missing
+echo "Generating Prisma client..."
+if npx prisma generate --schema=prisma/schema.prisma; then
+  echo "✓ Prisma client generated successfully"
 else
-  echo "Skipping migrations (tables already exist in production)..."
-  echo "Generating Prisma client..."
-  npx prisma generate --schema=prisma/schema.prisma
+  echo "✗ Failed to generate Prisma client"
+  exit 1
 fi
 
 # Run the standard build command
