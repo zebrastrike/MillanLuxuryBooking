@@ -365,13 +365,150 @@ async function seedBrandingAssets() {
   await prisma.brandingAsset.create({ data: {} });
 }
 
+async function seedProducts() {
+  const count = await prisma.fragranceProduct.count();
+  if (count > 0) {
+    console.log("✓ Products already seeded");
+    return;
+  }
+
+  const fragrances = [
+    "Bell",
+    "Brazilian Paradise",
+    "Gabrielle (Women) by Chanel",
+    "Golden Hour",
+    "Guilty (Men) by Gucci",
+    "Mahogany Royal",
+    "My Way",
+    "Ocean Rain",
+    "Piney Queen",
+    "Sauvage (Men) by Dior",
+    "Sweater Weather",
+    "Under The Christmas Tree",
+  ];
+
+  const products = [];
+  let order = 0;
+
+  // 3-Wick Candles - $35.99
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} 3-Wick Candle`,
+      description: `Luxurious 3-wick soy candle infused with ${fragrance} fragrance. Hand-poured with 100% organic soy wax for a clean, long-lasting burn.`,
+      category: "candle-3wick",
+      fragrance,
+      price: 35.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-3wick`,
+      sku: `3WICK-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: fragrance === "Bell" || fragrance === "Golden Hour",
+      order: order++,
+    });
+  }
+
+  // Car Diffusers - $9.99
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} Car Diffuser`,
+      description: `Long-lasting car diffuser with ${fragrance} scent. Keep your vehicle fresh for weeks.`,
+      category: "car-diffuser",
+      fragrance,
+      price: 9.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-car-diffuser`,
+      sku: `CAR-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: false,
+      order: order++,
+    });
+  }
+
+  // Mini Candles - $12.99
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} Mini Candle`,
+      description: `Compact soy candle with ${fragrance} fragrance. Perfect for small spaces or trying new scents.`,
+      category: "candle-mini",
+      fragrance,
+      price: 12.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-mini`,
+      sku: `MINI-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: false,
+      order: order++,
+    });
+  }
+
+  // All-Purpose Cleaners - $9.99 (was $17.99)
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} All-Purpose Cleaner`,
+      description: `Premium all-purpose cleaner with ${fragrance} scent. Natural ingredients, powerful cleaning.`,
+      category: "cleaner",
+      fragrance,
+      price: 17.99,
+      salePrice: 9.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-cleaner`,
+      sku: `CLEAN-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: false,
+      order: order++,
+    });
+  }
+
+  // Room Sprays - $17.99
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} Room Spray`,
+      description: `Instant room freshener with ${fragrance} aroma. Long-lasting and non-toxic.`,
+      category: "room-spray",
+      fragrance,
+      price: 17.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-room-spray`,
+      sku: `SPRAY-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: false,
+      order: order++,
+    });
+  }
+
+  // Single Candles - $19.99
+  for (const fragrance of fragrances) {
+    products.push({
+      name: `${fragrance} Single Candle`,
+      description: `Classic single-wick candle with ${fragrance} scent. Perfect balance of fragrance and burn time.`,
+      category: "candle-single",
+      fragrance,
+      price: 19.99,
+      displayPrice: true,
+      isVisible: true,
+      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-single`,
+      sku: `SINGLE-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
+      featured: false,
+      order: order++,
+    });
+  }
+
+  await prisma.fragranceProduct.createMany({
+    data: products,
+    skipDuplicates: true,
+  });
+
+  console.log(`✅ Seeded ${products.length} fragrance products`);
+}
+
 async function main() {
   await seedFaqs();
   await seedPosts();
   await seedServices();
-  await seedTestimonials();
+  // await seedTestimonials(); // Commented out - client will add real testimonials via Google import or admin
   await seedGallery();
   await seedBrandingAssets();
+  await seedProducts();
 }
 
 main()

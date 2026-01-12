@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
 import { Briefcase, Plus, Edit, Trash2, X, Loader2, ImageIcon } from "lucide-react";
@@ -67,6 +68,8 @@ export function ServicesManagement() {
       name: "",
       description: "",
       features: [""],
+      displayPrice: false,
+      isVisible: true,
     },
   });
 
@@ -76,6 +79,8 @@ export function ServicesManagement() {
       name: "",
       description: "",
       features: [""],
+      displayPrice: false,
+      isVisible: true,
     },
   });
 
@@ -194,6 +199,9 @@ export function ServicesManagement() {
       description: item.description,
       features: (item.features && item.features.length > 0) ? item.features : [""],
       imageUrl: item.imageUrl || undefined,
+      price: item.price ? Number(item.price) : undefined,
+      displayPrice: item.displayPrice ?? false,
+      isVisible: item.isVisible ?? true,
     });
     setEditingItem(item);
   };
@@ -432,6 +440,73 @@ export function ServicesManagement() {
                   </Button>
                 </div>
 
+                <FormField
+                  control={addForm.control}
+                  name="price"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Price ($ - Optional)</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={field.value || ""}
+                          onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                          placeholder="299.00"
+                        />
+                      </FormControl>
+                      <FormDescription>Optional pricing for this service</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={addForm.control}
+                    name="displayPrice"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Show Price</FormLabel>
+                          <FormDescription>
+                            Display price on public site
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={addForm.control}
+                    name="isVisible"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-base">Visible on Site</FormLabel>
+                          <FormDescription>
+                            Hide service without deleting
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
                 {addForm.formState.errors.root?.message && (
                   <p className="text-sm text-destructive">{addForm.formState.errors.root.message}</p>
                 )}
@@ -649,6 +724,73 @@ export function ServicesManagement() {
                   <Plus className="mr-2 h-4 w-4" />
                   Add Feature
                 </Button>
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Price ($ - Optional)</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={field.value || ""}
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                        placeholder="299.00"
+                      />
+                    </FormControl>
+                    <FormDescription>Optional pricing for this service</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="displayPrice"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Show Price</FormLabel>
+                        <FormDescription>
+                          Display price on public site
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="isVisible"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">Visible on Site</FormLabel>
+                        <FormDescription>
+                          Hide service without deleting
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
               </div>
 
               {editForm.formState.errors.root?.message && (

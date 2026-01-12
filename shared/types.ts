@@ -60,6 +60,9 @@ export interface ServiceItem {
   features?: string[];
   order?: number | null;
   createdAt: string | Date;
+  price?: number | null;
+  displayPrice?: boolean;
+  isVisible?: boolean;
 }
 
 export interface Testimonial {
@@ -73,6 +76,11 @@ export interface Testimonial {
   source?: string | null;
   sourceUrl?: string | null;
   order?: number | null;
+
+  // Google OAuth integration
+  externalId?: string | null;
+  isApproved?: boolean;
+  importedAt?: string | Date | null;
 }
 
 export interface FaqItem {
@@ -81,6 +89,7 @@ export interface FaqItem {
   answer: string;
   order?: number | null;
   createdAt: string | Date;
+  isVisible?: boolean;
 }
 
 export interface BrandingAsset {
@@ -117,6 +126,25 @@ export interface Post {
   excerpt: string;
   body: string;
   published: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface FragranceProduct {
+  id: number;
+  name: string;
+  description: string;
+  category: string;
+  fragrance: string;
+  price: number;
+  salePrice: number | null;
+  displayPrice: boolean;
+  isVisible: boolean;
+  imageUrl: string | null;
+  squareUrl: string;
+  sku: string | null;
+  featured: boolean;
+  order: number;
   createdAt: string | Date;
   updatedAt: string | Date;
 }
@@ -175,6 +203,9 @@ export const createServiceSchema = z.object({
   iconUrl: optionalUrl.optional(),
   imageUrl: optionalUrl.optional(),
   features: z.array(z.string().min(1)).optional(),
+  price: z.number().positive("Price must be positive").optional(),
+  displayPrice: z.boolean().optional(),
+  isVisible: z.boolean().optional(),
 }).superRefine((data, ctx) => {
   if (!data.title && !data.name) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Provide a title or name" });
@@ -216,6 +247,7 @@ export const createFaqSchema = z.object({
   question: z.string().min(1, "Question is required"),
   answer: z.string().min(1, "Answer is required"),
   order: z.number().min(0).optional(),
+  isVisible: z.boolean().optional(),
 });
 export type CreateFaq = z.infer<typeof createFaqSchema>;
 export const updateFaqSchema = optionalize(createFaqSchema.shape);
@@ -238,7 +270,7 @@ export const insertSiteAssetSchema = z.object({
 });
 export const updateSiteAssetSchema = optionalize(insertSiteAssetSchema.shape);
 
-export const testimonialSourceSchema = z.enum(["manual", "google", "thumbtack"]);
+export const testimonialSourceSchema = z.enum(["manual", "google", "thumbtack", "yelp"]);
 
 const slugRegex = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 export const createPostSchema = z.object({
@@ -272,3 +304,36 @@ export const insertFaqSchema = createFaqSchema;
 
 export type InsertPost = CreatePost;
 export const insertPostSchema = createPostSchema;
+
+// Product management
+export const productCategorySchema = z.enum([
+  "candle-3wick",
+  "candle-mini",
+  "candle-single",
+  "car-diffuser",
+  "room-spray",
+  "cleaner"
+]);
+export type ProductCategory = z.infer<typeof productCategorySchema>;
+
+export const createFragranceProductSchema = z.object({
+  name: z.string().min(1, "Product name is required"),
+  description: z.string().min(10, "Description must be at least 10 characters"),
+  category: productCategorySchema,
+  fragrance: z.string().min(1, "Fragrance name is required"),
+  price: z.number().positive("Price must be positive"),
+  salePrice: z.number().positive("Sale price must be positive").optional(),
+  displayPrice: z.boolean().optional(),
+  isVisible: z.boolean().optional(),
+  imageUrl: optionalUrl.optional(),
+  squareUrl: z.string().url("Must be a valid Square URL"),
+  sku: z.string().optional(),
+  featured: z.boolean().optional(),
+  order: z.number().int().optional(),
+});
+export type CreateFragranceProduct = z.infer<typeof createFragranceProductSchema>;
+export const updateFragranceProductSchema = optionalize(createFragranceProductSchema.shape);
+export type UpdateFragranceProduct = z.infer<typeof updateFragranceProductSchema>;
+
+export type InsertFragranceProduct = CreateFragranceProduct;
+export const insertFragranceProductSchema = createFragranceProductSchema;

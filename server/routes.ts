@@ -16,6 +16,8 @@ import {
   updateSiteAssetSchema,
   updatePostSchema,
   updateFaqSchema,
+  insertFragranceProductSchema,
+  updateFragranceProductSchema,
 } from "../shared/types.js";
 import { z, ZodError } from "zod";
 import multer from "multer";
@@ -23,6 +25,8 @@ import type { Asset, SiteAsset } from "../shared/types.js";
 import type { EnvConfig } from "./env.js";
 import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob } from "./blobService.js";
 import { getUserFromRequest, isUserAdmin } from "./supabase.js";
+import { getGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleReviews } from "./google.js";
+import { saveTokens, getValidToken } from "./tokenService.js";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
@@ -736,7 +740,10 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Testimonials endpoints
   app.get("/api/testimonials", async (req, res) => {
     try {
-      const items = await prisma.testimonial.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
+      const items = await prisma.testimonial.findMany({
+        where: { isApproved: true },
+        orderBy: [{ order: "asc" }, { id: "asc" }]
+      });
       res.json(items);
     } catch (error) {
       res.status(500).json({
@@ -838,7 +845,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         });
         return;
       }
-      
+
       const existing = await prisma.testimonial.findUnique({ where: { id } });
 
       if (!existing) {
@@ -850,7 +857,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       await prisma.testimonial.delete({ where: { id } });
-      
+
       res.json({
         success: true,
         message: "Testimonial deleted successfully"
@@ -863,10 +870,137 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
+  // Google OAuth endpoints
+  app.get('/api/auth/google', requireAdmin, (req, res) => {
+    try {
+      const authUrl = getGoogleAuthUrl();
+      res.json({ authUrl });
+    } catch (error) {
+      console.error('OAuth URL error:', error);
+      res.status(500).json({ error: 'Failed to generate OAuth URL' });
+    }
+  });
+
+  app.get('/api/auth/google/callback', async (req, res) => {
+    try {
+      const { code } = req.query;
+      if (!code || typeof code !== 'string') {
+        res.status(400).send('<html><body><h1>Error: Missing authorization code</h1></body></html>');
+        return;
+      }
+
+      const { accessToken, refreshToken, expiresAt } = await exchangeCodeForTokens(code);
+      await saveTokens('google', accessToken, refreshToken, expiresAt);
+
+      res.send(`
+        <html>
+          <body>
+            <h1>Google Account Connected!</h1>
+            <p>You can now close this window and return to the admin dashboard.</p>
+            <script>
+              setTimeout(() => {
+                window.close();
+              }, 2000);
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('OAuth callback error:', error);
+      res.status(500).send('<html><body><h1>OAuth Error</h1><p>Failed to connect Google account.</p></body></html>');
+    }
+  });
+
+  // Import reviews from Google
+  app.post('/api/reviews/import/google', requireAdmin, async (req, res) => {
+    try {
+      const accessToken = await getValidToken('google');
+      const { reviews } = await fetchGoogleReviews(accessToken);
+
+      const imported = await prisma.testimonial.createMany({
+        data: reviews.map((r: any) => ({
+          author: r.author,
+          content: r.content,
+          rating: r.rating,
+          source: 'google',
+          sourceUrl: r.sourceUrl,
+          externalId: r.externalId,
+          isApproved: false,
+          importedAt: new Date(),
+        })),
+        skipDuplicates: true,
+      });
+
+      res.json({
+        success: true,
+        imported: imported.count,
+        message: `Imported ${imported.count} reviews. Awaiting approval.`,
+      });
+    } catch (error: any) {
+      console.error('Import error:', error);
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to import reviews',
+      });
+    }
+  });
+
+  // Approval workflow endpoints
+  app.patch('/api/testimonials/:id/approve', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updated = await prisma.testimonial.update({
+        where: { id },
+        data: { isApproved: true },
+      });
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to approve testimonial' });
+    }
+  });
+
+  app.delete('/api/testimonials/:id/reject', requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await prisma.testimonial.delete({ where: { id } });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to reject testimonial' });
+    }
+  });
+
+  // Get pending reviews (admin only)
+  app.get('/api/testimonials/pending', requireAdmin, async (req, res) => {
+    try {
+      const pending = await prisma.testimonial.findMany({
+        where: { isApproved: false },
+        orderBy: { importedAt: 'desc' },
+      });
+      res.json(pending);
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to fetch pending testimonials' });
+    }
+  });
+
+  // Check Google connection status
+  app.get('/api/auth/google/status', requireAdmin, async (req, res) => {
+    try {
+      const token = await prisma.oAuthToken.findUnique({
+        where: { service: 'google' },
+      });
+      res.json({ connected: Boolean(token) });
+    } catch (error) {
+      res.json({ connected: false });
+    }
+  });
+
   // FAQs endpoints
   app.get("/api/faqs", async (_req, res) => {
     try {
-      const items = await prisma.faqItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
+      const items = await prisma.faqItem.findMany({
+        where: { isVisible: true },
+        orderBy: [{ order: "asc" }, { id: "asc" }]
+      });
       res.json(items);
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to retrieve FAQs" });
@@ -950,7 +1084,10 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Services endpoints
   app.get("/api/services", async (req, res) => {
     try {
-      const items = await prisma.serviceItem.findMany({ orderBy: [{ order: "asc" }, { id: "asc" }] });
+      const items = await prisma.serviceItem.findMany({
+        where: { isVisible: true },
+        orderBy: [{ order: "asc" }, { id: "asc" }]
+      });
       res.json(items);
     } catch (error) {
       console.error('[API] Error in GET /api/services:', error);
@@ -1192,6 +1329,135 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       res.json(post);
     } catch (error) {
       res.status(500).json({ success: false, message: "Failed to retrieve post" });
+    }
+  });
+
+  // Fragrance Products endpoints
+  app.get("/api/products", async (_req, res) => {
+    try {
+      const items = await prisma.fragranceProduct.findMany({
+        where: { isVisible: true },
+        orderBy: [{ order: "asc" }, { id: "asc" }]
+      });
+      res.json(items);
+    } catch (error) {
+      console.error('[API] Error in GET /api/products:', error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to retrieve products",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
+  app.post("/api/products", requireAdmin, async (req, res) => {
+    try {
+      const validatedData = insertFragranceProductSchema.parse(req.body);
+      const maxOrder = await prisma.fragranceProduct.aggregate({ _max: { order: true } });
+      const nextOrder = (maxOrder._max.order ?? -1) + 1;
+      const item = await prisma.fragranceProduct.create({
+        data: {
+          ...validatedData,
+          order: validatedData.order ?? nextOrder,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Product created successfully",
+        data: item
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid product data",
+          errors: error.issues
+        });
+      } else {
+        console.error("Failed to create product", error);
+        res.status(500).json({
+          success: false,
+          message: "Failed to create product"
+        });
+      }
+    }
+  });
+
+  app.patch("/api/products/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+
+      const updates = updateFragranceProductSchema.parse(req.body);
+      const existing = await prisma.fragranceProduct.findUnique({ where: { id } });
+
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: "Product not found"
+        });
+        return;
+      }
+
+      const item = await prisma.fragranceProduct.update({ where: { id }, data: updates });
+
+      res.json({
+        success: true,
+        message: "Product updated successfully",
+        data: item
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ success: false, message: "Invalid product data", errors: error.issues });
+        return;
+      }
+      console.error("Failed to update product", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to update product"
+      });
+    }
+  });
+
+  app.delete("/api/products/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        res.status(400).json({
+          success: false,
+          message: "Invalid ID"
+        });
+        return;
+      }
+
+      const existing = await prisma.fragranceProduct.findUnique({ where: { id } });
+
+      if (!existing) {
+        res.status(404).json({
+          success: false,
+          message: "Product not found"
+        });
+        return;
+      }
+
+      await prisma.fragranceProduct.delete({ where: { id } });
+
+      res.json({
+        success: true,
+        message: "Product deleted successfully"
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: "Failed to delete product"
+      });
     }
   });
 

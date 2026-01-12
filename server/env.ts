@@ -14,6 +14,14 @@ const envSchema = z.object({
   Blob_Evans_READ_WRITE_TOKEN: z.string().trim().optional(),
   DATABASE_URL: z.string().trim().optional(),
   DIRECT_URL: z.string().trim().optional(),
+
+  // Google OAuth
+  GOOGLE_CLIENT_ID: z.string().trim().optional(),
+  GOOGLE_CLIENT_SECRET: z.string().trim().optional(),
+  GOOGLE_REDIRECT_URI: z.string().url().optional(),
+
+  // Encryption key for OAuth tokens (REQUIRED for OAuth)
+  OAUTH_ENCRYPTION_KEY: z.string().min(32).optional(),
 });
 
 export type EnvConfig = ReturnType<typeof loadEnv>;
@@ -55,11 +63,22 @@ export function loadEnv() {
 
   const port = Number.parseInt(env.PORT || "5000", 10);
 
+  const googleOAuthEnabled = Boolean(
+    env.GOOGLE_CLIENT_ID &&
+    env.GOOGLE_CLIENT_SECRET &&
+    env.OAUTH_ENCRYPTION_KEY
+  );
+
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && !env.OAUTH_ENCRYPTION_KEY) {
+    console.warn("[WARN] Google OAuth credentials provided but OAUTH_ENCRYPTION_KEY is missing. OAuth will be disabled.");
+  }
+
   return {
     nodeEnv: env.NODE_ENV,
     port,
     supabaseEnabled: supabaseConfigured,
     blobEnabled,
+    googleOAuthEnabled,
     supabase: {
       url: env.SUPABASE_URL,
       anonKey: env.SUPABASE_ANON_KEY,
@@ -68,6 +87,12 @@ export function loadEnv() {
     blob: {
       token: blobToken,
     },
+    google: {
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri: env.GOOGLE_REDIRECT_URI,
+    },
+    oauthEncryptionKey: env.OAUTH_ENCRYPTION_KEY,
     databaseUrl,
   } as const;
 }

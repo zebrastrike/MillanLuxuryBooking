@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -12,13 +12,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { handleUnauthorizedError, getErrorMessage } from "@/lib/authUtils";
-import { Star, Plus, Edit, Trash2, Loader2 } from "lucide-react";
+import { Star, Plus, Edit, Trash2, Loader2, CheckCircle2, X } from "lucide-react";
 import type { Testimonial, InsertTestimonial } from "@shared/types";
 import { insertTestimonialSchema, testimonialSourceSchema } from "@shared/types";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { normalizeArrayData } from "@/lib/arrayUtils";
+import { GoogleReviewImport } from "./GoogleReviewImport";
 
 type TestimonialFormData = InsertTestimonial;
 const testimonialSources = testimonialSourceSchema.options;
@@ -34,7 +37,13 @@ export function TestimonialsManagement() {
     retry: false,
   });
 
+  const { data: pendingTestimonialsPayload } = useQuery<Testimonial[]>({
+    queryKey: ["/api/testimonials/pending"],
+    retry: false,
+  });
+
   const { items: testimonials = [], isValid: testimonialsValid } = normalizeArrayData<Testimonial>(testimonialsPayload);
+  const { items: pendingTestimonials = [] } = normalizeArrayData<Testimonial>(pendingTestimonialsPayload);
   const normalizeCachedTestimonials = (value: unknown) => normalizeArrayData<Testimonial>(value).items;
 
   useEffect(() => {
@@ -178,6 +187,57 @@ export function TestimonialsManagement() {
     },
   });
 
+  const approveMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await apiRequest("PATCH", `/api/testimonials/${id}/approve`);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials/pending"] });
+      toast({
+        title: "Success",
+        description: "Testimonial approved successfully",
+      });
+    },
+    onError: (error) => {
+      if (handleUnauthorizedError(error, toast)) {
+        return;
+      }
+      const message = getErrorMessage(error) || "Failed to approve testimonial";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/testimonials/${id}/reject`);
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/testimonials/pending"] });
+      toast({
+        title: "Success",
+        description: "Testimonial rejected",
+      });
+    },
+    onError: (error) => {
+      if (handleUnauthorizedError(error, toast)) {
+        return;
+      }
+      const message = getErrorMessage(error) || "Failed to reject testimonial";
+      toast({
+        title: "Error",
+        description: message,
+        variant: "destructive",
+      });
+    },
+  });
+
   const handleEdit = (item: Testimonial) => {
     editForm.reset({
       name: item.name,
@@ -225,14 +285,17 @@ export function TestimonialsManagement() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button data-testid="button-add-testimonial">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Testimonial
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
+        <h2 className="text-2xl font-bold">Testimonials Management</h2>
+        <div className="flex gap-2">
+          <GoogleReviewImport />
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button data-testid="button-add-testimonial">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Manual
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Add Testimonial</DialogTitle>
               <DialogDescription>
@@ -348,74 +411,242 @@ export function TestimonialsManagement() {
             </Form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
-      {testimonials.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-center text-muted-foreground py-8">
-              <Star className="mx-auto h-12 w-12 mb-3 opacity-50" />
-              <p className="mb-4">No testimonials yet.</p>
-              <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Your First Testimonial
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {testimonials.map((testimonial) => (
-            <Card key={testimonial.id} data-testid={`card-testimonial-${testimonial.id}`} className="hover-elevate">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <h3 className="font-semibold" data-testid={`text-name-${testimonial.id}`}>
-                      {testimonial.name}
-                    </h3>
-                    <div className="flex items-center gap-1 mt-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star
-                          key={i}
-                          className={`h-4 w-4 ${
-                            i < testimonial.rating
-                              ? "fill-primary text-primary"
-                              : "fill-muted text-muted"
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEdit(testimonial)}
-                      data-testid={`button-edit-${testimonial.id}`}
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeletingItemId(testimonial.id)}
-                      disabled={deleteMutation.isPending}
-                      data-testid={`button-delete-${testimonial.id}`}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground" data-testid={`text-review-${testimonial.id}`}>
-                  {testimonial.review}
-                </p>
+      <Tabs defaultValue="all" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="all">All</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending ({pendingTestimonials.length})
+          </TabsTrigger>
+          <TabsTrigger value="approved">Approved</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending">
+          {pendingTestimonials.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground py-8">No pending reviews</p>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <div className="space-y-4">
+              {pendingTestimonials.map((testimonial) => (
+                <Card key={testimonial.id} data-testid={`card-pending-${testimonial.id}`}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{testimonial.author || testimonial.name}</CardTitle>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-4 h-4 ${
+                                  i < testimonial.rating
+                                    ? 'fill-yellow-400 text-yellow-400'
+                                    : 'text-gray-300'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          {testimonial.source && (
+                            <Badge variant="secondary">{testimonial.source}</Badge>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                      {testimonial.content || testimonial.review}
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => approveMutation.mutate(testimonial.id)}
+                        size="sm"
+                        disabled={approveMutation.isPending}
+                      >
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Approve
+                      </Button>
+                      <Button
+                        onClick={() => rejectMutation.mutate(testimonial.id)}
+                        variant="destructive"
+                        size="sm"
+                        disabled={rejectMutation.isPending}
+                      >
+                        <X className="w-4 h-4 mr-1" />
+                        Reject
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="all">
+          {testimonials.length === 0 && pendingTestimonials.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center text-muted-foreground py-8">
+                  <Star className="mx-auto h-12 w-12 mb-3 opacity-50" />
+                  <p className="mb-4">No testimonials yet.</p>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Your First Testimonial
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {[...testimonials, ...pendingTestimonials]
+                .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+                .map((testimonial) => (
+                  <Card key={testimonial.id} data-testid={`card-testimonial-${testimonial.id}`} className="hover-elevate">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold" data-testid={`text-name-${testimonial.id}`}>
+                              {testimonial.author || testimonial.name}
+                            </h3>
+                            {testimonial.isApproved === false && (
+                              <Badge variant="secondary">Pending</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 mt-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-4 w-4 ${
+                                  i < testimonial.rating
+                                    ? "fill-primary text-primary"
+                                    : "fill-muted text-muted"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {testimonial.isApproved === false ? (
+                            <>
+                              <Button
+                                onClick={() => approveMutation.mutate(testimonial.id)}
+                                variant="outline"
+                                size="sm"
+                                disabled={approveMutation.isPending}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                onClick={() => rejectMutation.mutate(testimonial.id)}
+                                variant="outline"
+                                size="sm"
+                                disabled={rejectMutation.isPending}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEdit(testimonial)}
+                                data-testid={`button-edit-${testimonial.id}`}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setDeletingItemId(testimonial.id)}
+                                disabled={deleteMutation.isPending}
+                                data-testid={`button-delete-${testimonial.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground" data-testid={`text-review-${testimonial.id}`}>
+                        {testimonial.content || testimonial.review}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="approved">
+          {testimonials.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-center text-muted-foreground py-8">No approved testimonials yet</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {testimonials.map((testimonial) => (
+                <Card key={testimonial.id} data-testid={`card-approved-${testimonial.id}`} className="hover-elevate">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-semibold">
+                          {testimonial.author || testimonial.name}
+                        </h3>
+                        <div className="flex items-center gap-1 mt-1">
+                          {[...Array(5)].map((_, i) => (
+                            <Star
+                              key={i}
+                              className={`h-4 w-4 ${
+                                i < testimonial.rating
+                                  ? "fill-primary text-primary"
+                                  : "fill-muted text-muted"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEdit(testimonial)}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeletingItemId(testimonial.id)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      {testimonial.content || testimonial.review}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={!!editingItem} onOpenChange={(open) => !open && setEditingItem(null)}>
         <DialogContent className="max-w-md">

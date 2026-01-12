@@ -10,6 +10,7 @@ import { AppErrorBoundary } from "@/components/AppErrorBoundary";
 import { Analytics } from "@/components/Analytics";
 import BlogIndex from "@/pages/blog";
 import BlogPost from "@/pages/blog/PostDetail";
+import Fragrances from "@/pages/fragrances";
 
 // Main router component
 function Router() {
@@ -18,6 +19,7 @@ function Router() {
       <Route path="/" component={Home}/>
       <Route path="/blog" component={BlogIndex}/>
       <Route path="/blog/:slug" component={BlogPost}/>
+      <Route path="/fragrances" component={Fragrances}/>
       <Route path="/admin" component={Admin}/>
       <Route component={NotFound} />
     </Switch>

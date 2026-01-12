@@ -22,13 +22,14 @@ export function Navigation() {
   }, []);
 
   const navLinks = [
-    { href: "#about", label: "About" },
-    { href: "#services", label: "Services" },
-    { href: "#gallery", label: "Gallery" },
-    { href: "#testimonials", label: "Reviews" },
+    { href: "/#about", label: "About" },
+    { href: "/#services", label: "Services" },
+    { href: "/fragrances", label: "Fragrances" },
+    { href: "/#gallery", label: "Gallery" },
+    { href: "/#testimonials", label: "Reviews" },
     { href: "/blog", label: "Blog" },
-    { href: "#faq", label: "FAQ" },
-    { href: "#contact", label: "Contact" },
+    { href: "/#faq", label: "FAQ" },
+    { href: "/#contact", label: "Contact" },
   ];
 
   return (
@@ -43,7 +44,7 @@ export function Navigation() {
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo */}
           <a
-            href="#hero"
+            href="/"
             className="transition-opacity hover:opacity-80"
             data-testid="link-logo"
           >
