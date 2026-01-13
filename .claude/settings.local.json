@@ -26,7 +26,8 @@
       "Bash(Format-Table -AutoSize)",
       "Bash(powershell -Command:*)",
       "Bash(node delete-testimonials.js:*)",
-      "Bash(node delete-testimonials.mjs:*)"
+      "Bash(node delete-testimonials.mjs:*)",
+      "Bash(node check-db.mjs:*)"
     ]
   }
 }
