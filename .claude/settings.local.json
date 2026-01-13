@@ -27,7 +27,10 @@
       "Bash(powershell -Command:*)",
       "Bash(node delete-testimonials.js:*)",
       "Bash(node delete-testimonials.mjs:*)",
-      "Bash(node check-db.mjs:*)"
+      "Bash(node check-db.mjs:*)",
+      "Bash(node verify-endpoints.mjs:*)",
+      "Bash(node -e:*)",
+      "Bash(node update-products.mjs:*)"
     ]
   }
 }

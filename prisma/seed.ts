@@ -387,6 +387,22 @@ async function seedProducts() {
     "Under The Christmas Tree",
   ];
 
+  // Stock images for each fragrance - using Unsplash API
+  const fragranceImages: Record<string, string> = {
+    "Bell": "https://images.unsplash.com/photo-1602874801006-95ad5242a651?w=600&h=600&fit=crop",
+    "Brazilian Paradise": "https://images.unsplash.com/photo-1606923829579-0cb981a83e2e?w=600&h=600&fit=crop",
+    "Gabrielle (Women) by Chanel": "https://images.unsplash.com/photo-1615634260167-c8cdede054de?w=600&h=600&fit=crop",
+    "Golden Hour": "https://images.unsplash.com/photo-1603006905003-be475563bc59?w=600&h=600&fit=crop",
+    "Guilty (Men) by Gucci": "https://images.unsplash.com/photo-1587556930080-53b29ca14d43?w=600&h=600&fit=crop",
+    "Mahogany Royal": "https://images.unsplash.com/photo-1602874801006-95ad5242a651?w=600&h=600&fit=crop&sat=-50",
+    "My Way": "https://images.unsplash.com/photo-1603006905003-be475563bc59?w=600&h=600&fit=crop&hue=320",
+    "Ocean Rain": "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=600&h=600&fit=crop",
+    "Piney Queen": "https://images.unsplash.com/photo-1512428813834-c702c7702b78?w=600&h=600&fit=crop",
+    "Sauvage (Men) by Dior": "https://images.unsplash.com/photo-1587556930080-53b29ca14d43?w=600&h=600&fit=crop&hue=200",
+    "Sweater Weather": "https://images.unsplash.com/photo-1603006905003-be475563bc59?w=600&h=600&fit=crop&hue=30",
+    "Under The Christmas Tree": "https://images.unsplash.com/photo-1512474932049-78ac69ede12c?w=600&h=600&fit=crop",
+  };
+
   const products = [];
   let order = 0;
 
@@ -400,7 +416,8 @@ async function seedProducts() {
       price: 35.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-3wick`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `3WICK-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: fragrance === "Bell" || fragrance === "Golden Hour",
       order: order++,
@@ -417,7 +434,8 @@ async function seedProducts() {
       price: 9.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-car-diffuser`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `CAR-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: false,
       order: order++,
@@ -434,7 +452,8 @@ async function seedProducts() {
       price: 12.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-mini`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `MINI-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: false,
       order: order++,
@@ -452,7 +471,8 @@ async function seedProducts() {
       salePrice: 9.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-cleaner`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `CLEAN-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: false,
       order: order++,
@@ -469,7 +489,8 @@ async function seedProducts() {
       price: 17.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-room-spray`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `SPRAY-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: false,
       order: order++,
@@ -486,7 +507,8 @@ async function seedProducts() {
       price: 19.99,
       displayPrice: true,
       isVisible: true,
-      squareUrl: `https://millanluxurycleaning.square.site/product/${fragrance.toLowerCase().replace(/\s+/g, '-').replace(/[()]/g, '')}-single`,
+      imageUrl: fragranceImages[fragrance],
+      squareUrl: "https://millanluxurycleaning.square.site/",
       sku: `SINGLE-${fragrance.toUpperCase().replace(/\s+/g, '').replace(/[()]/g, '')}`,
       featured: false,
       order: order++,
