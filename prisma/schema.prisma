@@ -1,7 +1,5 @@
-// Prisma schema for Millan Luxury Cleaning
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
@@ -75,41 +73,32 @@ model ServiceItem {
   iconMetadata  Json?
   imageMetadata Json?
   createdAt     DateTime @default(now())
-
-  // Legacy compatibility
-  name     String?
-  features String[] @default([])
-  order    Int      @default(0)
-
-  // New fields for pricing and visibility
-  price         Decimal? @db.Decimal(10, 2)
+  name          String?
+  features      String[] @default([])
+  order         Int      @default(0)
   displayPrice  Boolean  @default(false)
   isVisible     Boolean  @default(true)
+  price         Decimal? @db.Decimal(10, 2)
 
   @@index([isVisible])
   @@map("services")
 }
 
 model Testimonial {
-  id        Int      @id @default(autoincrement())
-  author    String
-  rating    Int
-  content   String
-  createdAt DateTime @default(now())
-
-  // Legacy compatibility
-  name      String?
-  review    String?
-  source    String?
-  sourceUrl String?
-  order     Int     @default(0)
-
-  // Google OAuth integration
+  id         Int       @id @default(autoincrement())
+  author     String
+  rating     Int
+  content    String
+  createdAt  DateTime  @default(now())
+  name       String?
+  review     String?
+  source     String?
+  sourceUrl  String?
+  order      Int       @default(0)
   externalId String?
-  isApproved Boolean  @default(true)  // Existing testimonials stay approved
   importedAt DateTime?
+  isApproved Boolean   @default(true)
 
-  // Composite unique constraint for external reviews
   @@unique([source, externalId], name: "testimonial_source_external_id")
   @@map("testimonials")
 }
@@ -168,12 +157,17 @@ model Post {
 
 model OAuthToken {
   id           Int      @id @default(autoincrement())
-  service      String   @unique  // "google"
-  accessToken  String   // Encrypted
-  refreshToken String?  // Encrypted
+  service      String   @unique
+  provider     String   @default("google")
+  merchantId   String?
+  locationId   String?
+  payload      Json?
+  accessToken  String
+  refreshToken String?
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 
+  @@unique([provider, merchantId])
   @@map("oauth_tokens")
 }
 
@@ -181,8 +175,8 @@ model FragranceProduct {
   id           Int      @id @default(autoincrement())
   name         String
   description  String
-  category     String   // "candle-3wick", "car-diffuser", etc.
-  fragrance    String   // "Bell", "Golden Hour", etc.
+  category     String
+  fragrance    String
   price        Decimal  @db.Decimal(10, 2)
   salePrice    Decimal? @db.Decimal(10, 2)
   displayPrice Boolean  @default(true)
