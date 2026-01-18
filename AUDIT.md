@@ -64,12 +64,61 @@ The contact submission endpoint is fully unauthenticated and lacks throttling or
 
 # SQUARE INTEGRATION PLAN
 
+## Canonical Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DATA FLOW (Production)                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   SQUARE (Source of Truth)                                      │
+│   ├── Catalog API (prices, items, variations)                   │
+│   ├── Inventory API (stock levels)                              │
+│   ├── Payments API (PCI-compliant transactions)                 │
+│   └── Bookings API (appointments)                               │
+│            │                                                    │
+│            ▼ (sync + webhooks)                                  │
+│                                                                 │
+│   SUPABASE POSTGRES (Operational Database)                      │
+│   ├── FragranceProduct (catalog mirror)                         │
+│   ├── Cart / CartItem (shopping sessions)                       │
+│   ├── Order / OrderItem (purchase history)                      │
+│   ├── Booking (appointment records)                             │
+│   └── User (authentication)                                     │
+│            │                                                    │
+│            ▼ (Prisma queries)                                   │
+│                                                                 │
+│   VERCEL API ROUTES (/api/*)                                    │
+│   ├── Stateless execution                                       │
+│   ├── Secure env vars (tokens never in client)                  │
+│   └── Auto-scaling                                              │
+│            │                                                    │
+│            ▼ (JSON responses)                                   │
+│                                                                 │
+│   REACT FRONTEND                                                │
+│   ├── Product Cards (NO REBUILD NEEDED)                         │
+│   ├── Cart UI                                                   │
+│   ├── Checkout (Web Payments SDK)                               │
+│   └── Booking UI                                                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Role Separation (DO NOT BLUR)
+
+| Component | Responsibility | What It Does NOT Do |
+|-----------|---------------|---------------------|
+| **Square** | Prices, inventory truth, payments, bookings, PCI compliance | Store user sessions, cache data |
+| **Supabase** | Normalized catalog mirror, carts, orders, users, operational queries | Handle payments, be the price source |
+| **Vercel** | Frontend serving, API execution, env var security | Store secrets in client, call Square directly from browser |
+| **React** | UI rendering, user interaction | Fetch Square data directly, store tokens |
+
 ## Current System Architecture
 
 ### Tech Stack
 - **Frontend:** React 18 + TypeScript + Vite + TailwindCSS
-- **Backend:** Express.js + TypeScript
-- **Database:** PostgreSQL (Supabase)
+- **Backend:** Express.js + TypeScript (Vercel Serverless)
+- **Database:** PostgreSQL (Supabase) - **Operational DB, not cache**
 - **ORM:** Prisma
 - **Auth:** Supabase Auth
 - **Storage:** Vercel Blob
@@ -85,6 +134,30 @@ The contact submission endpoint is fully unauthenticated and lacks throttling or
 | Inventory | None | Manual product management only |
 | Orders | None | No visibility into purchases |
 | Bookings | None | External Square Appointments only |
+
+---
+
+## Live States (When Can This Ship?)
+
+### State 1: Browse-Only (CAN SHIP IMMEDIATELY)
+- Square catalog synced to Supabase
+- Prices + images live on product cards
+- Inventory status visible
+- "Add to cart" hidden or disabled
+- **Result:** SEO live, marketing live, no payments
+
+### State 2: Commerce Live (STANDARD E-COMMERCE)
+- Cart fully enabled
+- Square Web Payments SDK integrated
+- Orders written to Supabase
+- Payments processed by Square
+- **Result:** Full e-commerce, PCI compliant, no redirects
+
+### State 3: Full Platform (COMMERCE + BOOKINGS)
+- Embedded service booking
+- Real-time availability calendar
+- Admin booking management
+- **Result:** Complete platform
 
 ---
 
@@ -531,19 +604,28 @@ client/src/pages/
 
 ### Component Updates Required
 
-#### FragranceCard.tsx
-- Replace "Shop Now" link with "Add to Cart" button
+#### FragranceCard.tsx - NO REBUILD NEEDED
+**What changes:**
+- Data source becomes Square-backed (via `/api/products`)
 - Add inventory status indicator (In Stock / Low Stock / Out of Stock)
-- Remove external link behavior
+- Add "Add to Cart" button (Phase 3)
+
+**What does NOT change:**
+- Card layout
+- Tailwind styles
+- React component structure
+- Routing
+
+**Why:** The existing cards already consume `/api/products`. That endpoint becomes Square-backed. Data shape stays compatible. Cards re-render automatically with Square data.
 
 #### Services.tsx
-- Replace hardcoded URLs with dynamic booking widget
+- Replace hardcoded URLs with dynamic booking widget (Phase 5)
 - Add "Book Now" button → opens BookingWidget
 - Show next available slot
 
 #### Navigation.tsx
-- Add cart icon with badge (item count)
-- Add "My Orders" link for authenticated users
+- Add cart icon with badge (item count) - Phase 3
+- Add "My Orders" link for authenticated users - Phase 6
 
 ---
 
