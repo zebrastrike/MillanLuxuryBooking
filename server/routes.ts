@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import type { PrismaClient } from "@prisma/client";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { createServer, type Server } from "http";
@@ -28,7 +29,27 @@ import { getUserFromRequest, isUserAdmin } from "./supabase.js";
 import { getGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleReviews } from "./google.js";
 import { saveTokens, getValidToken } from "./tokenService.js";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/avif",
+]);
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "image/avif": "avif",
+};
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
 
 const blobPrefixMap = {
   branding: "branding",
@@ -39,6 +60,69 @@ const blobPrefixMap = {
 } as const;
 
 type BlobPrefix = keyof typeof blobPrefixMap;
+
+const CONTACT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const CONTACT_RATE_LIMIT_MAX = 5;
+const contactRateLimit = new Map<string, { count: number; resetAt: number }>();
+
+const getClientIp = (req: Request) => {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0].trim();
+  }
+  return req.ip || "unknown";
+};
+
+const checkContactRateLimit = (req: Request) => {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const entry = contactRateLimit.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    contactRateLimit.set(ip, { count: 1, resetAt: now + CONTACT_RATE_LIMIT_WINDOW_MS });
+    return { limited: false, retryAfterSeconds: 0 };
+  }
+
+  entry.count += 1;
+  if (entry.count > CONTACT_RATE_LIMIT_MAX) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+    return { limited: true, retryAfterSeconds };
+  }
+
+  return { limited: false, retryAfterSeconds: 0 };
+};
+
+const sanitizeFilenameBase = (filename: string) => {
+  const base = filename.split(/[/\\]/).pop() ?? "upload";
+  const asciiOnly = base.replace(/[^\x20-\x7E]+/g, "");
+  const rawName = asciiOnly.split(".").slice(0, -1).join(".") || asciiOnly;
+  const cleanedName = rawName
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return (cleanedName || "upload").slice(0, 60);
+};
+
+const createSafeFilename = (filename: string, mimeType?: string | null) => {
+  const baseName = sanitizeFilenameBase(filename);
+  const extension = mimeType ? MIME_EXTENSION_MAP[mimeType.toLowerCase()] : "";
+  const suffix = randomBytes(6).toString("hex");
+  return extension ? `${baseName}-${suffix}.${extension}` : `${baseName}-${suffix}`;
+};
+
+const normalizeUploadFile = (file: Express.Multer.File) => {
+  file.originalname = createSafeFilename(file.originalname, file.mimetype);
+  return file;
+};
+
+const isAllowedImageType = (mimeType?: string | null) => {
+  if (!mimeType) return false;
+  return ALLOWED_IMAGE_TYPES.has(mimeType.toLowerCase());
+};
 
 const getBlobPath = (value?: string | null) => {
   if (!value) return null;
@@ -69,8 +153,13 @@ const buildAssetPayload = (asset: SiteAsset): Asset & { key: string; path: strin
 type AuthedUser = { userId: string; email: string };
 type AuthedRequest = Request & { user?: AuthedUser | null };
 
-const createRequireAuthMiddleware = (): RequestHandler => {
+const createRequireAuthMiddleware = (supabaseEnabled: boolean): RequestHandler => {
   return async (req, res, next) => {
+    if (!supabaseEnabled) {
+      res.status(401).json({ message: "Unauthorized - Authentication not configured" });
+      return;
+    }
+
     const user = await getUserFromRequest(req);
 
     if (!user) {
@@ -83,8 +172,13 @@ const createRequireAuthMiddleware = (): RequestHandler => {
   };
 };
 
-const createRequireAdminMiddleware = (prisma: PrismaClient): RequestHandler => {
+const createRequireAdminMiddleware = (prisma: PrismaClient, supabaseEnabled: boolean): RequestHandler => {
   return async (req, res, next) => {
+    if (!supabaseEnabled) {
+      res.status(401).json({ message: "Unauthorized - Authentication not configured" });
+      return;
+    }
+
     const user = await getUserFromRequest(req);
 
     if (!user) {
@@ -125,8 +219,8 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(prisma);
-  const requireAuthMiddleware = createRequireAuthMiddleware();
+  const requireAdmin = createRequireAdminMiddleware(prisma, env.supabaseEnabled);
+  const requireAuthMiddleware = createRequireAuthMiddleware(env.supabaseEnabled);
 
   // Auth routes - Get current user (with auto-provisioning from Supabase Auth)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
@@ -143,9 +237,6 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
       // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
-        const existingUsers = await prisma.user.findMany();
-        const isFirstUser = existingUsers.length === 0;
-
         // Extract name parts from email if not provided
         const emailPrefix = authUser.email.split('@')[0];
         const nameParts = emailPrefix.split(/[._-]/);
@@ -160,7 +251,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
             firstName: firstName,
             lastName: lastName,
             profileImageUrl: null,
-            isAdmin: isFirstUser, // First user is automatically admin
+            isAdmin: false,
           },
         });
       }
@@ -188,12 +279,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      if (!req.file.mimetype?.startsWith("image/")) {
+      const normalizedFile = normalizeUploadFile(req.file);
+
+      if (!isAllowedImageType(normalizedFile.mimetype)) {
         res.status(400).json({ error: "Only image uploads are allowed" });
         return;
       }
 
-      const blob = await uploadBlobFile("gallery", req.file);
+      const blob = await uploadBlobFile("gallery", normalizedFile);
 
       res.json({
         success: true,
@@ -201,7 +294,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           url: blob.url,
           publicId: blob.pathname,
           path: blob.pathname,
-          filename: req.file.originalname,
+          filename: normalizedFile.originalname,
         }
       });
     } catch (error) {
@@ -213,6 +306,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Contact form submission endpoint
   app.post("/api/contact", async (req, res) => {
     try {
+      const rateLimit = checkContactRateLimit(req);
+      if (rateLimit.limited) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          success: false,
+          message: "Too many requests. Please try again later.",
+        });
+        return;
+      }
+
       const validatedData = insertContactMessageSchema.parse(req.body);
       const message = await prisma.contactMessage.create({ data: validatedData });
       
@@ -282,14 +385,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       return;
     }
 
-    if (!req.file.mimetype?.startsWith("image/")) {
+    const normalizedFile = normalizeUploadFile(req.file);
+
+    if (!isAllowedImageType(normalizedFile.mimetype)) {
       res.status(400).json({ error: "Only image uploads are allowed" });
       return;
     }
 
     try {
       const prefix = blobPrefixMap[parsed.data.prefix];
-      const image = await uploadBlobFile(prefix, req.file);
+      const image = await uploadBlobFile(prefix, normalizedFile);
       res.json({ url: image.url, pathname: image.pathname, size: image.size });
     } catch (error) {
       console.error("Blob upload failed", error);
@@ -405,12 +510,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      if (req.file && !req.file.mimetype?.startsWith("image/")) {
+      const normalizedFile = req.file ? normalizeUploadFile(req.file) : null;
+
+      if (normalizedFile && !isAllowedImageType(normalizedFile.mimetype)) {
         res.status(400).json({ error: "Only image uploads are allowed" });
         return;
       }
 
-      const blob = req.file ? await uploadBlobFile("branding", req.file) : null;
+      const blob = normalizedFile ? await uploadBlobFile("branding", normalizedFile) : null;
 
       const url = blob?.url ?? payload.url;
       if (!url) {
@@ -419,7 +526,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const publicId = blob?.pathname ?? payload.publicId ?? getBlobPath(url);
-      const filename = payload.filename ?? payload.name ?? req.file?.originalname ?? payload.key;
+      const filename = payload.filename ?? payload.name ?? normalizedFile?.originalname ?? payload.key;
 
       const asset = await prisma.siteAsset.upsert({
         where: { key: payload.key },
