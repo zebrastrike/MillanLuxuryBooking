@@ -9,6 +9,8 @@ let app: any = null;
 
 const resolveServerEntry = () => {
   const candidates = [
+    path.resolve(process.cwd(), "dist", "server", "server", "index.js"),
+    path.resolve(process.cwd(), "..", "dist", "server", "server", "index.js"),
     path.resolve(process.cwd(), "dist", "server", "index.js"),
     path.resolve(process.cwd(), "..", "dist", "server", "index.js"),
   ];
