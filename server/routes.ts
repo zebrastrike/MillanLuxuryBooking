@@ -34,6 +34,7 @@ import {
   exchangeSquareCode,
   getSquareConfigSummary,
 } from "./services/squareAuth.js";
+import { importSquareCatalog } from "./services/catalogSync.js";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -107,6 +108,14 @@ const ensureSquareEnabled = (res: Response) => {
     return false;
   }
   return true;
+};
+
+const ensureSquareSyncEnabled = (res: Response) => {
+  if (process.env.SQUARE_SYNC_ENABLED !== "true") {
+    res.status(403).json({ message: "Square sync is not enabled" });
+    return false;
+  }
+  return ensureSquareEnabled(res);
 };
 
 const sanitizeFilenameBase = (filename: string) => {
@@ -1181,6 +1190,30 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       res.json({ success: true });
     } catch (_error) {
       res.status(500).json({ success: false, message: "Failed to disconnect Square" });
+    }
+  });
+
+  app.post("/api/square/catalog/import", requireAdmin, async (_req, res) => {
+    if (!ensureSquareSyncEnabled(res)) {
+      return;
+    }
+    try {
+      const result = await importSquareCatalog();
+      res.json({ success: true, ...result });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to import Square catalog" });
+    }
+  });
+
+  app.post("/api/square/catalog/sync", requireAdmin, async (_req, res) => {
+    if (!ensureSquareSyncEnabled(res)) {
+      return;
+    }
+    try {
+      const result = await importSquareCatalog();
+      res.json({ success: true, ...result });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to sync Square catalog" });
     }
   });
 
