@@ -2117,11 +2117,24 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       const [firstName, ...rest] = payload.customerName.trim().split(" ");
       const lastName = rest.join(" ").trim() || undefined;
 
+      // Format phone number to E.164 format for Square API
+      let formattedPhone: string | undefined;
+      if (payload.customerPhone) {
+        const digitsOnly = payload.customerPhone.replace(/\D/g, "");
+        if (digitsOnly.length === 10) {
+          formattedPhone = `+1${digitsOnly}`;
+        } else if (digitsOnly.length === 11 && digitsOnly.startsWith("1")) {
+          formattedPhone = `+${digitsOnly}`;
+        } else if (digitsOnly.length > 10) {
+          formattedPhone = `+${digitsOnly}`;
+        }
+      }
+
       const customerResponse = await client.customers.create({
         givenName: firstName || payload.customerName,
         familyName: lastName || undefined,
         emailAddress: payload.customerEmail,
-        phoneNumber: payload.customerPhone ?? undefined,
+        phoneNumber: formattedPhone,
       });
 
       const customerId = customerResponse.customer?.id ?? null;
