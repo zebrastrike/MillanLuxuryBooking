@@ -79,9 +79,7 @@ export function Hero() {
             className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/50 border-2 border-primary-foreground/20 px-12 py-6 text-lg font-bold tracking-wider"
             data-testid="button-book-hero"
           >
-            <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
-              BOOK NOW
-            </a>
+            <a href="/book">BOOK NOW</a>
           </Button>
         </div>
         
