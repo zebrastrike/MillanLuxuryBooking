@@ -131,23 +131,39 @@ export const importSquareCatalog = async (): Promise<CatalogSyncResult> => {
   const client = createSquareClient(accessToken);
 
   // Fetch all catalog items with pagination
-  const allObjects: CatalogObject[] = [];
+  const allItems: CatalogObject[] = [];
   let cursor: string | undefined;
 
   do {
     const result = await client.catalog.list({ cursor });
     if (result.data?.length) {
       for (const obj of result.data) {
-        if (obj.type === "ITEM" || obj.type === "IMAGE") {
-          allObjects.push(obj);
+        if (obj.type === "ITEM") {
+          allItems.push(obj);
         }
       }
     }
     cursor = result.response?.cursor;
   } while (cursor);
 
-  const images = buildImageMap(allObjects);
-  const items = allObjects.filter((obj) => obj.type === "ITEM");
+  // Fetch images separately (catalog.list doesn't return IMAGE type by default)
+  const allImages: CatalogObject[] = [];
+  cursor = undefined;
+
+  do {
+    const result = await client.catalog.list({ cursor, types: ["IMAGE"] });
+    if (result.data?.length) {
+      for (const obj of result.data) {
+        allImages.push(obj);
+      }
+    }
+    cursor = result.response?.cursor;
+  } while (cursor);
+
+  console.log(`[SquareCatalog] Fetched ${allItems.length} items and ${allImages.length} images`);
+
+  const images = buildImageMap(allImages);
+  const items = allItems;
 
   const prisma = assertPrisma();
   let created = 0;
