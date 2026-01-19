@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, Home, Truck, Shirt } from "lucide-react";
 import type { Service } from "@shared/types";
 import { normalizeArrayData } from "@/lib/arrayUtils";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
 
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
@@ -29,7 +29,7 @@ export function Services() {
   const { data: services = [], isLoading, error } = useQuery<Service[]>({
     queryKey: ["/api/services"]
   });
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
 
   const { items: serviceList, isValid } = normalizeArrayData<Service>(services);
   const hasShapeError = !isLoading && !error && !isValid;

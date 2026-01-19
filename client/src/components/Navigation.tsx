@@ -2,13 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Menu, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
 
 const fallbackLogo =
   "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/IMG_5919%20-%20Millan%20Luxury%20Cleaning%20(1).png";
 
 export function Navigation() {
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
   const [isScrolled, setIsScrolled] = useState(false);
   const logo = assets?.logo?.url ?? fallbackLogo;
 

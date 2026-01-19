@@ -1,6 +1,6 @@
-import { createDecipheriv } from "crypto";
-import type { CatalogObject } from "square";
+import type { CatalogItem, CatalogObject, CatalogObjectType } from "square";
 import { assertPrisma } from "../db/prismaClient.js";
+import { decrypt } from "./encryption.js";
 import { createSquareClient, getSquareEnvironmentName } from "./square.js";
 
 type CatalogSyncResult = {
@@ -30,33 +30,12 @@ const requireSquareSyncEnabled = () => {
   }
 };
 
-const getEncryptionKey = () => {
-  const raw = process.env.ENCRYPTION_KEY;
-  if (!raw) {
-    throw new Error("ENCRYPTION_KEY not configured");
-  }
-  const key = Buffer.from(raw, "hex");
-  if (key.length !== 32) {
-    throw new Error("ENCRYPTION_KEY must be 32 bytes hex");
-  }
-  return key;
-};
-
-const decrypt = (value: string) => {
-  const [ivHex, encryptedHex] = value.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const decipher = createDecipheriv("aes-256-cbc", getEncryptionKey(), iv);
-  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
-};
-
 const resolveSquareAccessToken = async () => {
   if (process.env.SQUARE_ACCESS_TOKEN) {
     return process.env.SQUARE_ACCESS_TOKEN;
   }
   const prisma = assertPrisma();
-  const record = await prisma.oAuthToken.findFirst({ where: { provider: "square" } });
+  const record = await prisma.oAuthToken.findFirst({ where: { service: "square" } });
   if (!record?.accessToken) {
     throw new Error("Square access token not available");
   }
@@ -90,19 +69,27 @@ const mapCatalogItem = (item: CatalogObject, images: Map<string, string>): Mappe
   if (!name) {
     return null;
   }
-  const variation = item.itemData.variations.find((variant) => variant.itemVariationData?.priceMoney?.amount != null);
-  if (!variation?.itemVariationData) {
+  // In Square SDK v43, variations contain CatalogObject with itemVariationData
+  const variation = item.itemData.variations.find((v: CatalogObject) => {
+    const varData = v.itemVariationData;
+    return varData?.priceMoney?.amount != null;
+  });
+  if (!variation) {
     return null;
   }
-  const sku = variation.itemVariationData.sku?.trim();
+  const varData = variation.itemVariationData;
+  if (!varData) {
+    return null;
+  }
+  const sku = varData.sku?.trim();
   if (!sku) {
     return null;
   }
-  const price = formatPrice(variation.itemVariationData.priceMoney?.amount);
+  const price = formatPrice(varData.priceMoney?.amount);
   if (!price) {
     return null;
   }
-  const imageId = item.itemData.imageIds?.[0] ?? item.itemData.imageId;
+  const imageId = item.itemData.imageIds?.[0];
   const imageUrl = imageId ? images.get(imageId) ?? null : null;
   return {
     sku,
@@ -124,8 +111,14 @@ export const importSquareCatalog = async (): Promise<CatalogSyncResult> => {
   requireSquareSyncEnabled();
   const accessToken = await resolveSquareAccessToken();
   const client = createSquareClient(accessToken);
-  const response = await client.catalogApi.listCatalog(undefined, "ITEM,IMAGE");
-  const objects = response.result.objects ?? [];
+
+  // Square SDK v43 uses async iterator for list
+  const allObjects: CatalogObject[] = [];
+  const types: CatalogObjectType[] = ["ITEM", "IMAGE"];
+  for await (const obj of client.catalog.list({ types })) {
+    allObjects.push(obj);
+  }
+  const objects = allObjects;
   const images = buildImageMap(objects);
   const items = objects.filter((obj) => obj.type === "ITEM");
 

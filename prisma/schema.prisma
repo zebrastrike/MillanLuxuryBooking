@@ -79,6 +79,9 @@ model ServiceItem {
   displayPrice  Boolean  @default(false)
   isVisible     Boolean  @default(true)
   price         Decimal? @db.Decimal(10, 2)
+  squareServiceId     String?
+  squareTeamMemberIds String[] @default([])
+  duration            Int      @default(60)
 
   @@index([isVisible])
   @@map("services")
@@ -113,19 +116,6 @@ model FaqItem {
 
   @@index([isVisible])
   @@map("faqs")
-}
-
-model BrandingAsset {
-  id                 Int      @id @default(autoincrement())
-  logoUrl            String?
-  heroCrownUrl       String?
-  backgroundUrl      String?
-  logoMetadata       Json?
-  heroCrownMetadata  Json?
-  backgroundMetadata Json?
-  updatedAt          DateTime @updatedAt
-
-  @@map("branding_assets")
 }
 
 model SiteAsset {
@@ -171,6 +161,109 @@ model OAuthToken {
   @@map("oauth_tokens")
 }
 
+model SquareConfig {
+  id               Int      @id @default(autoincrement())
+  accessToken      String
+  refreshToken     String?
+  merchantId       String
+  locationId       String
+  applicationId    String
+  environment      String
+  webhookSignature String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("square_config")
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  sessionId String?
+  userId    String?
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  expiresAt DateTime
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        Int      @id @default(autoincrement())
+  cartId    String
+  cart      Cart     @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId Int
+  quantity  Int      @default(1)
+  price     Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int         @id @default(autoincrement())
+  squareOrderId   String      @unique
+  userId          String?
+  email           String
+  status          String      @default("pending")
+  total           Decimal     @db.Decimal(10, 2)
+  subtotal        Decimal     @db.Decimal(10, 2)
+  tax             Decimal?    @db.Decimal(10, 2)
+  items           OrderItem[]
+  shippingAddress Json?
+  billingAddress  Json?
+  paymentId       String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId Int
+  name      String
+  quantity  Int
+  price     Decimal @db.Decimal(10, 2)
+  sku       String?
+
+  @@map("order_items")
+}
+
+model Booking {
+  id              Int      @id @default(autoincrement())
+  squareBookingId String   @unique
+  customerId      String?
+  customerEmail   String
+  customerName    String
+  customerPhone   String?
+  serviceId       Int
+  teamMemberId    String?
+  startAt         DateTime
+  endAt           DateTime
+  status          String   @default("pending")
+  notes           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("bookings")
+}
+
+model InventorySync {
+  id           Int      @id @default(autoincrement())
+  locationId   String?
+  status       String   @default("pending")
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("inventory_sync")
+}
+
 model FragranceProduct {
   id           Int      @id @default(autoincrement())
   name         String
@@ -183,7 +276,13 @@ model FragranceProduct {
   isVisible    Boolean  @default(true)
   imageUrl     String?
   squareUrl    String
+  squareCatalogId   String?
+  squareItemId      String?
+  squareVariationId String?
   sku          String?  @unique
+  inventoryCount    Int      @default(0)
+  lowStockThreshold Int      @default(5)
+  trackInventory    Boolean  @default(false)
   featured     Boolean  @default(false)
   order        Int      @default(0)
   createdAt    DateTime @default(now())

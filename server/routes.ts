@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import type { PrismaClient } from "@prisma/client";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { createServer, type Server } from "http";
@@ -71,6 +71,9 @@ type BlobPrefix = keyof typeof blobPrefixMap;
 const CONTACT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 const CONTACT_RATE_LIMIT_MAX = 5;
 const contactRateLimit = new Map<string, { count: number; resetAt: number }>();
+const PUBLIC_WRITE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const PUBLIC_WRITE_RATE_LIMIT_MAX = 30;
+const publicWriteRateLimit = new Map<string, { count: number; resetAt: number }>();
 
 const getClientIp = (req: Request) => {
   const forwarded = req.headers["x-forwarded-for"];
@@ -83,24 +86,35 @@ const getClientIp = (req: Request) => {
   return req.ip || "unknown";
 };
 
-const checkContactRateLimit = (req: Request) => {
+const checkRateLimit = (
+  req: Request,
+  store: Map<string, { count: number; resetAt: number }>,
+  windowMs: number,
+  maxRequests: number,
+) => {
   const ip = getClientIp(req);
   const now = Date.now();
-  const entry = contactRateLimit.get(ip);
+  const entry = store.get(ip);
 
   if (!entry || now >= entry.resetAt) {
-    contactRateLimit.set(ip, { count: 1, resetAt: now + CONTACT_RATE_LIMIT_WINDOW_MS });
+    store.set(ip, { count: 1, resetAt: now + windowMs });
     return { limited: false, retryAfterSeconds: 0 };
   }
 
   entry.count += 1;
-  if (entry.count > CONTACT_RATE_LIMIT_MAX) {
+  if (entry.count > maxRequests) {
     const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
     return { limited: true, retryAfterSeconds };
   }
 
   return { limited: false, retryAfterSeconds: 0 };
 };
+
+const checkContactRateLimit = (req: Request) =>
+  checkRateLimit(req, contactRateLimit, CONTACT_RATE_LIMIT_WINDOW_MS, CONTACT_RATE_LIMIT_MAX);
+
+const checkPublicWriteRateLimit = (req: Request) =>
+  checkRateLimit(req, publicWriteRateLimit, PUBLIC_WRITE_RATE_LIMIT_WINDOW_MS, PUBLIC_WRITE_RATE_LIMIT_MAX);
 
 const ensureSquareEnabled = (res: Response) => {
   if (process.env.SQUARE_ENABLED !== "true") {
@@ -116,6 +130,57 @@ const ensureSquareSyncEnabled = (res: Response) => {
     return false;
   }
   return ensureSquareEnabled(res);
+};
+
+const getSquareWebhookSignatureKey = () => {
+  const key = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY;
+  if (!key) {
+    throw new Error("SQUARE_WEBHOOK_SIGNATURE_KEY not configured");
+  }
+  return key;
+};
+
+const resolveSquareWebhookUrl = (req: Request) => {
+  const configured = process.env.SQUARE_WEBHOOK_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const forwardedHost = req.headers["x-forwarded-host"];
+  const protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto) || req.protocol;
+  const host = (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost) || req.headers.host;
+  if (!host) {
+    throw new Error("Unable to resolve Square webhook URL");
+  }
+  return `${protocol}://${host}${req.originalUrl}`;
+};
+
+const getSquareSignatureHeader = (req: Request) => {
+  const signature = req.headers["x-square-hmacsha256-signature"];
+  if (Array.isArray(signature)) {
+    return signature[0];
+  }
+  return signature || null;
+};
+
+const isValidSquareWebhookSignature = (req: Request) => {
+  const signature = getSquareSignatureHeader(req);
+  if (!signature) {
+    return false;
+  }
+  const rawBodyValue = (req as Request & { rawBody?: unknown }).rawBody;
+  if (!rawBodyValue) {
+    return false;
+  }
+  const rawBody = Buffer.isBuffer(rawBodyValue) ? rawBodyValue.toString("utf8") : String(rawBodyValue);
+  const payload = `${resolveSquareWebhookUrl(req)}${rawBody}`;
+  const expected = createHmac("sha256", getSquareWebhookSignatureKey()).update(payload).digest("base64");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(expectedBuffer, signatureBuffer);
 };
 
 const sanitizeFilenameBase = (filename: string) => {
@@ -286,7 +351,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
-  // File upload endpoint for Vercel Blob - Protected with Clerk auth
+  // File upload endpoint for Vercel Blob - Protected with Supabase admin auth
   app.post("/api/upload", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -1013,6 +1078,13 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   app.get('/api/auth/google/callback', async (req, res) => {
     try {
+      const rateLimit = checkPublicWriteRateLimit(req);
+      if (rateLimit.limited) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).send("<html><body><h1>Too many requests</h1><p>Please try again later.</p></body></html>");
+        return;
+      }
+
       const { code } = req.query;
       if (!code || typeof code !== 'string') {
         res.status(400).send('<html><body><h1>Error: Missing authorization code</h1></body></html>');
@@ -1155,6 +1227,13 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       return;
     }
 
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).send("<html><body><h1>Too many requests</h1><p>Please try again later.</p></body></html>");
+      return;
+    }
+
     const { code, state } = req.query;
     if (!code || typeof code !== "string" || !state || typeof state !== "string") {
       res.status(400).send("<html><body><h1>Error: Missing authorization code.</h1></body></html>");
@@ -1215,6 +1294,38 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     } catch (_error) {
       res.status(500).json({ success: false, message: "Failed to sync Square catalog" });
     }
+  });
+
+  app.post("/api/webhooks/square", async (req, res) => {
+    if (process.env.SQUARE_ENABLED !== "true") {
+      res.status(503).json({ message: "Square is not enabled" });
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      if (!isValidSquareWebhookSignature(req)) {
+        res.status(401).json({ message: "Invalid Square webhook signature" });
+        return;
+      }
+    } catch (error) {
+      console.error("Square webhook signature validation failed", error);
+      res.status(500).json({ message: "Failed to validate webhook signature" });
+      return;
+    }
+
+    const eventType = (req.body?.type ?? req.body?.event_type ?? "unknown") as string;
+    const eventId = (req.body?.event_id ?? req.body?.id ?? null) as string | null;
+
+    console.log(`[SquareWebhook] type=${eventType} id=${eventId ?? "unknown"}`);
+
+    res.status(200).json({ received: true });
   });
 
   // FAQs endpoints

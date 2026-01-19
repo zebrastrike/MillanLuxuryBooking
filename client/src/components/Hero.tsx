@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
 
 const fallbackCrown =
   "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png";
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
   const crown = assets?.heroCrown?.url ?? assets?.logo?.url ?? fallbackCrown;
   const background = assets?.heroBackground?.url ?? assets?.servicesBackground?.url ?? fallbackBg;
 

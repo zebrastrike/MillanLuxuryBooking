@@ -358,13 +358,6 @@ async function seedGallery() {
   await prisma.galleryItem.createMany({ data: galleryItems });
 }
 
-async function seedBrandingAssets() {
-  const count = await prisma.brandingAsset.count();
-  if (count > 0) return;
-
-  await prisma.brandingAsset.create({ data: {} });
-}
-
 async function seedProducts() {
   const count = await prisma.fragranceProduct.count();
   if (count > 0) {
@@ -529,7 +522,6 @@ async function main() {
   await seedServices();
   // await seedTestimonials(); // Commented out - client will add real testimonials via Google import or admin
   await seedGallery();
-  await seedBrandingAssets();
   await seedProducts();
 }
 

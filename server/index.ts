@@ -10,10 +10,10 @@ async function loadViteUtils() {
 }
 
 // Millan Luxury Cleaning - Express Server
-// Production-ready application with Clerk authentication and Vercel Blob storage
+// Production-ready application with Supabase authentication and Vercel Blob storage
 
 console.log('[INFO] Starting Millan Luxury Cleaning server...');
-console.log('[INFO] Using Clerk for authentication');
+console.log('[INFO] Using Supabase for authentication');
 
 const app = express();
 

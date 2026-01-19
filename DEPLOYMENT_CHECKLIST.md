@@ -3,7 +3,7 @@
 ## Pre-Deployment Status ✅
 
 - ✅ Full-stack app (React + Express + TypeScript)
-- ✅ Clerk authentication configured
+- ✅ Supabase authentication configured
 - ✅ Neon PostgreSQL database set up and populated
 - ✅ Vercel Blob storage configured with all images
 - ✅ Admin dashboard ready (gallery, testimonials, services, contact messages)
@@ -20,23 +20,21 @@ Go to your Vercel project → **Settings** → **Environment Variables** and add
 |---|---|---|
 | `DATABASE_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&pgbouncer=true&connect_timeout=10` | Neon pooled connection string (for Prisma on Vercel) |
 | `DIRECT_URL` | `postgresql://neondb_owner:npg_1uLesPOJM3Am@ep-morning-breeze-aflm4zbe.us-west-2.aws.neon.tech/neondb?sslmode=require` | Neon direct (non-pooler) connection for migrations |
-| `CLERK_SECRET_KEY` | Your Clerk secret key | Clerk Dashboard → API Keys |
-| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_test_...` | Clerk Dashboard → API Keys |
+| `SUPABASE_URL` | Your Supabase project URL | Supabase Dashboard → Project Settings |
+| `SUPABASE_ANON_KEY` | Supabase anon public key | Supabase Dashboard → API |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key | Supabase Dashboard → API |
 | `BLOB_READ_WRITE_TOKEN` | Your Vercel Blob token | Vercel Project → Storage → Blob |
 
 ---
 
-## Step 1b: Configure Clerk Redirect URLs (IMPORTANT!)
+## Step 1b: Configure Supabase Auth Redirects (IMPORTANT!)
 
-Before deploying, set redirect URLs in Clerk Dashboard → **Settings** → **Paths**:
+Before deploying, set redirect URLs in Supabase Dashboard -> **Authentication** -> **URL Configuration**:
 
 | Setting | Value |
 |---------|-------|
-| After sign-up fallback | `/` |
-| After sign-in fallback | `/admin` |
-| After logo click | `/` |
-
-**Note:** Use relative paths (starting with `/`), NOT full URLs. This prevents infinite redirect loops on production.
+| Site URL | `https://your-domain.com` |
+| Redirect URLs | `https://your-domain.com/admin` |
 
 ---
 
@@ -51,7 +49,7 @@ Before deploying, set redirect URLs in Clerk Dashboard → **Settings** → **Pa
 ## Step 3: Verify Deployment
 
 1. **Visit your domain** - Should load the luxury cleaning website
-2. **Test auth** - Go to `/admin` and login with Clerk
+2. **Test auth** - Go to `/admin` and login with Supabase
 3. **Check content** - Should see:
    - Gallery with 18 images
    - 4 services with descriptions
@@ -88,7 +86,7 @@ Once logged in as admin, you can:
 - Supports JPG, PNG, WebP formats
 
 ### Authentication
-- Using Clerk OAuth
+- Using Supabase Auth
 - Free tier supports unlimited users
 - Admin flag managed in database
 
@@ -103,7 +101,7 @@ Once logged in as admin, you can:
 ## Troubleshooting
 
 ### Admin login not working?
-- Check `CLERK_SECRET_KEY` and `VITE_CLERK_PUBLISHABLE_KEY` are from same Clerk app
+- Check `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`
 - Verify keys are correctly pasted (no extra spaces)
 - Clear browser cache and try again
 
@@ -139,6 +137,6 @@ If you encounter any issues:
 3. Clear browser cache
 4. Try incognito/private window
 
-For Clerk issues: https://clerk.com/docs
+For Supabase issues: https://supabase.com/docs
 For Vercel issues: https://vercel.com/docs
 For Neon issues: https://neon.tech/docs

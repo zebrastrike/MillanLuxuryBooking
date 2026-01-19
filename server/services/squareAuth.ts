@@ -1,11 +1,10 @@
 import {
-  createCipheriv,
-  createDecipheriv,
   createHmac,
   randomBytes,
   timingSafeEqual,
 } from "crypto";
 import { assertPrisma } from "../db/prismaClient.js";
+import { decrypt, encrypt, getEncryptionKey } from "./encryption.js";
 import { getSquareEnvironmentName, getSquareOAuthBaseUrl } from "./square.js";
 
 const STATE_TTL_MS = 10 * 60 * 1000;
@@ -24,35 +23,6 @@ const requireSquareEnabled = () => {
   if (process.env.SQUARE_ENABLED !== "true") {
     throw new Error("Square not enabled");
   }
-};
-
-const getEncryptionKey = () => {
-  const raw = process.env.ENCRYPTION_KEY;
-  if (!raw) {
-    throw new Error("ENCRYPTION_KEY not configured");
-  }
-  const key = Buffer.from(raw, "hex");
-  if (key.length !== 32) {
-    throw new Error("ENCRYPTION_KEY must be 32 bytes hex");
-  }
-  return key;
-};
-
-const encrypt = (value: string) => {
-  const iv = randomBytes(16);
-  const cipher = createCipheriv("aes-256-cbc", getEncryptionKey(), iv);
-  let encrypted = cipher.update(value, "utf8", "hex");
-  encrypted += cipher.final("hex");
-  return `${iv.toString("hex")}:${encrypted}`;
-};
-
-const decrypt = (value: string) => {
-  const [ivHex, encryptedHex] = value.split(":");
-  const iv = Buffer.from(ivHex, "hex");
-  const decipher = createDecipheriv("aes-256-cbc", getEncryptionKey(), iv);
-  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-  return decrypted;
 };
 
 const getSquareAuthConfig = () => {
@@ -181,7 +151,7 @@ export const refreshSquareTokens = async () => {
   let record;
   try {
     const prisma = assertPrisma();
-    record = await prisma.oAuthToken.findFirst({ where: { provider: "square" } });
+    record = await prisma.oAuthToken.findFirst({ where: { service: "square" } });
   } catch (_error) {
     throw new Error("Failed to load Square token");
   }
@@ -204,7 +174,7 @@ export const getSquareConfigSummary = async () => {
   requireSquareEnabled();
   try {
     const prisma = assertPrisma();
-    const record = await prisma.oAuthToken.findFirst({ where: { provider: "square" } });
+    const record = await prisma.oAuthToken.findFirst({ where: { service: "square" } });
     if (!record) {
       return { connected: false, environment: getSquareEnvironmentName() };
     }
@@ -223,7 +193,7 @@ export const disconnectSquare = async () => {
   requireSquareEnabled();
   try {
     const prisma = assertPrisma();
-    await prisma.oAuthToken.deleteMany({ where: { provider: "square" } });
+    await prisma.oAuthToken.deleteMany({ where: { service: "square" } });
   } catch (_error) {
     throw new Error("Failed to disconnect Square");
   }

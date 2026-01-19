@@ -78,7 +78,7 @@ Your app currently uses **Replit Auth** which will NOT work on Vercel.
 ### Before Production Deployment:
 
 **You MUST implement Vercel-compatible authentication:**
-- Recommended: **Clerk** (easiest setup with Vercel)
+- Recommended: **Supabase Auth** (already configured)
 - Alternatives: Auth0, NextAuth.js
 
 **Protect these endpoints:**
@@ -91,7 +91,7 @@ See VERCEL_DEPLOYMENT.md for detailed instructions.
 
 **Before deploying, you must:**
 - Remove authentication/admin features, OR
-- Replace with Vercel-compatible auth (Clerk, Auth0, NextAuth)
+- Replace with Vercel-compatible auth (Supabase, Auth0, NextAuth)
 
 See **VERCEL_DEPLOYMENT.md** for complete details.
 

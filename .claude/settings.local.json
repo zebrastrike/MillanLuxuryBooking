@@ -30,7 +30,13 @@
       "Bash(node check-db.mjs:*)",
       "Bash(node verify-endpoints.mjs:*)",
       "Bash(node -e:*)",
-      "Bash(node update-products.mjs:*)"
+      "Bash(node update-products.mjs:*)",
+      "Bash(git fetch:*)",
+      "Bash(dir:*)",
+      "Bash(npm show:*)",
+      "Bash(git stash push:*)",
+      "Bash(git stash drop:*)",
+      "Bash(git commit:*)"
     ]
   }
 }

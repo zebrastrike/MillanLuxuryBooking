@@ -1,9 +1,142 @@
 # MILLAN LUXURY BOOKING - COMPREHENSIVE SYSTEM AUDIT
 
-**Audit Date:** January 2026
+**Audit Date:** January 18, 2026
 **Project:** Millan Luxury Cleaning Website
 **Purpose:** Full Square Store Integration for Products & Services
+**Auditor:** Senior Engineer (Tessl-assisted)
 **Executor:** Codex
+
+---
+
+# EXECUTIVE SUMMARY
+
+## Production Readiness: 40% - NEEDS WORK
+
+| Category | Status | Readiness |
+|----------|--------|-----------|
+| React Frontend | Ready | 90% |
+| Express Backend | Partial | 70% |
+| Supabase Auth | Ready | 85% |
+| Admin Dashboard | Ready | 80% |
+| Square OAuth | Implemented | 100% |
+| Database Schema | Incomplete | 40% |
+| Shopping Cart | Missing | 0% |
+| Checkout/Payments | Missing | 0% |
+| Order Tracking | Missing | 0% |
+| Booking System | Missing | 5% |
+| Inventory Sync | Missing | 0% |
+
+---
+
+# CRITICAL BLOCKERS (7 Total)
+
+## BLOCKER 1: Missing Database Columns
+**Severity:** CRITICAL
+**Impact:** Catalog sync loses Square IDs
+**Status:** PARTIAL - Prisma schema updated; DB migration not applied.
+
+FragranceProduct model is missing:
+- `squareCatalogId` (String)
+- `squareItemId` (String)
+- `squareVariationId` (String)
+- `inventoryCount` (Int)
+- `lowStockThreshold` (Int)
+- `trackInventory` (Boolean)
+
+ServiceItem model is missing:
+- `squareServiceId` (String)
+- `squareTeamMemberIds` (String[])
+- `duration` (Int)
+
+## BLOCKER 2: No Cart/Order/Booking Models
+**Severity:** CRITICAL
+**Impact:** Cannot build e-commerce flow
+**Status:** PARTIAL - Prisma models defined; DB migration not applied.
+
+Missing Prisma models:
+- `Cart` + `CartItem`
+- `Order` + `OrderItem`
+- `Booking`
+- `InventorySync`
+
+## BLOCKER 3: Authentication Bypass Vulnerability
+**Severity:** HIGH (Security)
+**Impact:** Admin routes accessible if Supabase misconfigured
+**Status:** DONE - admin auth fails closed; dev admin auto-provision removed.
+
+When `SUPABASE_URL` is missing, auth fails open in some scenarios.
+Auto-provisioning creates users without proper validation.
+
+## BLOCKER 4: Square Feature Flags OFF
+**Severity:** MEDIUM
+**Impact:** All Square endpoints return 403
+**Status:** PENDING - runtime env flags must be enabled.
+
+```env
+SQUARE_ENABLED=false        # Must be true
+SQUARE_SYNC_ENABLED=false   # Must be true
+```
+
+## BLOCKER 5: No Webhook Handlers
+**Severity:** HIGH
+**Impact:** No real-time updates from Square
+**Status:** DONE - webhook endpoint with signature validation added.
+
+Missing endpoint: `POST /api/webhooks/square`
+Cannot receive: order.completed, payment.created, inventory.count.updated
+
+## BLOCKER 6: Token Encryption Inconsistency
+**Severity:** MEDIUM
+**Impact:** Potential token corruption
+**Status:** DONE - unified encryption via ENCRYPTION_KEY.
+
+Two services encrypt differently:
+- `squareAuth.ts` uses `getEncryptionKey()`
+- `tokenService.ts` uses `env.oauthEncryptionKey`
+
+## BLOCKER 7: Contact Form Rate Limiting Weak
+**Severity:** MEDIUM
+**Impact:** Spam vulnerability
+**Status:** PARTIAL - in-memory rate limit added; no Redis persistence.
+
+In-memory Map resets on restart. No CAPTCHA. No Redis persistence.
+
+---
+
+# DEPRECATED CODE (Remove)
+
+| Item | Location | Reason | Status |
+|------|----------|--------|--------|
+| BrandingAsset model | `prisma/schema.prisma` | Replaced by SiteAsset | DONE (migration pending) |
+| Clerk references | Comments in `server/routes.ts` | Using Supabase now | DONE |
+| `useSiteAssets.ts` hook | `client/src/hooks/` | Not used anywhere | DONE |
+| Metadata fields in BrandingAsset | `prisma/schema.prisma` | Never populated | DONE (migration pending) |
+
+---
+
+# CUSTOMER DATA ARCHITECTURE
+
+## Current State: ADMIN-ONLY SYSTEM
+
+| Data Type | Stored | Location |
+|-----------|--------|----------|
+| User Profile | Yes | User model (id, email, name, isAdmin) |
+| Contact Messages | Yes | ContactMessage model |
+| Testimonials | Yes | Testimonial model |
+| Order History | NO | Missing Order model |
+| Payment Info | NO | Handled by Square (PCI) |
+| Addresses | NO | Missing Address model |
+| Preferences | NO | Not implemented |
+
+## Can Customers Create Accounts?
+**NO** - Currently admin-only. Users auto-provisioned on first login.
+
+## GDPR Gaps
+- No data export endpoint
+- No right-to-be-forgotten endpoint
+- No data retention policy
+- No consent management
+- Contact messages stored indefinitely
 
 ---
 
@@ -612,11 +745,117 @@ client/src/pages/
 
 **What does NOT change:**
 - Card layout
-- Tailwind styles
 - React component structure
 - Routing
 
 **Why:** The existing cards already consume `/api/products`. That endpoint becomes Square-backed. Data shape stays compatible. Cards re-render automatically with Square data.
+
+---
+
+### UI Enhancement: Floral Neon Glow Effect
+
+**Target:** All FragranceCard components on `/fragrances` page
+
+**Effect:** Each card glows with a unique floral neon color on interaction
+
+#### Color Palette (12 fragrances = 12 unique glows)
+```css
+/* Floral Neon Glow Colors */
+--glow-bell: #FF69B4;              /* Hot Pink - Bell */
+--glow-brazilian: #00FF7F;          /* Spring Green - Brazilian Paradise */
+--glow-gabrielle: #FFD700;          /* Gold - Gabrielle by Chanel */
+--glow-golden-hour: #FFA500;        /* Orange - Golden Hour */
+--glow-guilty: #9400D3;             /* Dark Violet - Guilty by Gucci */
+--glow-mahogany: #8B4513;           /* Saddle Brown with glow - Mahogany Royal */
+--glow-my-way: #FF1493;             /* Deep Pink - My Way */
+--glow-ocean-rain: #00CED1;         /* Dark Turquoise - Ocean Rain */
+--glow-piney-queen: #228B22;        /* Forest Green - Piney Queen */
+--glow-sauvage: #4169E1;            /* Royal Blue - Sauvage by Dior */
+--glow-sweater-weather: #DDA0DD;    /* Plum - Sweater Weather */
+--glow-christmas: #DC143C;          /* Crimson - Under The Christmas Tree */
+```
+
+#### Desktop Implementation (hover)
+```tsx
+// FragranceCard.tsx - Add to card wrapper
+<div
+  className={cn(
+    "group relative rounded-2xl overflow-hidden transition-all duration-300",
+    "hover:shadow-[0_0_30px_rgba(var(--glow-color),0.6)]",
+    "hover:scale-[1.02]"
+  )}
+  style={{ '--glow-color': getGlowColor(product.fragrance) }}
+>
+```
+
+#### Mobile Implementation (scroll into view)
+```tsx
+// Use Intersection Observer for scroll-triggered glow
+const [isInView, setIsInView] = useState(false);
+const cardRef = useRef<HTMLDivElement>(null);
+
+useEffect(() => {
+  const observer = new IntersectionObserver(
+    ([entry]) => setIsInView(entry.isIntersecting),
+    { threshold: 0.5 }
+  );
+  if (cardRef.current) observer.observe(cardRef.current);
+  return () => observer.disconnect();
+}, []);
+
+// Apply glow class when in view on mobile
+<div
+  ref={cardRef}
+  className={cn(
+    "transition-all duration-500",
+    isInView && "md:shadow-none shadow-[0_0_25px_rgba(var(--glow-color),0.5)]"
+  )}
+>
+```
+
+#### CSS Animation (optional pulse)
+```css
+@keyframes floral-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(var(--glow-color), 0.4); }
+  50% { box-shadow: 0 0 35px rgba(var(--glow-color), 0.7); }
+}
+
+.card-glow-active {
+  animation: floral-pulse 2s ease-in-out infinite;
+}
+```
+
+#### Helper Function
+```typescript
+// lib/glowColors.ts
+export const fragranceGlowColors: Record<string, string> = {
+  "Bell": "255, 105, 180",
+  "Brazilian Paradise": "0, 255, 127",
+  "Gabrielle (Women) by Chanel": "255, 215, 0",
+  "Golden Hour": "255, 165, 0",
+  "Guilty (Men) by Gucci": "148, 0, 211",
+  "Mahogany Royal": "139, 69, 19",
+  "My Way": "255, 20, 147",
+  "Ocean Rain": "0, 206, 209",
+  "Piney Queen": "34, 139, 34",
+  "Sauvage (Men) by Dior": "65, 105, 225",
+  "Sweater Weather": "221, 160, 221",
+  "Under The Christmas Tree": "220, 20, 60",
+};
+
+export function getGlowColor(fragrance: string): string {
+  return fragranceGlowColors[fragrance] || "255, 255, 255";
+}
+```
+
+#### Execution Checklist
+- [ ] Create `lib/glowColors.ts` with fragrance-to-color mapping
+- [ ] Add CSS custom properties for glow colors
+- [ ] Update FragranceCard with hover glow effect
+- [ ] Add Intersection Observer for mobile scroll glow
+- [ ] Add optional pulse animation
+- [ ] Test on desktop (hover) and mobile (scroll)
+- [ ] Ensure glow doesn't affect card readability
 
 #### Services.tsx
 - Replace hardcoded URLs with dynamic booking widget (Phase 5)
@@ -777,7 +1016,242 @@ ENCRYPTION_KEY=              # For token encryption
 
 ---
 
-**Document Version:** 2.0
-**Last Updated:** January 2026
-**Author:** Architecture Audit System
+---
+
+# WHAT TO DO WITH CUSTOMER DATA
+
+## Recommended Customer Model Expansion
+
+```prisma
+model Customer {
+  id              String    @id @default(cuid())
+  supabaseUserId  String    @unique
+  email           String    @unique
+  firstName       String?
+  lastName        String?
+  phone           String?
+  addresses       Address[]
+  orders          Order[]
+  bookings        Booking[]
+  preferences     Json?     // notification settings, etc.
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("customers")
+}
+
+model Address {
+  id          String    @id @default(cuid())
+  customerId  String
+  customer    Customer  @relation(fields: [customerId], references: [id])
+  type        String    // "billing" | "shipping"
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  zip         String
+  country     String    @default("US")
+  isDefault   Boolean   @default(false)
+
+  @@map("addresses")
+}
+```
+
+## What Data We CAN Store (PCI Compliant)
+
+| Data | Store Locally? | Notes |
+|------|----------------|-------|
+| Name, email, phone | YES | Customer profile |
+| Shipping addresses | YES | For fulfillment |
+| Billing addresses | YES | For invoices |
+| Order history | YES | With Square order IDs |
+| Order items/totals | YES | For history display |
+| Credit card numbers | NO | Square handles PCI |
+| CVV/security codes | NO | Never store |
+| Full card details | NO | Use Square tokens |
+| Payment method last 4 | YES | For display only |
+| Square customer ID | YES | For API lookups |
+
+## Customer Account Features to Add
+
+1. **Registration/Login** - Supabase Auth (already configured)
+2. **Profile Management** - Name, email, phone, addresses
+3. **Order History** - View past orders with status
+4. **Booking History** - View upcoming/past appointments
+5. **Reorder** - Quick reorder from history
+6. **Wishlist** (optional) - Save products for later
+
+---
+
+# ADMIN DASHBOARD CONTROL STRATEGY
+
+## Current Tabs (9)
+1. Gallery - COMPLETE
+2. Branding - COMPLETE
+3. Assets - COMPLETE
+4. Testimonials - COMPLETE (+ Google import)
+5. Services - COMPLETE
+6. Products - COMPLETE
+7. Blog - COMPLETE
+8. FAQ - COMPLETE
+9. Messages - COMPLETE (read-only)
+
+## Recommended New Tabs
+
+### Tab 10: Square Integration
+- Connection status indicator
+- OAuth connect/disconnect buttons
+- Last sync timestamp
+- Manual sync trigger button
+- Sync error log viewer
+- Environment indicator (sandbox/production)
+
+### Tab 11: Orders
+- Order list with filters (status, date, customer)
+- Order detail view
+- Status update (fulfilled, shipped, refunded)
+- Square order link
+- Refund processing
+
+### Tab 12: Bookings
+- Booking calendar view
+- Upcoming appointments list
+- Booking status management
+- Customer contact info
+- Reschedule/cancel functionality
+
+### Tab 13: Customers
+- Customer list
+- Customer detail (orders, bookings, addresses)
+- Admin notes
+- Customer search
+
+### Tab 14: Inventory (optional)
+- Product stock levels
+- Low stock alerts
+- Inventory adjustment
+- Sync status
+
+## Control Strategy: Square as Source of Truth
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                  CONTROL FLOW                           │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  SQUARE DASHBOARD              MILLAN ADMIN DASHBOARD   │
+│  ─────────────────             ─────────────────────    │
+│  ✓ Set prices                  ✓ Toggle visibility      │
+│  ✓ Manage inventory            ✓ Set featured products  │
+│  ✓ Process refunds             ✓ Reorder display        │
+│  ✓ View analytics              ✓ Manage content (blog,  │
+│  ✓ Manage team                    FAQ, gallery, etc.)   │
+│                                ✓ View orders/bookings   │
+│         │                      ✓ Customer lookup        │
+│         │                               │               │
+│         └───────────┬───────────────────┘               │
+│                     │                                   │
+│                     ▼                                   │
+│              SYNC MECHANISM                             │
+│              (Webhooks + Polling)                       │
+│                     │                                   │
+│                     ▼                                   │
+│              SUPABASE DATABASE                          │
+│              (Operational Mirror)                       │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+## What Admin Controls Where
+
+| Control | Square | Millan Admin |
+|---------|--------|--------------|
+| Product prices | ✓ Primary | Read-only display |
+| Inventory levels | ✓ Primary | Read-only display |
+| Product visibility | Sync | ✓ Toggle on/off |
+| Featured products | - | ✓ Set featured |
+| Product order | - | ✓ Drag/drop |
+| Product images | ✓ Primary | Override option |
+| Service pricing | ✓ Primary | Read-only |
+| Service booking | ✓ Primary | View/manage |
+| Blog posts | - | ✓ Full control |
+| FAQs | - | ✓ Full control |
+| Testimonials | - | ✓ Full control |
+| Gallery | - | ✓ Full control |
+| Branding | - | ✓ Full control |
+
+---
+
+# RECOMMENDED ARCHITECTURE DECISIONS
+
+## 1. Keep Square as Pricing Source of Truth
+- Prices come FROM Square, not TO Square
+- Admin dashboard shows prices read-only
+- Client updates prices in Square Dashboard only
+- Prevents price conflicts and audit issues
+
+## 2. Use Supabase for Operational Data
+- Carts (temporary, session-based)
+- Orders (permanent record with Square IDs)
+- Bookings (permanent record with Square IDs)
+- Customer profiles (linked to Supabase Auth)
+- Content (blog, FAQ, gallery, testimonials)
+
+## 3. Implement Bidirectional Sync
+- Square → Supabase: Catalog, prices, inventory (webhooks)
+- Supabase → Square: Nothing (read-only integration)
+- Exception: Order creation goes Supabase → Square
+
+## 4. Session-Based Carts (Not User-Based)
+- Cart stored in session/localStorage
+- Converts to Order on checkout
+- Prevents abandoned cart clutter in DB
+- Optional: Email recovery for logged-in users
+
+## 5. Unified Webhook Handler
+```typescript
+POST /api/webhooks/square
+├── catalog.version.updated → Refresh product cache
+├── inventory.count.updated → Update stock levels
+├── payment.completed → Mark order paid
+├── order.fulfilled → Update order status
+├── booking.created → Create booking record
+└── refund.created → Mark order refunded
+```
+
+---
+
+# FINAL RECOMMENDATIONS
+
+## Immediate (Before Codex Finishes)
+
+1. **Review Codex branches** - 6 branches pushed, check for conflicts
+2. **Test locally** before merging anything
+3. **Keep AUDIT.md updated** as source of truth
+
+## Before Production Launch
+
+1. Fix all 7 blockers listed above
+2. Add missing database columns (migration)
+3. Create Cart/Order/Booking models
+4. Implement webhook handler
+5. Enable Square feature flags
+6. Test full checkout flow in sandbox
+7. Add CSRF protection
+8. Strengthen rate limiting
+
+## After Launch
+
+1. Add customer accounts
+2. Add order history page
+3. Add booking history
+4. Implement analytics
+5. Add email notifications
+6. Performance optimization
+
+---
+
+**Document Version:** 3.0
+**Last Updated:** January 18, 2026
+**Author:** Senior Engineer Audit (Tessl-assisted)
 **Executor:** Codex

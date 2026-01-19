@@ -36,7 +36,7 @@ Your current app uses **Replit Auth** which will NOT work on Vercel. Before depl
 - Remove: `/api/auth/*`, `/admin` route, authentication middleware
 
 **Option 2: Replace with Alternative Auth**
-- Use **Vercel Auth** or **Auth0** or **Clerk**
+- Use **Supabase Auth** or **Auth0**
 - Update `server/replitAuth.ts` with new auth provider
 - Configure environment variables for new auth system
 
@@ -87,7 +87,7 @@ The `/api/upload` endpoint currently has **no authentication** because Replit Au
 **Before deploying to production, you MUST:**
 
 1. Choose an auth provider that works on Vercel:
-   - **Clerk** (recommended) - Easy to set up, works great with Vercel
+   - **Supabase Auth** (recommended) - Already configured for this project
    - **Auth0** - Enterprise-grade authentication
    - **NextAuth.js** - Open source, self-hosted option
 
@@ -210,7 +210,7 @@ Vercel Hosting
 ```
 Vercel Hosting
 ├── Frontend: React/Vite (Static)
-├── Auth: Clerk/Auth0 (Replaces Replit Auth)
+├── Auth: Supabase/Auth0 (Replaces Replit Auth)
 └── Backend: Express (Serverless Functions)
     ├── Protected admin routes
     └── Database CRUD operations

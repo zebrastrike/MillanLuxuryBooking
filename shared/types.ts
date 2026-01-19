@@ -63,6 +63,9 @@ export interface ServiceItem {
   price?: number | null;
   displayPrice?: boolean;
   isVisible?: boolean;
+  squareServiceId?: string | null;
+  squareTeamMemberIds?: string[];
+  duration?: number | null;
 }
 
 export interface Testimonial {
@@ -90,17 +93,6 @@ export interface FaqItem {
   order?: number | null;
   createdAt: string | Date;
   isVisible?: boolean;
-}
-
-export interface BrandingAsset {
-  id: number;
-  logoUrl?: string | null;
-  heroCrownUrl?: string | null;
-  backgroundUrl?: string | null;
-  logoMetadata?: BlobMetadata | null;
-  heroCrownMetadata?: BlobMetadata | null;
-  backgroundMetadata?: BlobMetadata | null;
-  updatedAt: string | Date;
 }
 
 export interface SiteAsset {
@@ -142,7 +134,13 @@ export interface FragranceProduct {
   isVisible: boolean;
   imageUrl: string | null;
   squareUrl: string;
+  squareCatalogId?: string | null;
+  squareItemId?: string | null;
+  squareVariationId?: string | null;
   sku: string | null;
+  inventoryCount?: number;
+  lowStockThreshold?: number;
+  trackInventory?: boolean;
   featured: boolean;
   order: number;
   createdAt: string | Date;
@@ -253,13 +251,6 @@ export type CreateFaq = z.infer<typeof createFaqSchema>;
 export const updateFaqSchema = optionalize(createFaqSchema.shape);
 export type UpdateFaq = z.infer<typeof updateFaqSchema>;
 
-export const brandingAssetSchema = z.object({
-  logoUrl: optionalUrl.optional(),
-  heroCrownUrl: optionalUrl.optional(),
-  backgroundUrl: optionalUrl.optional(),
-});
-export type UpdateBrandingAsset = z.infer<typeof brandingAssetSchema>;
-
 export const insertSiteAssetSchema = z.object({
   key: z.string().min(1),
   url: urlSchema,
@@ -337,3 +328,141 @@ export type UpdateFragranceProduct = z.infer<typeof updateFragranceProductSchema
 
 export type InsertFragranceProduct = CreateFragranceProduct;
 export const insertFragranceProductSchema = createFragranceProductSchema;
+
+// ============================================
+// E-Commerce & Booking Types (Square Integration)
+// ============================================
+
+export interface Cart {
+  id: string;
+  sessionId: string | null;
+  userId: string | null;
+  items: CartItem[];
+  createdAt: string | Date;
+  updatedAt: string | Date;
+  expiresAt: string | Date;
+}
+
+export interface CartItem {
+  id: number;
+  cartId: string;
+  productId: number;
+  quantity: number;
+  price: number;
+  createdAt: string | Date;
+}
+
+export interface Order {
+  id: number;
+  squareOrderId: string;
+  userId: string | null;
+  email: string;
+  status: "pending" | "paid" | "fulfilled" | "cancelled" | "refunded";
+  total: number;
+  subtotal: number;
+  tax: number | null;
+  items: OrderItem[];
+  shippingAddress: Record<string, unknown> | null;
+  billingAddress: Record<string, unknown> | null;
+  paymentId: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface OrderItem {
+  id: number;
+  orderId: number;
+  productId: number;
+  name: string;
+  quantity: number;
+  price: number;
+  sku: string | null;
+}
+
+export interface Booking {
+  id: number;
+  squareBookingId: string;
+  customerId: string | null;
+  customerEmail: string;
+  customerName: string;
+  customerPhone: string | null;
+  serviceId: number;
+  teamMemberId: string | null;
+  startAt: string | Date;
+  endAt: string | Date;
+  status: "pending" | "confirmed" | "cancelled" | "completed";
+  notes: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface SquareConfig {
+  id: number;
+  accessToken: string;
+  refreshToken: string | null;
+  merchantId: string;
+  locationId: string;
+  applicationId: string;
+  environment: "sandbox" | "production";
+  webhookSignature: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface InventorySync {
+  id: number;
+  locationId: string;
+  status: "pending" | "in_progress" | "completed" | "failed";
+  startedAt: string | Date | null;
+  completedAt: string | Date | null;
+  errorMessage: string | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
+export interface OAuthToken {
+  id: number;
+  service: string;
+  provider: string;
+  merchantId: string | null;
+  locationId: string | null;
+  accessToken: string;
+  refreshToken: string | null;
+  payload: Record<string, unknown> | null;
+  expiresAt: string | Date;
+  createdAt: string | Date;
+}
+
+// Legacy alias for FAQ imports
+export type Faq = FaqItem;
+
+// ============================================
+// Zod Schemas for E-Commerce
+// ============================================
+
+export const createCartItemSchema = z.object({
+  productId: z.number().int().positive(),
+  quantity: z.number().int().positive().default(1),
+});
+export type CreateCartItem = z.infer<typeof createCartItemSchema>;
+
+export const updateCartItemSchema = z.object({
+  quantity: z.number().int().positive(),
+});
+export type UpdateCartItem = z.infer<typeof updateCartItemSchema>;
+
+export const createBookingSchema = z.object({
+  customerEmail: z.string().email(),
+  customerName: z.string().min(1),
+  customerPhone: z.string().optional(),
+  serviceId: z.number().int().positive(),
+  startAt: z.string().datetime(),
+  notes: z.string().optional(),
+});
+export type CreateBooking = z.infer<typeof createBookingSchema>;
+
+export const orderStatusSchema = z.enum(["pending", "paid", "fulfilled", "cancelled", "refunded"]);
+export type OrderStatus = z.infer<typeof orderStatusSchema>;
+
+export const bookingStatusSchema = z.enum(["pending", "confirmed", "cancelled", "completed"]);
+export type BookingStatus = z.infer<typeof bookingStatusSchema>;

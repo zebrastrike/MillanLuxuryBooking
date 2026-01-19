@@ -7,7 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, parseJsonResponse } from "@/lib/queryClient";
-import { useSiteAssets, type SiteAssetMap } from "@/hooks/useSiteAssets";
+import { useAssets, type SiteAssetMap } from "@/hooks/useAssets";
 import { Loader2, Upload } from "lucide-react";
 import { BlobBrowserModal } from "./BlobBrowserModal";
 
@@ -21,7 +21,7 @@ const assetFields = [
 ];
 
 export function SiteAssetsManagement() {
-  const { data, isLoading: assetsLoading } = useSiteAssets();
+  const { data, isLoading: assetsLoading } = useAssets();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
