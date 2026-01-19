@@ -1,1 +1,3 @@
 [WARN] Using DIRECT_URL for local runtime to avoid pooler connection issues.
+
+A PostCSS plugin did not pass the `from` option to `postcss.parse`. This may cause imported assets to be incorrectly transformed. If you've recently added a PostCSS plugin that raised this warning, please contact the package author to fix the issue.
