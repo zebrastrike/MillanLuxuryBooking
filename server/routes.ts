@@ -40,7 +40,6 @@ import {
 import { importSquareCatalog } from "./services/catalogSync.js";
 import { createSquareClient } from "./services/square.js";
 import { resolveSquareAccessToken, resolveSquareLocationId } from "./services/squareAccess.js";
-import { sendBookingNotification } from "./services/mailgun.js";
 import { Currency, type Availability } from "square";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -2181,27 +2180,6 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           notes: payload.notes ?? null,
         },
       });
-
-      try {
-        const serviceName = service.title || service.name || "Service";
-        const notifyResult = await sendBookingNotification({
-          bookingId: record.id,
-          squareBookingId: booking.id,
-          status: booking.status ?? "pending",
-          serviceName,
-          customerName: payload.customerName,
-          customerEmail: payload.customerEmail,
-          customerPhone: payload.customerPhone ?? null,
-          startAt: payload.startAt,
-          notes: payload.notes ?? null,
-        });
-
-        if (notifyResult.ok !== true && !notifyResult.skipped) {
-          console.warn("[Mailgun] Booking notification failed:", notifyResult.error);
-        }
-      } catch (error) {
-        console.warn("[Mailgun] Booking notification error:", error);
-      }
 
       res.status(201).json({
         success: true,
