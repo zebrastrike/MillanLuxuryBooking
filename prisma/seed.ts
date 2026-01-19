@@ -208,6 +208,11 @@ async function seedServices() {
   await prisma.serviceItem.createMany({ data: services });
 }
 
+async function cleanupLegacyCatalog() {
+  await prisma.serviceItem.deleteMany({ where: { squareServiceId: null } });
+  await prisma.fragranceProduct.deleteMany({ where: { squareCatalogId: null } });
+}
+
 async function seedTestimonials() {
   const count = await prisma.testimonial.count();
   if (count > 0) return;
@@ -356,13 +361,6 @@ async function seedGallery() {
   ];
 
   await prisma.galleryItem.createMany({ data: galleryItems });
-}
-
-async function seedBrandingAssets() {
-  const count = await prisma.brandingAsset.count();
-  if (count > 0) return;
-
-  await prisma.brandingAsset.create({ data: {} });
 }
 
 async function seedProducts() {
@@ -526,11 +524,14 @@ async function seedProducts() {
 async function main() {
   await seedFaqs();
   await seedPosts();
-  await seedServices();
+  if (process.env.SEED_LEGACY_CATALOG === "true") {
+    await seedServices();
+    await seedProducts();
+  } else {
+    await cleanupLegacyCatalog();
+  }
   // await seedTestimonials(); // Commented out - client will add real testimonials via Google import or admin
   await seedGallery();
-  await seedBrandingAssets();
-  await seedProducts();
 }
 
 main()

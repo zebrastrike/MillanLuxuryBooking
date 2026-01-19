@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes.js";
 import { loadEnv } from "./env.js";
@@ -9,10 +10,10 @@ async function loadViteUtils() {
 }
 
 // Millan Luxury Cleaning - Express Server
-// Production-ready application with Clerk authentication and Vercel Blob storage
+// Production-ready application with Supabase authentication and Vercel Blob storage
 
 console.log('[INFO] Starting Millan Luxury Cleaning server...');
-console.log('[INFO] Using Clerk for authentication');
+console.log('[INFO] Using Supabase for authentication');
 
 const app = express();
 
@@ -34,28 +35,14 @@ app.use(express.urlencoded({ extended: false }));
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
+  const requestId = randomUUID();
+  res.locals.requestId = requestId;
+  res.setHeader("X-Request-Id", requestId);
 
   res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      console.log(logLine); // Use console.log directly instead of log()
+    if (req.path.startsWith("/api")) {
+      const duration = Date.now() - start;
+      console.log(`[${requestId}] ${req.method} ${req.path} ${res.statusCode} in ${duration}ms`);
     }
   });
 
@@ -89,9 +76,17 @@ async function initializeApp(): Promise<Express> {
     });
 
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-      const status = err?.status || err?.statusCode || 500;
-      const message = err?.message || "Internal Server Error";
+      const requestId = res.locals.requestId ?? "unknown";
+      let status = err?.status || err?.statusCode || 500;
+      let message = err?.message || "Internal Server Error";
       const wantsJson = req.path.startsWith("/api") || req.headers.accept?.includes("application/json");
+
+      if (err?.code === "LIMIT_FILE_SIZE") {
+        status = 413;
+        message = "Uploaded file exceeds size limit";
+      }
+
+      console.error(`[ERROR] [${requestId}] ${status} ${message}`);
 
       const payload: Record<string, unknown> = { message };
 

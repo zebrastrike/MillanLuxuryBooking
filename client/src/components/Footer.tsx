@@ -31,7 +31,7 @@ export function Footer() {
               </li>
               <li>
                 <a
-                  href="#services"
+                  href="/services"
                   className="text-muted-foreground hover:text-primary transition-colors text-sm"
                   data-testid="link-footer-services"
                 >

@@ -25,9 +25,10 @@ export default function Fragrances() {
     queryKey: ['/api/products'],
   });
 
+  const squareProducts = products.filter((product) => Boolean(product.squareCatalogId));
   const filteredProducts = selectedCategory === 'all'
-    ? products
-    : products.filter((p) => p.category === selectedCategory);
+    ? squareProducts
+    : squareProducts.filter((p) => p.category === selectedCategory);
 
   return (
     <div className="min-h-screen bg-background">
@@ -119,13 +120,7 @@ export default function Fragrances() {
             size="lg"
             className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
           >
-            <a
-              href="https://millanluxurycleaning.square.site/"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Shop All Products
-            </a>
+            <a href="/cart">View Cart</a>
           </Button>
         </div>
       </section>

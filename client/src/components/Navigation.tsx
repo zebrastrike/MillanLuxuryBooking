@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Menu, X } from "lucide-react";
+import { Menu, ShoppingCart } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
+import { useCart } from "@/contexts/CartContext";
 
 const fallbackLogo =
   "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/IMG_5919%20-%20Millan%20Luxury%20Cleaning%20(1).png";
 
 export function Navigation() {
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
+  const { cart } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
   const logo = assets?.logo?.url ?? fallbackLogo;
+  const itemCount = cart?.totals?.itemCount ?? 0;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -23,8 +26,9 @@ export function Navigation() {
 
   const navLinks = [
     { href: "/#about", label: "About" },
-    { href: "/#services", label: "Services" },
+    { href: "/services", label: "Services" },
     { href: "/fragrances", label: "Fragrances" },
+    { href: "/cart", label: "Cart" },
     { href: "/#gallery", label: "Gallery" },
     { href: "/#testimonials", label: "Reviews" },
     { href: "/blog", label: "Blog" },
@@ -72,14 +76,28 @@ export function Navigation() {
           </div>
           
           {/* CTA Button */}
-          <div className="hidden lg:block">
-            <Button 
+          <div className="hidden lg:flex items-center gap-3">
+            <a
+              href="/cart"
+              className={`relative inline-flex items-center justify-center h-10 w-10 rounded-full transition-colors ${
+                isScrolled ? "bg-muted text-foreground" : "bg-white/10 text-white"
+              }`}
+              aria-label="View cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {itemCount > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 min-w-[20px] rounded-full bg-primary text-white text-xs flex items-center justify-center px-1">
+                  {itemCount}
+                </span>
+              )}
+            </a>
+            <Button
               asChild
               variant="default"
               size="default"
               data-testid="button-book-nav"
             >
-              <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
+              <a href="/book">
                 Book Now
               </a>
             </Button>
@@ -115,9 +133,7 @@ export function Navigation() {
                   className="w-full mt-4"
                   data-testid="button-book-mobile"
                 >
-                  <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
-                    Book Now
-                  </a>
+                  <a href="/book">Book Now</a>
                 </Button>
               </div>
             </SheetContent>

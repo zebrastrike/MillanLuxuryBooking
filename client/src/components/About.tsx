@@ -1,11 +1,11 @@
 import { Card } from "@/components/ui/card";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
 
 const fallbackBackground = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/light-botanical-bg.png";
 const fallbackPortrait = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/owner-photo.jpg";
 
 export function About() {
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
   const background = assets?.aboutBackground?.url ?? fallbackBackground;
   const portrait = assets?.aboutPortrait?.url ?? fallbackPortrait;
 

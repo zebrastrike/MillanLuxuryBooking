@@ -1,0 +1,13 @@
+
+> rest-express@1.0.0 dev
+> tsx server/index.ts
+
+[INFO] Starting Millan Luxury Cleaning server...
+[INFO] Using Supabase for authentication
+[Init] Starting app initialization...
+[Init] Routes registered
+[Init] App initialization complete
+serving on port 5000
+[2d822db7-4fd5-4d95-b68a-59830581902c] GET /api/faqs 200 in 621ms
+[SquareCatalog] env=production total=13 created=0 updated=13 skipped=0 errors=0 (services=7, products=6)
+[bcf109eb-0f5a-4c5d-a55d-e9cad71b5041] POST /api/square/sync-now 200 in 2552ms

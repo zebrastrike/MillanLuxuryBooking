@@ -36,7 +36,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
           <div className="max-w-xl space-y-4">
             <h1 className="text-2xl font-semibold">Something went wrong.</h1>
             <p className="text-muted-foreground">
-              The page hit an unexpected error. Please reload and ensure your environment variables (especially Clerk keys)
+              The page hit an unexpected error. Please reload and ensure your environment variables (especially Supabase keys)
               are configured correctly if authentication is enabled.
             </p>
             <div className="flex gap-3 justify-center">

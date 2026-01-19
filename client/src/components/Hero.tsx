@@ -1,13 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { useSiteAssets } from "@/hooks/useSiteAssets";
+import { useAssets } from "@/hooks/useAssets";
 
 const fallbackCrown =
   "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/millan-logo%20-%20Edited.png";
 const fallbackBg = "https://gwzcdrue1bdrchlh.public.blob.vercel-storage.com/static/dark-botanical-bg.png";
 
 export function Hero() {
-  const { data: assets = {} } = useSiteAssets();
+  const { data: assets = {} } = useAssets();
   const crown = assets?.heroCrown?.url ?? assets?.logo?.url ?? fallbackCrown;
   const background = assets?.heroBackground?.url ?? assets?.servicesBackground?.url ?? fallbackBg;
 
@@ -79,9 +79,7 @@ export function Hero() {
             className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-2xl shadow-primary/50 border-2 border-primary-foreground/20 px-12 py-6 text-lg font-bold tracking-wider"
             data-testid="button-book-hero"
           >
-            <a href="https://millanluxurycleaning.square.site/" target="_blank" rel="noopener noreferrer">
-              BOOK NOW
-            </a>
+            <a href="/book">BOOK NOW</a>
           </Button>
         </div>
         

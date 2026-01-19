@@ -7,7 +7,6 @@ import type {
   FaqItem,
   SiteAsset,
   Post,
-  BrandingAsset,
   InsertContactMessage,
   InsertGalleryItem,
   InsertService,
@@ -73,8 +72,6 @@ export interface IStorage {
   updatePost(id: number, updates: UpdatePost): Promise<Post | null>;
   deletePost(id: number): Promise<boolean>;
 
-  getBranding(): Promise<BrandingAsset | null>;
-  upsertBranding(values: Partial<BrandingAsset>): Promise<BrandingAsset>;
 }
 
 function normalizeMetadata(metadata?: BlobMetadata | null): Prisma.JsonValue | undefined {
@@ -320,18 +317,6 @@ class PrismaStorage implements IStorage {
     return true;
   }
 
-  async getBranding() {
-    const [branding] = await this.db.brandingAsset.findMany({ take: 1 });
-    return branding ?? null;
-  }
-
-  async upsertBranding(values: Partial<BrandingAsset>) {
-    const branding = await this.getBranding();
-    if (branding) {
-      return this.db.brandingAsset.update({ where: { id: branding.id }, data: { ...values } });
-    }
-    return this.db.brandingAsset.create({ data: { ...values } });
-  }
 }
 
 class InMemoryStorage implements IStorage {
@@ -343,8 +328,6 @@ class InMemoryStorage implements IStorage {
   private services: ServiceItem[] = [];
   private assets: SiteAsset[] = [];
   private posts: Post[] = [];
-  private branding: BrandingAsset | null = null;
-
   async getUser(id: string) {
     return this.users.find((u) => u.id === id) ?? null;
   }
@@ -516,15 +499,6 @@ class InMemoryStorage implements IStorage {
     return this.posts.length < before;
   }
 
-  async getBranding() { return this.branding; }
-  async upsertBranding(values: Partial<BrandingAsset>) {
-    if (this.branding) {
-      Object.assign(this.branding, values, { updatedAt: new Date() });
-      return this.branding;
-    }
-    this.branding = { id: 1, updatedAt: new Date(), ...values } as BrandingAsset;
-    return this.branding;
-  }
 }
 
 export const storage: IStorage = hasDatabaseUrl ? new PrismaStorage() : new InMemoryStorage();

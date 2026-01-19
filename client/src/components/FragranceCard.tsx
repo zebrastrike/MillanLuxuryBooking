@@ -1,14 +1,38 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Sparkles } from 'lucide-react';
+import { Sparkles, ShoppingCart } from 'lucide-react';
 import type { FragranceProduct } from '@shared/types';
+import { useCart } from '@/contexts/CartContext';
+import { useState } from 'react';
 
 interface FragranceCardProps {
   product: FragranceProduct;
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  "candle-3wick": "3-Wick Candle",
+  "candle-single": "Single Candle",
+  "candle-mini": "Mini Candle",
+  "car-diffuser": "Car Diffuser",
+  "room-spray": "Room Spray",
+  "cleaner": "All-Purpose Cleaner",
+};
+
 export function FragranceCard({ product }: FragranceCardProps) {
+  const categoryLabel = CATEGORY_LABELS[product.category] || "Product";
+  const { addItem } = useCart();
+  const [isAdding, setIsAdding] = useState(false);
+
+  const handleAddToCart = async () => {
+    setIsAdding(true);
+    try {
+      await addItem(product.id, 1);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
   return (
     <Card className="overflow-hidden group hover:shadow-lg transition-shadow">
       {/* Product Image */}
@@ -32,19 +56,20 @@ export function FragranceCard({ product }: FragranceCardProps) {
         )}
       </div>
 
-      <CardHeader>
+      <CardHeader className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline">{categoryLabel}</Badge>
+          {product.fragrance && (
+            <Badge variant="secondary">{product.fragrance}</Badge>
+          )}
+        </div>
         <CardTitle className="text-xl">{product.name}</CardTitle>
-        <CardDescription>{product.description}</CardDescription>
+        <CardDescription className="text-sm text-muted-foreground">
+          {product.description}
+        </CardDescription>
       </CardHeader>
 
       <CardContent>
-        {/* Fragrance Info */}
-        <div className="mb-4">
-          <Badge variant="outline" className="mb-2">
-            {product.fragrance}
-          </Badge>
-        </div>
-
         {/* Price - Only show if displayPrice is true */}
         {product.displayPrice && (
           <div className="flex items-center gap-2">
@@ -69,17 +94,12 @@ export function FragranceCard({ product }: FragranceCardProps) {
 
       <CardFooter>
         <Button
-          asChild
           className="w-full group-hover:shadow-md transition-shadow"
+          onClick={handleAddToCart}
+          disabled={isAdding}
         >
-          <a
-            href={product.squareUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Shop Now
-            <ExternalLink className="w-4 h-4 ml-2" />
-          </a>
+          {isAdding ? "Adding..." : "Add to Cart"}
+          <ShoppingCart className="w-4 h-4 ml-2" />
         </Button>
       </CardFooter>
     </Card>

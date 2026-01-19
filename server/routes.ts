@@ -1,4 +1,5 @@
-import type { PrismaClient } from "@prisma/client";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import type { Express, Request, RequestHandler, Response } from "express";
 import { createServer, type Server } from "http";
 import { assertPrisma, hasDatabaseUrl } from "./db/prismaClient.js";
@@ -18,6 +19,9 @@ import {
   updateFaqSchema,
   insertFragranceProductSchema,
   updateFragranceProductSchema,
+  createCartItemSchema,
+  updateCartItemSchema,
+  createBookingSchema,
 } from "../shared/types.js";
 import { z, ZodError } from "zod";
 import multer from "multer";
@@ -27,8 +31,38 @@ import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob }
 import { getUserFromRequest, isUserAdmin } from "./supabase.js";
 import { getGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleReviews } from "./google.js";
 import { saveTokens, getValidToken } from "./tokenService.js";
+import {
+  buildSquareAuthUrl,
+  disconnectSquare,
+  exchangeSquareCode,
+  getSquareConfigSummary,
+} from "./services/squareAuth.js";
+import { importSquareCatalog } from "./services/catalogSync.js";
+import { createSquareClient } from "./services/square.js";
+import { resolveSquareAccessToken, resolveSquareLocationId } from "./services/squareAccess.js";
+import { Currency, type Availability } from "square";
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+const ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/svg+xml",
+  "image/avif",
+]);
+const MIME_EXTENSION_MAP: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/svg+xml": "svg",
+  "image/avif": "avif",
+};
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: MAX_UPLOAD_BYTES } });
 
 const blobPrefixMap = {
   branding: "branding",
@@ -39,6 +73,154 @@ const blobPrefixMap = {
 } as const;
 
 type BlobPrefix = keyof typeof blobPrefixMap;
+
+const CONTACT_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+const CONTACT_RATE_LIMIT_MAX = 5;
+const contactRateLimit = new Map<string, { count: number; resetAt: number }>();
+const PUBLIC_WRITE_RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000;
+const PUBLIC_WRITE_RATE_LIMIT_MAX = 30;
+const publicWriteRateLimit = new Map<string, { count: number; resetAt: number }>();
+const CART_SESSION_HEADER = "x-cart-session";
+const CART_TTL_DAYS = 30;
+
+const createCartSessionId = () => randomBytes(16).toString("hex");
+
+const getClientIp = (req: Request) => {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim()) {
+    return forwarded.split(",")[0].trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    return forwarded[0].trim();
+  }
+  return req.ip || "unknown";
+};
+
+const checkRateLimit = (
+  req: Request,
+  store: Map<string, { count: number; resetAt: number }>,
+  windowMs: number,
+  maxRequests: number,
+) => {
+  const ip = getClientIp(req);
+  const now = Date.now();
+  const entry = store.get(ip);
+
+  if (!entry || now >= entry.resetAt) {
+    store.set(ip, { count: 1, resetAt: now + windowMs });
+    return { limited: false, retryAfterSeconds: 0 };
+  }
+
+  entry.count += 1;
+  if (entry.count > maxRequests) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((entry.resetAt - now) / 1000));
+    return { limited: true, retryAfterSeconds };
+  }
+
+  return { limited: false, retryAfterSeconds: 0 };
+};
+
+const checkContactRateLimit = (req: Request) =>
+  checkRateLimit(req, contactRateLimit, CONTACT_RATE_LIMIT_WINDOW_MS, CONTACT_RATE_LIMIT_MAX);
+
+const checkPublicWriteRateLimit = (req: Request) =>
+  checkRateLimit(req, publicWriteRateLimit, PUBLIC_WRITE_RATE_LIMIT_WINDOW_MS, PUBLIC_WRITE_RATE_LIMIT_MAX);
+
+const ensureSquareEnabled = (res: Response) => {
+  if (process.env.SQUARE_ENABLED !== "true") {
+    res.status(403).json({ message: "Square is not enabled" });
+    return false;
+  }
+  return true;
+};
+
+const ensureSquareSyncEnabled = (res: Response) => {
+  if (process.env.SQUARE_SYNC_ENABLED !== "true") {
+    res.status(403).json({ message: "Square sync is not enabled" });
+    return false;
+  }
+  return ensureSquareEnabled(res);
+};
+
+const getSquareWebhookSignatureKey = () => {
+  const key = process.env.SQUARE_WEBHOOK_SIGNATURE_KEY;
+  if (!key) {
+    throw new Error("SQUARE_WEBHOOK_SIGNATURE_KEY not configured");
+  }
+  return key;
+};
+
+const resolveSquareWebhookUrl = (req: Request) => {
+  const configured = process.env.SQUARE_WEBHOOK_URL?.trim();
+  if (configured) {
+    return configured;
+  }
+  const forwardedProto = req.headers["x-forwarded-proto"];
+  const forwardedHost = req.headers["x-forwarded-host"];
+  const protocol = (Array.isArray(forwardedProto) ? forwardedProto[0] : forwardedProto) || req.protocol;
+  const host = (Array.isArray(forwardedHost) ? forwardedHost[0] : forwardedHost) || req.headers.host;
+  if (!host) {
+    throw new Error("Unable to resolve Square webhook URL");
+  }
+  return `${protocol}://${host}${req.originalUrl}`;
+};
+
+const getSquareSignatureHeader = (req: Request) => {
+  const signature = req.headers["x-square-hmacsha256-signature"];
+  if (Array.isArray(signature)) {
+    return signature[0];
+  }
+  return signature || null;
+};
+
+const isValidSquareWebhookSignature = (req: Request) => {
+  const signature = getSquareSignatureHeader(req);
+  if (!signature) {
+    return false;
+  }
+  const rawBodyValue = (req as Request & { rawBody?: unknown }).rawBody;
+  if (!rawBodyValue) {
+    return false;
+  }
+  const rawBody = Buffer.isBuffer(rawBodyValue) ? rawBodyValue.toString("utf8") : String(rawBodyValue);
+  const payload = `${resolveSquareWebhookUrl(req)}${rawBody}`;
+  const expected = createHmac("sha256", getSquareWebhookSignatureKey()).update(payload).digest("base64");
+  const expectedBuffer = Buffer.from(expected);
+  const signatureBuffer = Buffer.from(signature);
+  if (expectedBuffer.length !== signatureBuffer.length) {
+    return false;
+  }
+  return timingSafeEqual(expectedBuffer, signatureBuffer);
+};
+
+const sanitizeFilenameBase = (filename: string) => {
+  const base = filename.split(/[/\\]/).pop() ?? "upload";
+  const asciiOnly = base.replace(/[^\x20-\x7E]+/g, "");
+  const rawName = asciiOnly.split(".").slice(0, -1).join(".") || asciiOnly;
+  const cleanedName = rawName
+    .replace(/\s+/g, "-")
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return (cleanedName || "upload").slice(0, 60);
+};
+
+const createSafeFilename = (filename: string, mimeType?: string | null) => {
+  const baseName = sanitizeFilenameBase(filename);
+  const extension = mimeType ? MIME_EXTENSION_MAP[mimeType.toLowerCase()] : "";
+  const suffix = randomBytes(6).toString("hex");
+  return extension ? `${baseName}-${suffix}.${extension}` : `${baseName}-${suffix}`;
+};
+
+const normalizeUploadFile = (file: Express.Multer.File) => {
+  file.originalname = createSafeFilename(file.originalname, file.mimetype);
+  return file;
+};
+
+const isAllowedImageType = (mimeType?: string | null) => {
+  if (!mimeType) return false;
+  return ALLOWED_IMAGE_TYPES.has(mimeType.toLowerCase());
+};
 
 const getBlobPath = (value?: string | null) => {
   if (!value) return null;
@@ -69,8 +251,13 @@ const buildAssetPayload = (asset: SiteAsset): Asset & { key: string; path: strin
 type AuthedUser = { userId: string; email: string };
 type AuthedRequest = Request & { user?: AuthedUser | null };
 
-const createRequireAuthMiddleware = (): RequestHandler => {
+const createRequireAuthMiddleware = (supabaseEnabled: boolean): RequestHandler => {
   return async (req, res, next) => {
+    if (!supabaseEnabled) {
+      res.status(401).json({ message: "Unauthorized - Authentication not configured" });
+      return;
+    }
+
     const user = await getUserFromRequest(req);
 
     if (!user) {
@@ -83,8 +270,13 @@ const createRequireAuthMiddleware = (): RequestHandler => {
   };
 };
 
-const createRequireAdminMiddleware = (prisma: PrismaClient): RequestHandler => {
+const createRequireAdminMiddleware = (prisma: PrismaClient, supabaseEnabled: boolean): RequestHandler => {
   return async (req, res, next) => {
+    if (!supabaseEnabled) {
+      res.status(401).json({ message: "Unauthorized - Authentication not configured" });
+      return;
+    }
+
     const user = await getUserFromRequest(req);
 
     if (!user) {
@@ -125,8 +317,70 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   const prisma = assertPrisma();
 
-  const requireAdmin = createRequireAdminMiddleware(prisma);
-  const requireAuthMiddleware = createRequireAuthMiddleware();
+  const requireAdmin = createRequireAdminMiddleware(prisma, env.supabaseEnabled);
+  const requireAuthMiddleware = createRequireAuthMiddleware(env.supabaseEnabled);
+
+  const resolveCartSessionId = (req: Request) => {
+    const headerValue = req.headers[CART_SESSION_HEADER] ?? req.headers[CART_SESSION_HEADER.toLowerCase()];
+    if (Array.isArray(headerValue)) {
+      return headerValue[0];
+    }
+    if (typeof headerValue === "string" && headerValue.trim()) {
+      return headerValue.trim();
+    }
+    const queryValue = req.query.sessionId;
+    if (typeof queryValue === "string" && queryValue.trim()) {
+      return queryValue.trim();
+    }
+    return null;
+  };
+
+  const resolveOptionalAuthUser = async (req: Request) => {
+    if (!env.supabaseEnabled) {
+      return null;
+    }
+    return getUserFromRequest(req);
+  };
+
+  const touchCartExpiry = () => new Date(Date.now() + CART_TTL_DAYS * 24 * 60 * 60 * 1000);
+
+  const buildCartResponse = async (cart: { id: string; sessionId: string | null; userId: string | null; createdAt: Date; updatedAt: Date; expiresAt: Date; items: { id: number; productId: number; quantity: number; price: unknown; createdAt: Date; }[] }) => {
+    const productIds = cart.items.map((item) => item.productId);
+    const products = productIds.length
+      ? await prisma.fragranceProduct.findMany({ where: { id: { in: productIds } } })
+      : [];
+    const productMap = new Map(products.map((product) => [product.id, product]));
+
+    const items = cart.items.map((item) => {
+      const product = productMap.get(item.productId) ?? null;
+      const price = Number(item.price);
+      return {
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        price,
+        createdAt: item.createdAt,
+        product,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    return {
+      id: cart.id,
+      sessionId: cart.sessionId,
+      userId: cart.userId,
+      createdAt: cart.createdAt,
+      updatedAt: cart.updatedAt,
+      expiresAt: cart.expiresAt,
+      items,
+      totals: {
+        subtotal: Number(subtotal.toFixed(2)),
+        itemCount,
+      },
+    };
+  };
 
   // Auth routes - Get current user (with auto-provisioning from Supabase Auth)
   app.get('/api/auth/user', requireAuthMiddleware, async (req: any, res) => {
@@ -143,9 +397,6 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
       // If user doesn't exist in DB, create them (first-time login)
       if (!user) {
-        const existingUsers = await prisma.user.findMany();
-        const isFirstUser = existingUsers.length === 0;
-
         // Extract name parts from email if not provided
         const emailPrefix = authUser.email.split('@')[0];
         const nameParts = emailPrefix.split(/[._-]/);
@@ -160,7 +411,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
             firstName: firstName,
             lastName: lastName,
             profileImageUrl: null,
-            isAdmin: isFirstUser, // First user is automatically admin
+            isAdmin: false,
           },
         });
       }
@@ -172,7 +423,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
-  // File upload endpoint for Vercel Blob - Protected with Clerk auth
+  // File upload endpoint for Vercel Blob - Protected with Supabase admin auth
   app.post("/api/upload", requireAdmin, upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
@@ -188,12 +439,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      if (!req.file.mimetype?.startsWith("image/")) {
+      const normalizedFile = normalizeUploadFile(req.file);
+
+      if (!isAllowedImageType(normalizedFile.mimetype)) {
         res.status(400).json({ error: "Only image uploads are allowed" });
         return;
       }
 
-      const blob = await uploadBlobFile("gallery", req.file);
+      const blob = await uploadBlobFile("gallery", normalizedFile);
 
       res.json({
         success: true,
@@ -201,7 +454,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           url: blob.url,
           publicId: blob.pathname,
           path: blob.pathname,
-          filename: req.file.originalname,
+          filename: normalizedFile.originalname,
         }
       });
     } catch (error) {
@@ -213,6 +466,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
   // Contact form submission endpoint
   app.post("/api/contact", async (req, res) => {
     try {
+      const rateLimit = checkContactRateLimit(req);
+      if (rateLimit.limited) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).json({
+          success: false,
+          message: "Too many requests. Please try again later.",
+        });
+        return;
+      }
+
       const validatedData = insertContactMessageSchema.parse(req.body);
       const message = await prisma.contactMessage.create({ data: validatedData });
       
@@ -282,14 +545,16 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       return;
     }
 
-    if (!req.file.mimetype?.startsWith("image/")) {
+    const normalizedFile = normalizeUploadFile(req.file);
+
+    if (!isAllowedImageType(normalizedFile.mimetype)) {
       res.status(400).json({ error: "Only image uploads are allowed" });
       return;
     }
 
     try {
       const prefix = blobPrefixMap[parsed.data.prefix];
-      const image = await uploadBlobFile(prefix, req.file);
+      const image = await uploadBlobFile(prefix, normalizedFile);
       res.json({ url: image.url, pathname: image.pathname, size: image.size });
     } catch (error) {
       console.error("Blob upload failed", error);
@@ -405,12 +670,14 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         return;
       }
 
-      if (req.file && !req.file.mimetype?.startsWith("image/")) {
+      const normalizedFile = req.file ? normalizeUploadFile(req.file) : null;
+
+      if (normalizedFile && !isAllowedImageType(normalizedFile.mimetype)) {
         res.status(400).json({ error: "Only image uploads are allowed" });
         return;
       }
 
-      const blob = req.file ? await uploadBlobFile("branding", req.file) : null;
+      const blob = normalizedFile ? await uploadBlobFile("branding", normalizedFile) : null;
 
       const url = blob?.url ?? payload.url;
       if (!url) {
@@ -419,7 +686,7 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       }
 
       const publicId = blob?.pathname ?? payload.publicId ?? getBlobPath(url);
-      const filename = payload.filename ?? payload.name ?? req.file?.originalname ?? payload.key;
+      const filename = payload.filename ?? payload.name ?? normalizedFile?.originalname ?? payload.key;
 
       const asset = await prisma.siteAsset.upsert({
         where: { key: payload.key },
@@ -883,6 +1150,13 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
 
   app.get('/api/auth/google/callback', async (req, res) => {
     try {
+      const rateLimit = checkPublicWriteRateLimit(req);
+      if (rateLimit.limited) {
+        res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+        res.status(429).send("<html><body><h1>Too many requests</h1><p>Please try again later.</p></body></html>");
+        return;
+      }
+
       const { code } = req.query;
       if (!code || typeof code !== 'string') {
         res.status(400).send('<html><body><h1>Error: Missing authorization code</h1></body></html>');
@@ -991,6 +1265,922 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       res.json({ connected: Boolean(token) });
     } catch (error) {
       res.json({ connected: false });
+    }
+  });
+
+  // Square OAuth endpoints
+  app.get("/api/square/config", requireAdmin, async (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      const summary = await getSquareConfigSummary();
+      res.json({ enabled: true, ...summary });
+    } catch (_error) {
+      res.status(500).json({ enabled: true, connected: false, message: "Failed to load Square config" });
+    }
+  });
+
+  app.post("/api/square/connect", requireAdmin, (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      const { url } = buildSquareAuthUrl();
+      res.json({ url });
+    } catch (_error) {
+      res.status(500).json({ message: "Failed to start Square OAuth" });
+    }
+  });
+
+  app.get("/api/square/callback", async (req, res) => {
+    if (process.env.SQUARE_ENABLED !== "true") {
+      res.status(403).send("<html><body><h1>Square is not enabled.</h1></body></html>");
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).send("<html><body><h1>Too many requests</h1><p>Please try again later.</p></body></html>");
+      return;
+    }
+
+    const { code, state } = req.query;
+    if (!code || typeof code !== "string" || !state || typeof state !== "string") {
+      res.status(400).send("<html><body><h1>Error: Missing authorization code.</h1></body></html>");
+      return;
+    }
+
+    try {
+      await exchangeSquareCode(code, state);
+      res.send(`
+        <html>
+          <body>
+            <h1>Square Account Connected!</h1>
+            <p>You can now close this window and return to the admin dashboard.</p>
+            <script>
+              setTimeout(() => {
+                window.close();
+              }, 2000);
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (_error) {
+      res.status(400).send("<html><body><h1>OAuth Error</h1><p>Failed to connect Square account.</p></body></html>");
+    }
+  });
+
+  app.post("/api/square/disconnect", requireAdmin, async (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      await disconnectSquare();
+      res.json({ success: true });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to disconnect Square" });
+    }
+  });
+
+  app.post("/api/square/catalog/import", requireAdmin, async (_req, res) => {
+    if (!ensureSquareSyncEnabled(res)) {
+      return;
+    }
+    try {
+      const result = await importSquareCatalog();
+      res.json({ success: true, ...result });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to import Square catalog" });
+    }
+  });
+
+  app.post("/api/square/catalog/sync", requireAdmin, async (_req, res) => {
+    if (!ensureSquareSyncEnabled(res)) {
+      return;
+    }
+    try {
+      const result = await importSquareCatalog();
+      res.json({ success: true, ...result });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to sync Square catalog" });
+    }
+  });
+
+  // DEV: Public sync endpoint for testing (remove in production)
+  app.post("/api/square/sync-now", async (req, res) => {
+    if (!ensureSquareSyncEnabled(res)) {
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+    try {
+      const result = await importSquareCatalog();
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to sync"
+      });
+    }
+  });
+
+  // Public test endpoint to verify Square API connection
+  app.get("/api/square/test", async (_req, res) => {
+    if (process.env.SQUARE_ENABLED !== "true") {
+      res.json({ enabled: false, message: "Square is not enabled" });
+      return;
+    }
+    try {
+      const client = createSquareClient();
+      // SDK v43 - catalog.list returns { response, data }
+      const result = await client.catalog.list({});
+      const items = (result.data || []).filter((obj) => obj.type === "ITEM");
+      const catalogItems = items.slice(0, 5).map((obj) => ({
+        id: obj.id,
+        name: obj.itemData?.name,
+      }));
+      res.json({
+        enabled: true,
+        connected: true,
+        environment: process.env.SQUARE_ENVIRONMENT || "sandbox",
+        catalogItemCount: items.length,
+        sampleItems: catalogItems
+      });
+    } catch (error) {
+      res.json({
+        enabled: true,
+        connected: false,
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  app.post("/api/webhooks/square", async (req, res) => {
+    if (process.env.SQUARE_ENABLED !== "true") {
+      res.status(503).json({ message: "Square is not enabled" });
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      if (!isValidSquareWebhookSignature(req)) {
+        res.status(401).json({ message: "Invalid Square webhook signature" });
+        return;
+      }
+    } catch (error) {
+      console.error("Square webhook signature validation failed", error);
+      res.status(500).json({ message: "Failed to validate webhook signature" });
+      return;
+    }
+
+    const eventType = (req.body?.type ?? req.body?.event_type ?? "unknown") as string;
+    const eventId = (req.body?.event_id ?? req.body?.id ?? null) as string | null;
+
+    console.log(`[SquareWebhook] type=${eventType} id=${eventId ?? "unknown"}`);
+
+    res.status(200).json({ received: true });
+  });
+
+  // Cart endpoints
+  app.get("/api/cart", async (req, res) => {
+    try {
+      const sessionId = resolveCartSessionId(req);
+      const authUser = await resolveOptionalAuthUser(req);
+      const now = new Date();
+
+      let cart =
+        (authUser
+          ? await prisma.cart.findFirst({
+              where: { userId: authUser.userId },
+              include: { items: true },
+            })
+          : null) ??
+        (sessionId
+          ? await prisma.cart.findFirst({
+              where: { sessionId },
+              include: { items: true },
+            })
+          : null);
+
+      if (cart && cart.expiresAt < now) {
+        await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+        await prisma.cart.delete({ where: { id: cart.id } });
+        cart = null;
+      }
+
+      if (!cart) {
+        const newSessionId = sessionId ?? createCartSessionId();
+        cart = await prisma.cart.create({
+          data: {
+            sessionId: newSessionId,
+            userId: authUser?.userId ?? null,
+            expiresAt: touchCartExpiry(),
+          },
+          include: { items: true },
+        });
+      } else if (authUser && !cart.userId) {
+        cart = await prisma.cart.update({
+          where: { id: cart.id },
+          data: { userId: authUser.userId, expiresAt: touchCartExpiry() },
+          include: { items: true },
+        });
+      }
+
+      if (cart.sessionId) {
+        res.setHeader("X-Cart-Session", cart.sessionId);
+      }
+
+      res.json(await buildCartResponse(cart));
+    } catch (error) {
+      console.error("[API] Error in GET /api/cart:", error);
+      res.status(500).json({ message: "Failed to load cart" });
+    }
+  });
+
+  app.post("/api/cart/items", async (req, res) => {
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      const payload = createCartItemSchema.parse(req.body);
+      const sessionId = resolveCartSessionId(req) ?? createCartSessionId();
+      const authUser = await resolveOptionalAuthUser(req);
+      const now = new Date();
+
+      let cart =
+        (authUser
+          ? await prisma.cart.findFirst({
+              where: { userId: authUser.userId },
+              include: { items: true },
+            })
+          : null) ??
+        (sessionId
+          ? await prisma.cart.findFirst({
+              where: { sessionId },
+              include: { items: true },
+            })
+          : null);
+
+      if (cart && cart.expiresAt < now) {
+        await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+        await prisma.cart.delete({ where: { id: cart.id } });
+        cart = null;
+      }
+
+      if (!cart) {
+        cart = await prisma.cart.create({
+          data: {
+            sessionId,
+            userId: authUser?.userId ?? null,
+            expiresAt: touchCartExpiry(),
+          },
+          include: { items: true },
+        });
+      }
+
+      const product = await prisma.fragranceProduct.findFirst({
+        where: {
+          id: payload.productId,
+          isVisible: true,
+          squareCatalogId: { not: null },
+        },
+      });
+
+      if (!product) {
+        res.status(404).json({ message: "Product not found" });
+        return;
+      }
+
+      const unitPrice = Number(product.salePrice ?? product.price);
+      const existing = await prisma.cartItem.findFirst({
+        where: { cartId: cart.id, productId: product.id },
+      });
+
+      if (existing) {
+        await prisma.cartItem.update({
+          where: { id: existing.id },
+          data: { quantity: existing.quantity + payload.quantity, price: unitPrice },
+        });
+      } else {
+        await prisma.cartItem.create({
+          data: {
+            cartId: cart.id,
+            productId: product.id,
+            quantity: payload.quantity,
+            price: unitPrice,
+          },
+        });
+      }
+
+      await prisma.cart.update({
+        where: { id: cart.id },
+        data: { updatedAt: new Date(), expiresAt: touchCartExpiry() },
+      });
+
+      const refreshed = await prisma.cart.findUnique({
+        where: { id: cart.id },
+        include: { items: true },
+      });
+
+      if (!refreshed) {
+        res.status(500).json({ message: "Cart no longer available" });
+        return;
+      }
+
+      res.setHeader("X-Cart-Session", cart.sessionId ?? sessionId);
+      res.json(await buildCartResponse(refreshed));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid cart item", errors: error.issues });
+        return;
+      }
+      console.error("[API] Error in POST /api/cart/items:", error);
+      res.status(500).json({ message: "Failed to add item to cart" });
+    }
+  });
+
+  app.patch("/api/cart/items/:id", async (req, res) => {
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      const itemId = Number(req.params.id);
+      if (!Number.isFinite(itemId)) {
+        res.status(400).json({ message: "Invalid cart item id" });
+        return;
+      }
+
+      const payload = updateCartItemSchema.parse(req.body);
+      const sessionId = resolveCartSessionId(req);
+      const authUser = await resolveOptionalAuthUser(req);
+
+      const item = await prisma.cartItem.findUnique({ where: { id: itemId } });
+      if (!item) {
+        res.status(404).json({ message: "Cart item not found" });
+        return;
+      }
+
+      const cart = await prisma.cart.findUnique({
+        where: { id: item.cartId },
+        include: { items: true },
+      });
+
+      if (!cart) {
+        res.status(404).json({ message: "Cart not found" });
+        return;
+      }
+
+      const hasAccess =
+        (authUser && cart.userId === authUser.userId) ||
+        (sessionId && cart.sessionId === sessionId);
+
+      if (!hasAccess) {
+        res.status(403).json({ message: "Cart access denied" });
+        return;
+      }
+
+      await prisma.cartItem.update({
+        where: { id: itemId },
+        data: { quantity: payload.quantity },
+      });
+      await prisma.cart.update({
+        where: { id: cart.id },
+        data: { updatedAt: new Date(), expiresAt: touchCartExpiry() },
+      });
+
+      const refreshed = await prisma.cart.findUnique({
+        where: { id: cart.id },
+        include: { items: true },
+      });
+
+      if (!refreshed) {
+        res.status(500).json({ message: "Cart no longer available" });
+        return;
+      }
+
+      res.json(await buildCartResponse(refreshed));
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid cart update", errors: error.issues });
+        return;
+      }
+      console.error("[API] Error in PATCH /api/cart/items:", error);
+      res.status(500).json({ message: "Failed to update cart item" });
+    }
+  });
+
+  app.delete("/api/cart/items/:id", async (req, res) => {
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      const itemId = Number(req.params.id);
+      if (!Number.isFinite(itemId)) {
+        res.status(400).json({ message: "Invalid cart item id" });
+        return;
+      }
+
+      const sessionId = resolveCartSessionId(req);
+      const authUser = await resolveOptionalAuthUser(req);
+
+      const item = await prisma.cartItem.findUnique({ where: { id: itemId } });
+      if (!item) {
+        res.status(404).json({ message: "Cart item not found" });
+        return;
+      }
+
+      const cart = await prisma.cart.findUnique({
+        where: { id: item.cartId },
+        include: { items: true },
+      });
+
+      if (!cart) {
+        res.status(404).json({ message: "Cart not found" });
+        return;
+      }
+
+      const hasAccess =
+        (authUser && cart.userId === authUser.userId) ||
+        (sessionId && cart.sessionId === sessionId);
+
+      if (!hasAccess) {
+        res.status(403).json({ message: "Cart access denied" });
+        return;
+      }
+
+      await prisma.cartItem.delete({ where: { id: itemId } });
+      await prisma.cart.update({
+        where: { id: cart.id },
+        data: { updatedAt: new Date(), expiresAt: touchCartExpiry() },
+      });
+
+      const refreshed = await prisma.cart.findUnique({
+        where: { id: cart.id },
+        include: { items: true },
+      });
+
+      if (!refreshed) {
+        res.status(500).json({ message: "Cart no longer available" });
+        return;
+      }
+
+      res.json(await buildCartResponse(refreshed));
+    } catch (error) {
+      console.error("[API] Error in DELETE /api/cart/items:", error);
+      res.status(500).json({ message: "Failed to remove cart item" });
+    }
+  });
+
+  app.delete("/api/cart", async (req, res) => {
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      const sessionId = resolveCartSessionId(req);
+      const authUser = await resolveOptionalAuthUser(req);
+
+      const cart =
+        (authUser
+          ? await prisma.cart.findFirst({
+              where: { userId: authUser.userId },
+              include: { items: true },
+            })
+          : null) ??
+        (sessionId
+          ? await prisma.cart.findFirst({
+              where: { sessionId },
+              include: { items: true },
+            })
+          : null);
+
+      if (!cart) {
+        res.status(404).json({ message: "Cart not found" });
+        return;
+      }
+
+      const hasAccess =
+        (authUser && cart.userId === authUser.userId) ||
+        (sessionId && cart.sessionId === sessionId);
+
+      if (!hasAccess) {
+        res.status(403).json({ message: "Cart access denied" });
+        return;
+      }
+
+      await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await prisma.cart.update({
+        where: { id: cart.id },
+        data: { updatedAt: new Date(), expiresAt: touchCartExpiry() },
+      });
+
+      const refreshed = await prisma.cart.findUnique({
+        where: { id: cart.id },
+        include: { items: true },
+      });
+
+      if (!refreshed) {
+        res.status(500).json({ message: "Cart no longer available" });
+        return;
+      }
+
+      res.json(await buildCartResponse(refreshed));
+    } catch (error) {
+      console.error("[API] Error in DELETE /api/cart:", error);
+      res.status(500).json({ message: "Failed to clear cart" });
+    }
+  });
+
+  // Checkout and payments
+  app.post("/api/checkout/payment", async (req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    const checkoutSchema = z.object({
+      cartId: z.string().min(1),
+      sourceId: z.string().min(1),
+      verificationToken: z.string().min(1).optional(),
+      buyerEmail: z.string().email().optional(),
+      shippingAddress: z.record(z.unknown()).optional(),
+      billingAddress: z.record(z.unknown()).optional(),
+    });
+
+    try {
+      const payload = checkoutSchema.parse(req.body);
+      const sessionId = resolveCartSessionId(req);
+      const authUser = await resolveOptionalAuthUser(req);
+
+      const cart = await prisma.cart.findUnique({
+        where: { id: payload.cartId },
+        include: { items: true },
+      });
+
+      if (!cart) {
+        res.status(404).json({ message: "Cart not found" });
+        return;
+      }
+
+      const hasAccess =
+        (authUser && cart.userId === authUser.userId) ||
+        (sessionId && cart.sessionId === sessionId);
+
+      if (!hasAccess) {
+        res.status(403).json({ message: "Cart access denied" });
+        return;
+      }
+
+      if (!cart.items.length) {
+        res.status(400).json({ message: "Cart is empty" });
+        return;
+      }
+
+      const productIds = cart.items.map((item) => item.productId);
+      const products = await prisma.fragranceProduct.findMany({
+        where: { id: { in: productIds } },
+      });
+      const productMap = new Map(products.map((product) => [product.id, product]));
+
+      const lineItems = cart.items.map((item) => {
+        const product = productMap.get(item.productId);
+        if (!product) {
+          throw new Error("Product not found for cart item");
+        }
+        const price = Number(item.price);
+        const amount = BigInt(Math.round(price * 100));
+        return {
+          name: product.name,
+          quantity: String(item.quantity),
+          basePriceMoney: {
+            amount,
+            currency: Currency.Usd,
+          },
+        };
+      });
+
+      const subtotal = cart.items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
+      const totalAmount = BigInt(Math.round(subtotal * 100));
+
+      const accessToken = await resolveSquareAccessToken();
+      const locationId = await resolveSquareLocationId(accessToken);
+      const client = createSquareClient(accessToken);
+      const orderIdempotencyKey = randomBytes(16).toString("hex");
+      const paymentIdempotencyKey = randomBytes(16).toString("hex");
+
+      const orderResponse = await client.orders.create({
+        idempotencyKey: orderIdempotencyKey,
+        order: {
+          locationId,
+          lineItems,
+        },
+      });
+
+      const squareOrder = orderResponse.order;
+      if (!squareOrder?.id) {
+        res.status(500).json({ message: "Failed to create Square order" });
+        return;
+      }
+
+      const paymentResponse = await client.payments.create({
+        idempotencyKey: paymentIdempotencyKey,
+        sourceId: payload.sourceId,
+        verificationToken: payload.verificationToken,
+        amountMoney: { amount: totalAmount, currency: Currency.Usd },
+        orderId: squareOrder.id,
+        locationId,
+        buyerEmailAddress: payload.buyerEmail ?? authUser?.email ?? undefined,
+      });
+
+      const payment = paymentResponse.payment;
+      if (!payment?.id) {
+        res.status(500).json({ message: "Payment failed" });
+        return;
+      }
+
+      const email = payload.buyerEmail ?? authUser?.email ?? "";
+
+      const shippingAddress = payload.shippingAddress
+        ? (payload.shippingAddress as Prisma.InputJsonValue)
+        : Prisma.DbNull;
+      const billingAddress = payload.billingAddress
+        ? (payload.billingAddress as Prisma.InputJsonValue)
+        : Prisma.DbNull;
+
+      const orderRecord = await prisma.order.create({
+        data: {
+          squareOrderId: squareOrder.id,
+          userId: authUser?.userId ?? null,
+          email,
+          status: payment.status === "COMPLETED" ? "paid" : "pending",
+          total: Number(subtotal.toFixed(2)),
+          subtotal: Number(subtotal.toFixed(2)),
+          tax: null,
+          paymentId: payment.id,
+          shippingAddress,
+          billingAddress,
+          items: {
+            create: cart.items.map((item) => {
+              const product = productMap.get(item.productId);
+              return {
+                productId: item.productId,
+                name: product?.name ?? "Item",
+                quantity: item.quantity,
+                price: Number(item.price),
+                sku: product?.sku ?? null,
+              };
+            }),
+          },
+        },
+      });
+
+      await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await prisma.cart.update({
+        where: { id: cart.id },
+        data: { updatedAt: new Date(), expiresAt: touchCartExpiry() },
+      });
+
+      res.json({
+        success: true,
+        orderId: orderRecord.id,
+        squareOrderId: squareOrder.id,
+        paymentId: payment.id,
+        status: payment.status,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid checkout payload", errors: error.issues });
+        return;
+      }
+      console.error("[API] Error in POST /api/checkout/payment:", error);
+      res.status(500).json({ message: "Failed to process payment" });
+    }
+  });
+
+  // Booking endpoints
+  app.get("/api/bookings/availability", async (req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+
+    try {
+      const querySchema = z.object({
+        serviceId: z.coerce.number().int().positive(),
+        startAt: z.string().datetime(),
+        endAt: z.string().datetime().optional(),
+      });
+
+      const { serviceId, startAt, endAt } = querySchema.parse(req.query);
+      const service = await prisma.serviceItem.findUnique({ where: { id: serviceId } });
+
+      if (!service?.squareServiceId) {
+        res.status(404).json({ message: "Service not found" });
+        return;
+      }
+
+      const accessToken = await resolveSquareAccessToken();
+      const locationId = await resolveSquareLocationId(accessToken);
+      const client = createSquareClient(accessToken);
+
+      const catalogResponse = await client.catalog.batchGet({
+        objectIds: [service.squareServiceId],
+        includeRelatedObjects: true,
+      });
+
+      const catalogItem = catalogResponse.objects?.[0];
+      if (!catalogItem || catalogItem.type !== "ITEM" || !catalogItem.itemData?.variations?.length) {
+        res.status(500).json({ message: "Service variation not available" });
+        return;
+      }
+      const variation = catalogItem.itemData.variations[0];
+      const serviceVariationId = variation?.id;
+      const serviceVariationVersion = variation?.version ?? catalogItem.version ?? null;
+
+      if (!serviceVariationId || !serviceVariationVersion) {
+        res.status(500).json({ message: "Service variation not available" });
+        return;
+      }
+
+      const availabilityResponse = await client.bookings.searchAvailability({
+        query: {
+          filter: {
+            startAtRange: {
+              startAt,
+              endAt,
+            },
+            locationId,
+            segmentFilters: [
+              {
+                serviceVariationId,
+              },
+            ],
+          },
+        },
+      });
+
+      const availabilities = availabilityResponse.availabilities ?? [];
+      const sanitized = availabilities.map((availability: Availability) => ({
+        startAt: availability.startAt ?? null,
+        locationId: availability.locationId ?? locationId,
+        appointmentSegments:
+          availability.appointmentSegments?.map((segment) => ({
+            teamMemberId: segment.teamMemberId,
+            serviceVariationId: segment.serviceVariationId ?? serviceVariationId,
+            serviceVariationVersion: segment.serviceVariationVersion
+              ? segment.serviceVariationVersion.toString()
+              : serviceVariationVersion.toString(),
+            durationMinutes: segment.durationMinutes ?? service.duration,
+          })) ?? [],
+      }));
+
+      res.json({
+        serviceId,
+        serviceVariationId,
+        serviceVariationVersion: serviceVariationVersion.toString(),
+        availabilities: sanitized,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid availability request", errors: error.issues });
+        return;
+      }
+      console.error("[API] Error in GET /api/bookings/availability:", error);
+      res.status(500).json({ message: "Failed to load availability" });
+    }
+  });
+
+  app.post("/api/bookings", async (req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+
+    const rateLimit = checkPublicWriteRateLimit(req);
+    if (rateLimit.limited) {
+      res.setHeader("Retry-After", String(rateLimit.retryAfterSeconds));
+      res.status(429).json({ message: "Too many requests. Please try again later." });
+      return;
+    }
+
+    try {
+      const bookingSchema = createBookingSchema.extend({
+        teamMemberId: z.string().min(1),
+        serviceVariationId: z.string().min(1),
+        serviceVariationVersion: z.string().min(1),
+      });
+
+      const payload = bookingSchema.parse(req.body);
+      const service = await prisma.serviceItem.findUnique({ where: { id: payload.serviceId } });
+
+      if (!service?.squareServiceId) {
+        res.status(404).json({ message: "Service not found" });
+        return;
+      }
+
+      const accessToken = await resolveSquareAccessToken();
+      const locationId = await resolveSquareLocationId(accessToken);
+      const client = createSquareClient(accessToken);
+
+      const [firstName, ...rest] = payload.customerName.trim().split(" ");
+      const lastName = rest.join(" ").trim() || undefined;
+
+      const customerResponse = await client.customers.create({
+        givenName: firstName || payload.customerName,
+        familyName: lastName || undefined,
+        emailAddress: payload.customerEmail,
+        phoneNumber: payload.customerPhone ?? undefined,
+      });
+
+      const customerId = customerResponse.customer?.id ?? null;
+
+      const bookingResponse = await client.bookings.create({
+        booking: {
+          locationId,
+          startAt: payload.startAt,
+          customerId: customerId ?? undefined,
+          customerNote: payload.notes ?? undefined,
+          appointmentSegments: [
+            {
+              teamMemberId: payload.teamMemberId,
+              serviceVariationId: payload.serviceVariationId,
+              serviceVariationVersion: BigInt(payload.serviceVariationVersion),
+            },
+          ],
+        },
+      });
+
+      const booking = bookingResponse.booking;
+      if (!booking?.id) {
+        res.status(500).json({ message: "Failed to create booking" });
+        return;
+      }
+
+      const startAtDate = new Date(payload.startAt);
+      const durationMinutes = service.duration ?? 60;
+      const endAtDate = new Date(startAtDate.getTime() + durationMinutes * 60 * 1000);
+
+      const record = await prisma.booking.create({
+        data: {
+          squareBookingId: booking.id,
+          customerId,
+          customerEmail: payload.customerEmail,
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone ?? null,
+          serviceId: payload.serviceId,
+          teamMemberId: payload.teamMemberId,
+          startAt: startAtDate,
+          endAt: endAtDate,
+          status: booking.status ?? "pending",
+          notes: payload.notes ?? null,
+        },
+      });
+
+      res.status(201).json({
+        success: true,
+        bookingId: record.id,
+        squareBookingId: booking.id,
+        status: booking.status,
+      });
+    } catch (error) {
+      if (error instanceof ZodError) {
+        res.status(400).json({ message: "Invalid booking payload", errors: error.issues });
+        return;
+      }
+      console.error("[API] Error in POST /api/bookings:", error);
+      res.status(500).json({ message: "Failed to create booking" });
     }
   });
 

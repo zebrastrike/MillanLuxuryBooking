@@ -21,7 +21,7 @@ const envSchema = z.object({
   GOOGLE_REDIRECT_URI: z.string().url().optional(),
 
   // Encryption key for OAuth tokens (REQUIRED for OAuth)
-  OAUTH_ENCRYPTION_KEY: z.string().min(32).optional(),
+  ENCRYPTION_KEY: z.string().min(32).optional(),
 });
 
 export type EnvConfig = ReturnType<typeof loadEnv>;
@@ -66,11 +66,11 @@ export function loadEnv() {
   const googleOAuthEnabled = Boolean(
     env.GOOGLE_CLIENT_ID &&
     env.GOOGLE_CLIENT_SECRET &&
-    env.OAUTH_ENCRYPTION_KEY
+    env.ENCRYPTION_KEY
   );
 
-  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && !env.OAUTH_ENCRYPTION_KEY) {
-    console.warn("[WARN] Google OAuth credentials provided but OAUTH_ENCRYPTION_KEY is missing. OAuth will be disabled.");
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET && !env.ENCRYPTION_KEY) {
+    console.warn("[WARN] Google OAuth credentials provided but ENCRYPTION_KEY is missing. OAuth will be disabled.");
   }
 
   return {
@@ -92,7 +92,7 @@ export function loadEnv() {
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       redirectUri: env.GOOGLE_REDIRECT_URI,
     },
-    oauthEncryptionKey: env.OAUTH_ENCRYPTION_KEY,
+    encryptionKey: env.ENCRYPTION_KEY,
     databaseUrl,
   } as const;
 }

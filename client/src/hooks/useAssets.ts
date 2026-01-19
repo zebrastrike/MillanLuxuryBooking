@@ -39,7 +39,7 @@ function normalizeAsset(asset: SiteAssetResponseRecord, keyFallback?: string): A
   }
 }
 
-export function useSiteAssets() {
+export function useAssets() {
   return useQuery<SiteAssetMap>({
     queryKey: ["/api/assets"],
     queryFn: async () => {

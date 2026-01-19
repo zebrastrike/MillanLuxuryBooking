@@ -3,6 +3,7 @@ import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { CartProvider } from "@/contexts/CartContext";
 import Home from "@/pages/home";
 import Admin from "@/pages/Admin";
 import NotFound from "@/pages/not-found";
@@ -11,6 +12,11 @@ import { Analytics } from "@/components/Analytics";
 import BlogIndex from "@/pages/blog";
 import BlogPost from "@/pages/blog/PostDetail";
 import Fragrances from "@/pages/fragrances";
+import ServicesPage from "@/pages/services";
+import CartPage from "@/pages/cart";
+import CheckoutPage from "@/pages/checkout";
+import CheckoutSuccess from "@/pages/checkout-success";
+import BookingPage from "@/pages/book";
 
 // Main router component
 function Router() {
@@ -19,7 +25,12 @@ function Router() {
       <Route path="/" component={Home}/>
       <Route path="/blog" component={BlogIndex}/>
       <Route path="/blog/:slug" component={BlogPost}/>
+      <Route path="/services" component={ServicesPage}/>
       <Route path="/fragrances" component={Fragrances}/>
+      <Route path="/cart" component={CartPage}/>
+      <Route path="/checkout" component={CheckoutPage}/>
+      <Route path="/checkout/success" component={CheckoutSuccess}/>
+      <Route path="/book" component={BookingPage}/>
       <Route path="/admin" component={Admin}/>
       <Route component={NotFound} />
     </Switch>
@@ -29,13 +40,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AppErrorBoundary>
-          <Toaster />
-          <Analytics />
-          <Router />
-        </AppErrorBoundary>
-      </TooltipProvider>
+      <CartProvider>
+        <TooltipProvider>
+          <AppErrorBoundary>
+            <Toaster />
+            <Analytics />
+            <Router />
+          </AppErrorBoundary>
+        </TooltipProvider>
+      </CartProvider>
     </QueryClientProvider>
   );
 }
