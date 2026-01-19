@@ -28,6 +28,12 @@ import { list as listBlobFiles, upload as uploadBlobFile, remove as removeBlob }
 import { getUserFromRequest, isUserAdmin } from "./supabase.js";
 import { getGoogleAuthUrl, exchangeCodeForTokens, fetchGoogleReviews } from "./google.js";
 import { saveTokens, getValidToken } from "./tokenService.js";
+import {
+  buildSquareAuthUrl,
+  disconnectSquare,
+  exchangeSquareCode,
+  getSquareConfigSummary,
+} from "./services/squareAuth.js";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_IMAGE_TYPES = new Set([
@@ -93,6 +99,14 @@ const checkContactRateLimit = (req: Request) => {
   }
 
   return { limited: false, retryAfterSeconds: 0 };
+};
+
+const ensureSquareEnabled = (res: Response) => {
+  if (process.env.SQUARE_ENABLED !== "true") {
+    res.status(403).json({ message: "Square is not enabled" });
+    return false;
+  }
+  return true;
 };
 
 const sanitizeFilenameBase = (filename: string) => {
@@ -1098,6 +1112,75 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       res.json({ connected: Boolean(token) });
     } catch (error) {
       res.json({ connected: false });
+    }
+  });
+
+  // Square OAuth endpoints
+  app.get("/api/square/config", requireAdmin, async (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      const summary = await getSquareConfigSummary();
+      res.json({ enabled: true, ...summary });
+    } catch (_error) {
+      res.status(500).json({ enabled: true, connected: false, message: "Failed to load Square config" });
+    }
+  });
+
+  app.post("/api/square/connect", requireAdmin, (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      const { url } = buildSquareAuthUrl();
+      res.json({ url });
+    } catch (_error) {
+      res.status(500).json({ message: "Failed to start Square OAuth" });
+    }
+  });
+
+  app.get("/api/square/callback", async (req, res) => {
+    if (process.env.SQUARE_ENABLED !== "true") {
+      res.status(403).send("<html><body><h1>Square is not enabled.</h1></body></html>");
+      return;
+    }
+
+    const { code, state } = req.query;
+    if (!code || typeof code !== "string" || !state || typeof state !== "string") {
+      res.status(400).send("<html><body><h1>Error: Missing authorization code.</h1></body></html>");
+      return;
+    }
+
+    try {
+      await exchangeSquareCode(code, state);
+      res.send(`
+        <html>
+          <body>
+            <h1>Square Account Connected!</h1>
+            <p>You can now close this window and return to the admin dashboard.</p>
+            <script>
+              setTimeout(() => {
+                window.close();
+              }, 2000);
+            </script>
+          </body>
+        </html>
+      `);
+    } catch (_error) {
+      res.status(400).send("<html><body><h1>OAuth Error</h1><p>Failed to connect Square account.</p></body></html>");
+    }
+  });
+
+  app.post("/api/square/disconnect", requireAdmin, async (_req, res) => {
+    if (!ensureSquareEnabled(res)) {
+      return;
+    }
+    try {
+      await disconnectSquare();
+      res.json({ success: true });
+    } catch (_error) {
+      res.status(500).json({ success: false, message: "Failed to disconnect Square" });
     }
   });
 
