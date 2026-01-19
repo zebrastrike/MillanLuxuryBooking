@@ -60,9 +60,7 @@ export default function CheckoutPage() {
     },
     lineItems: items.map((item) => ({
       amount: (item.price * item.quantity).toFixed(2),
-      label: item.product?.fragrance
-        ? `${item.product.name} · ${item.product.fragrance}`
-        : item.product?.name ?? "Item",
+      label: item.product?.name ?? "Item",
     })),
     requestBillingContact: true,
   });
@@ -263,9 +261,7 @@ export default function CheckoutPage() {
               {items.map((item) => (
                 <div key={item.id} className="flex items-center justify-between text-sm">
                   <span>
-                    {item.product?.fragrance
-                      ? `${item.product.name} · ${item.product.fragrance}`
-                      : item.product?.name ?? "Item"} x {item.quantity}
+                    {item.product?.name ?? "Item"} x {item.quantity}
                   </span>
                   <span>${(item.price * item.quantity).toFixed(2)}</span>
                 </div>

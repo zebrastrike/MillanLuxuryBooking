@@ -116,9 +116,6 @@ export default function CartPage() {
                             </div>
                             <div>
                               <p className="font-medium">{product?.name ?? "Item"}</p>
-                              {product?.fragrance && (
-                                <p className="text-xs text-muted-foreground">{product.fragrance}</p>
-                              )}
                               <p className="text-sm text-muted-foreground">${item.price.toFixed(2)} each</p>
                             </div>
                           </div>
