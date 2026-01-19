@@ -19,3 +19,8 @@ serving on port 5000
 [58fa9872-fa85-4386-8846-af062ba616ff] GET /api/bookings/availability 200 in 946ms
 [b777003a-0a8a-4647-8693-a5adbb7c79f2] GET /api/bookings/availability 400 in 5ms
 [445a788e-8f85-41a7-bf2f-bd11f35a904b] GET /api/bookings/availability 200 in 643ms
+[4e51c3f0-5f31-48ab-bedc-7d88fd5d39cd] GET /api/square/test 200 in 1661ms
+[afa0f875-9e16-4b42-923f-8e8ece2c348c] GET /api/products 200 in 535ms
+[SquareCatalog] env=production total=13 created=0 updated=13 skipped=0 errors=0 (services=7, products=6)
+[b108b09b-92a6-4510-8f49-d7f6fb7e1544] POST /api/square/sync-now 200 in 2533ms
+[25c11169-4bb4-4a93-9058-8e5fd5d57dee] GET /api/products 200 in 50ms
