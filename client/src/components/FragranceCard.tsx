@@ -1,13 +1,15 @@
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sparkles, ShoppingCart } from 'lucide-react';
 import type { FragranceProduct } from '@shared/types';
 import { useCart } from '@/contexts/CartContext';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 interface FragranceCardProps {
-  product: FragranceProduct;
+  products: FragranceProduct[];
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -19,19 +21,50 @@ const CATEGORY_LABELS: Record<string, string> = {
   "cleaner": "All-Purpose Cleaner",
 };
 
-export function FragranceCard({ product }: FragranceCardProps) {
-  const categoryLabel = CATEGORY_LABELS[product.category] || "Product";
+export function FragranceCard({ products }: FragranceCardProps) {
+  const sortedProducts = useMemo(() => {
+    return [...products].sort((a, b) => {
+      const aLabel = a.fragrance || a.name;
+      const bLabel = b.fragrance || b.name;
+      return aLabel.localeCompare(bLabel);
+    });
+  }, [products]);
+  const [selectedProductId, setSelectedProductId] = useState<number | null>(
+    sortedProducts[0]?.id ?? null,
+  );
+  const selectedProduct =
+    sortedProducts.find((item) => item.id === selectedProductId) ?? sortedProducts[0];
+  const categoryLabel = selectedProduct ? CATEGORY_LABELS[selectedProduct.category] || "Product" : "Product";
   const { addItem } = useCart();
   const [isAdding, setIsAdding] = useState(false);
+  const isFeatured = sortedProducts.some((item) => item.featured);
+  const hasOptions = sortedProducts.length > 1;
+
+  useEffect(() => {
+    if (!selectedProductId && sortedProducts[0]) {
+      setSelectedProductId(sortedProducts[0].id);
+      return;
+    }
+    if (selectedProductId && !sortedProducts.some((item) => item.id === selectedProductId)) {
+      setSelectedProductId(sortedProducts[0]?.id ?? null);
+    }
+  }, [selectedProductId, sortedProducts]);
 
   const handleAddToCart = async () => {
+    if (!selectedProduct) {
+      return;
+    }
     setIsAdding(true);
     try {
-      await addItem(product.id, 1);
+      await addItem(selectedProduct.id, 1);
     } finally {
       setIsAdding(false);
     }
   };
+
+  if (!selectedProduct) {
+    return null;
+  }
 
   return (
     <Card className="group relative overflow-hidden transition-all hover:shadow-[0_20px_50px_rgba(244,114,182,0.25)]">
@@ -42,10 +75,10 @@ export function FragranceCard({ product }: FragranceCardProps) {
       <div className="relative z-10 flex h-full flex-col">
         {/* Product Image */}
         <div className="relative h-64 overflow-hidden bg-gradient-to-br from-rose-100 via-pink-100 to-amber-100">
-          {product.imageUrl ? (
+          {selectedProduct.imageUrl ? (
             <img
-              src={product.imageUrl}
-              alt={product.name}
+              src={selectedProduct.imageUrl}
+              alt={selectedProduct.name}
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
@@ -53,7 +86,7 @@ export function FragranceCard({ product }: FragranceCardProps) {
               <p className="text-muted-foreground">No image</p>
             </div>
           )}
-          {product.featured && (
+          {isFeatured && (
             <Badge className="absolute top-3 right-3 bg-gradient-to-r from-rose-500 to-amber-400">
               <Sparkles className="mr-1 h-3 w-3" />
               Featured
@@ -64,33 +97,53 @@ export function FragranceCard({ product }: FragranceCardProps) {
         <CardHeader className="space-y-3">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{categoryLabel}</Badge>
-            {product.fragrance && (
-              <Badge variant="secondary">{product.fragrance}</Badge>
+            {selectedProduct.fragrance && (
+              <Badge variant="secondary">{selectedProduct.fragrance}</Badge>
             )}
           </div>
-          <CardTitle className="text-xl">{product.name}</CardTitle>
+          <CardTitle className="text-xl">{selectedProduct.name}</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {product.description}
+            {selectedProduct.description}
           </CardDescription>
         </CardHeader>
 
         <CardContent>
+          {hasOptions && (
+            <div className="space-y-2 pb-4">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Fragrance</Label>
+              <Select
+                value={selectedProductId ? String(selectedProductId) : undefined}
+                onValueChange={(value) => setSelectedProductId(Number(value))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a fragrance" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sortedProducts.map((item) => (
+                    <SelectItem key={item.id} value={String(item.id)}>
+                      {item.fragrance || item.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           {/* Price - Only show if displayPrice is true */}
-          {product.displayPrice && (
+          {selectedProduct.displayPrice && (
             <div className="flex items-center gap-2">
-              {product.salePrice ? (
+              {selectedProduct.salePrice ? (
                 <>
                   <span className="text-lg line-through text-muted-foreground">
-                    ${Number(product.price).toFixed(2)}
+                    ${Number(selectedProduct.price).toFixed(2)}
                   </span>
                   <span className="text-2xl font-bold text-primary">
-                    ${Number(product.salePrice).toFixed(2)}
+                    ${Number(selectedProduct.salePrice).toFixed(2)}
                   </span>
                   <Badge variant="destructive" className="ml-2">Sale</Badge>
                 </>
               ) : (
                 <span className="text-2xl font-bold text-primary">
-                  ${Number(product.price).toFixed(2)}
+                  ${Number(selectedProduct.price).toFixed(2)}
                 </span>
               )}
             </div>

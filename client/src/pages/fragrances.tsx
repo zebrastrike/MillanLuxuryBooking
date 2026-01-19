@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
@@ -26,9 +26,23 @@ export default function Fragrances() {
   });
 
   const squareProducts = products.filter((product) => Boolean(product.squareCatalogId));
-  const filteredProducts = selectedCategory === 'all'
-    ? squareProducts
-    : squareProducts.filter((p) => p.category === selectedCategory);
+  const groupedProducts = useMemo(() => {
+    const groups = new Map<string, FragranceProduct[]>();
+    squareProducts.forEach((product) => {
+      const key = product.squareItemId ?? product.squareCatalogId ?? `product-${product.id}`;
+      const existing = groups.get(key) ?? [];
+      existing.push(product);
+      groups.set(key, existing);
+    });
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      key,
+      items: items.sort((a, b) => (a.fragrance || a.name).localeCompare(b.fragrance || b.name)),
+    }));
+  }, [squareProducts]);
+
+  const filteredGroups = selectedCategory === 'all'
+    ? groupedProducts
+    : groupedProducts.filter((group) => group.items.some((item) => item.category === selectedCategory));
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,14 +105,14 @@ export default function Fragrances() {
                 Try Again
               </Button>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : filteredGroups.length === 0 ? (
             <p className="text-center text-muted-foreground py-12">
               No products in this category yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredProducts.map((product) => (
-                <FragranceCard key={product.id} product={product} />
+              {filteredGroups.map((group) => (
+                <FragranceCard key={group.key} products={group.items} />
               ))}
             </div>
           )}

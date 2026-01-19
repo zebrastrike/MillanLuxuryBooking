@@ -19,7 +19,11 @@ type MappedItem = {
   price: number;
   imageUrl: string | null;
   squareCatalogId: string;
+  squareItemId: string;
   squareVariationId: string;
+  sku: string | null;
+  category: string;
+  fragrance: string;
   isService: boolean;
 };
 
@@ -65,53 +69,88 @@ const isServiceItem = (name: string): boolean => {
   return SERVICE_KEYWORDS.some(keyword => lowerName.includes(keyword));
 };
 
-const mapCatalogItem = (item: CatalogObject, images: Map<string, string>): MappedItem | null => {
-  if (item.type !== "ITEM" || !item.itemData?.variations?.length) {
+const getVariationData = (variation: CatalogObject) =>
+  (variation as CatalogObject & {
+    itemVariationData?: {
+      priceMoney?: { amount?: bigint | number };
+      name?: string | null;
+      sku?: string | null;
+    };
+  }).itemVariationData;
+
+const getVariationPrice = (variation: CatalogObject): number | null => {
+  const data = getVariationData(variation);
+  if (!data?.priceMoney?.amount) {
     return null;
+  }
+  const amount = data.priceMoney.amount;
+  return (typeof amount === "bigint" ? Number(amount) : amount) / 100;
+};
+
+const mapCatalogItems = (item: CatalogObject, images: Map<string, string>): MappedItem[] => {
+  if (item.type !== "ITEM" || !item.itemData?.variations?.length) {
+    return [];
   }
 
   const name = item.itemData.name?.trim();
   if (!name) {
-    return null;
+    return [];
   }
   const itemId = item.id;
   if (!itemId) {
-    return null;
-  }
-
-  // Find first variation with a price
-  const variation = item.itemData.variations.find((v: CatalogObject) => {
-    const varData = (v as CatalogObject & { itemVariationData?: { priceMoney?: { amount?: bigint | number } } })
-      .itemVariationData;
-    return varData?.priceMoney?.amount != null;
-  });
-
-  // Get price (default to 0 if no variation with price)
-  let price = 0;
-  let variationId = item.itemData.variations[0]?.id || itemId;
-
-  const variationData = variation
-    ? (variation as CatalogObject & { itemVariationData?: { priceMoney?: { amount?: bigint | number } } })
-        .itemVariationData
-    : null;
-  if (variationData?.priceMoney?.amount != null) {
-    const amount = variationData.priceMoney.amount;
-    price = (typeof amount === "bigint" ? Number(amount) : amount) / 100;
-    variationId = variation?.id || variationId;
+    return [];
   }
 
   const imageId = item.itemData.imageIds?.[0];
   const imageUrl = imageId ? images.get(imageId) ?? null : null;
+  const category = categorizeProduct(name);
 
-  return {
-    name,
-    description: item.itemData.description?.trim() ?? null,
-    price,
-    imageUrl,
-    squareCatalogId: itemId,
-    squareVariationId: variationId,
-    isService: isServiceItem(name),
-  };
+  if (isServiceItem(name)) {
+    const firstPriced = item.itemData.variations.find((variation) => getVariationPrice(variation) !== null);
+    if (!firstPriced) {
+      return [];
+    }
+    const price = getVariationPrice(firstPriced) ?? 0;
+    return [
+      {
+        name,
+        description: item.itemData.description?.trim() ?? null,
+        price,
+        imageUrl,
+        squareCatalogId: itemId,
+        squareItemId: itemId,
+        squareVariationId: firstPriced.id ?? itemId,
+        sku: getVariationData(firstPriced)?.sku ?? null,
+        category,
+        fragrance: "Signature",
+        isService: true,
+      },
+    ];
+  }
+
+  return item.itemData.variations
+    .map((variation) => {
+      const price = getVariationPrice(variation);
+      if (price === null) {
+        return null;
+      }
+      const variationName = getVariationData(variation)?.name?.trim();
+      const fragrance = variationName && variationName.length > 0 ? variationName : "Signature";
+      return {
+        name,
+        description: item.itemData.description?.trim() ?? null,
+        price,
+        imageUrl,
+        squareCatalogId: itemId,
+        squareItemId: itemId,
+        squareVariationId: variation.id ?? itemId,
+        sku: getVariationData(variation)?.sku ?? null,
+        category,
+        fragrance,
+        isService: false,
+      };
+    })
+    .filter((value): value is MappedItem => Boolean(value));
 };
 
 const categorizeProduct = (name: string): string => {
@@ -174,14 +213,15 @@ export const importSquareCatalog = async (): Promise<CatalogSyncResult> => {
   let products = 0;
 
   for (const item of items) {
-    const mapped = mapCatalogItem(item, images);
-    if (!mapped) {
+    const mappedItems = mapCatalogItems(item, images);
+    if (!mappedItems.length) {
       skipped += 1;
       continue;
     }
 
     try {
-      if (mapped.isService) {
+      if (mappedItems[0]?.isService) {
+        const mapped = mappedItems[0];
         await prisma.fragranceProduct.deleteMany({
           where: { squareCatalogId: mapped.squareCatalogId },
         });
@@ -220,53 +260,69 @@ export const importSquareCatalog = async (): Promise<CatalogSyncResult> => {
         }
         services += 1;
       } else {
+        const variationIds = mappedItems.map((mapped) => mapped.squareVariationId);
+        const itemId = mappedItems[0].squareItemId;
+
         await prisma.serviceItem.deleteMany({
-          where: { squareServiceId: mapped.squareCatalogId },
+          where: { squareServiceId: itemId },
         });
 
-        // Upsert as FragranceProduct
-        const existing = await prisma.fragranceProduct.findFirst({
-          where: { squareCatalogId: mapped.squareCatalogId }
+        await prisma.fragranceProduct.deleteMany({
+          where: {
+            squareItemId: itemId,
+            squareVariationId: { notIn: variationIds },
+          },
         });
 
-        const category = categorizeProduct(mapped.name);
+        for (const mapped of mappedItems) {
+          const existing = await prisma.fragranceProduct.findFirst({
+            where: { squareVariationId: mapped.squareVariationId },
+          });
 
-        if (existing) {
-          await prisma.fragranceProduct.update({
-            where: { id: existing.id },
-            data: {
-              name: mapped.name,
-              description: mapped.description || `Luxury ${mapped.name}`,
-              price: mapped.price,
-              imageUrl: mapped.imageUrl,
-              isVisible: true,
-              displayPrice: true,
-            }
-          });
-          updated += 1;
-        } else {
-          await prisma.fragranceProduct.create({
-            data: {
-              name: mapped.name,
-              description: mapped.description || `Luxury ${mapped.name}`,
-              category,
-              fragrance: "Signature",
-              price: mapped.price,
-              imageUrl: mapped.imageUrl,
-              squareUrl: `https://millanluxurycleaning.square.site/`,
-              squareCatalogId: mapped.squareCatalogId,
-              squareItemId: mapped.squareCatalogId,
-              squareVariationId: mapped.squareVariationId,
-              isVisible: true,
-              displayPrice: true,
-            }
-          });
-          created += 1;
+          if (existing) {
+            await prisma.fragranceProduct.update({
+              where: { id: existing.id },
+              data: {
+                name: mapped.name,
+                description: mapped.description || `Luxury ${mapped.name}`,
+                category: mapped.category,
+                fragrance: mapped.fragrance,
+                price: mapped.price,
+                imageUrl: mapped.imageUrl,
+                squareCatalogId: mapped.squareCatalogId,
+                squareItemId: mapped.squareItemId,
+                squareVariationId: mapped.squareVariationId,
+                sku: mapped.sku,
+                isVisible: true,
+                displayPrice: true,
+              },
+            });
+            updated += 1;
+          } else {
+            await prisma.fragranceProduct.create({
+              data: {
+                name: mapped.name,
+                description: mapped.description || `Luxury ${mapped.name}`,
+                category: mapped.category,
+                fragrance: mapped.fragrance,
+                price: mapped.price,
+                imageUrl: mapped.imageUrl,
+                squareUrl: `https://millanluxurycleaning.square.site/`,
+                squareCatalogId: mapped.squareCatalogId,
+                squareItemId: mapped.squareItemId,
+                squareVariationId: mapped.squareVariationId,
+                sku: mapped.sku,
+                isVisible: true,
+                displayPrice: true,
+              },
+            });
+            created += 1;
+          }
+          products += 1;
         }
-        products += 1;
       }
     } catch (error) {
-      console.error(`[SquareCatalog] Error processing ${mapped.name}:`, error);
+      console.error(`[SquareCatalog] Error processing ${mappedItems[0]?.name ?? "item"}:`, error);
       errors += 1;
     }
   }

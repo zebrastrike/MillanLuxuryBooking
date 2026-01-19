@@ -40,6 +40,7 @@ import {
 import { importSquareCatalog } from "./services/catalogSync.js";
 import { createSquareClient } from "./services/square.js";
 import { resolveSquareAccessToken, resolveSquareLocationId } from "./services/squareAccess.js";
+import { sendBookingNotification } from "./services/mailgun.js";
 import { Currency, type Availability } from "square";
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -1876,22 +1877,27 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
       });
       const productMap = new Map(products.map((product) => [product.id, product]));
 
-      const lineItems = cart.items.map((item) => {
-        const product = productMap.get(item.productId);
-        if (!product) {
-          throw new Error("Product not found for cart item");
-        }
-        const price = Number(item.price);
-        const amount = BigInt(Math.round(price * 100));
-        return {
-          name: product.name,
-          quantity: String(item.quantity),
-          basePriceMoney: {
-            amount,
-            currency: Currency.Usd,
-          },
-        };
-      });
+        const lineItems = cart.items.map((item) => {
+          const product = productMap.get(item.productId);
+          if (!product) {
+            throw new Error("Product not found for cart item");
+          }
+          const price = Number(item.price);
+          const amount = BigInt(Math.round(price * 100));
+          const variationLabel =
+            product.fragrance && product.fragrance !== "Signature"
+              ? ` - ${product.fragrance}`
+              : "";
+          return {
+            name: `${product.name}${variationLabel}`,
+            quantity: String(item.quantity),
+            basePriceMoney: {
+              amount,
+              currency: Currency.Usd,
+            },
+            catalogObjectId: product.squareVariationId ?? undefined,
+          };
+        });
 
       const subtotal = cart.items.reduce((sum, item) => sum + Number(item.price) * item.quantity, 0);
       const totalAmount = BigInt(Math.round(subtotal * 100));
@@ -1953,18 +1959,22 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           paymentId: payment.id,
           shippingAddress,
           billingAddress,
-          items: {
-            create: cart.items.map((item) => {
-              const product = productMap.get(item.productId);
-              return {
-                productId: item.productId,
-                name: product?.name ?? "Item",
-                quantity: item.quantity,
-                price: Number(item.price),
-                sku: product?.sku ?? null,
-              };
-            }),
-          },
+            items: {
+              create: cart.items.map((item) => {
+                const product = productMap.get(item.productId);
+                const variationLabel =
+                  product?.fragrance && product.fragrance !== "Signature"
+                    ? ` - ${product.fragrance}`
+                    : "";
+                return {
+                  productId: item.productId,
+                  name: `${product?.name ?? "Item"}${variationLabel}`,
+                  quantity: item.quantity,
+                  price: Number(item.price),
+                  sku: product?.sku ?? null,
+                };
+              }),
+            },
         },
       });
 
@@ -2180,6 +2190,27 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           notes: payload.notes ?? null,
         },
       });
+
+      try {
+        const serviceName = service.title || service.name || "Service";
+        const notifyResult = await sendBookingNotification({
+          bookingId: record.id,
+          squareBookingId: booking.id,
+          status: booking.status ?? "pending",
+          serviceName,
+          customerName: payload.customerName,
+          customerEmail: payload.customerEmail,
+          customerPhone: payload.customerPhone ?? null,
+          startAt: payload.startAt,
+          notes: payload.notes ?? null,
+        });
+
+        if (notifyResult.ok !== true && !notifyResult.skipped) {
+          console.warn("[Mailgun] Booking notification failed:", notifyResult.error);
+        }
+      } catch (error) {
+        console.warn("[Mailgun] Booking notification error:", error);
+      }
 
       res.status(201).json({
         success: true,
