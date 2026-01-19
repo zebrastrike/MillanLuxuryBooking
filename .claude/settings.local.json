@@ -36,7 +36,8 @@
       "Bash(npm show:*)",
       "Bash(git stash push:*)",
       "Bash(git stash drop:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git cherry-pick:*)"
     ]
   }
 }
