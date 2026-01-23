@@ -1422,8 +1422,8 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
     }
   });
 
-  // Seed pricing tiers for cleaning services
-  app.post("/api/admin/seed-pricing-tiers", requireAdmin, async (_req, res) => {
+  // Seed pricing tiers for cleaning services (public GET for easy one-time call)
+  app.get("/api/seed-pricing-tiers", async (_req, res) => {
     const prisma = assertPrisma();
 
     const pricingData: Record<string, { tiers: Array<{ name: string; price: number; duration: string }>, description: string }> = {
