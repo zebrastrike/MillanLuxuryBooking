@@ -39,6 +39,7 @@ export default function BookingPage() {
     Number.isFinite(initialServiceId) ? initialServiceId : null,
   );
   const [selectedPricingTier, setSelectedPricingTier] = useState<string | null>(null);
+  const [squareFootage, setSquareFootage] = useState("");
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -166,11 +167,18 @@ export default function BookingPage() {
 
     const segment = selectedSlot.appointmentSegments[0];
 
-    // Build notes with pricing tier info
-    let bookingNotes = notes;
+    // Build notes with pricing tier and square footage info
+    const noteParts: string[] = [];
     if (selectedPricingTier) {
-      bookingNotes = `Size: ${selectedPricingTier}${notes ? `\n${notes}` : ""}`;
+      noteParts.push(`Size: ${selectedPricingTier}`);
     }
+    if (squareFootage) {
+      noteParts.push(`Square Footage: ${squareFootage} sq ft`);
+    }
+    if (notes) {
+      noteParts.push(notes);
+    }
+    const bookingNotes = noteParts.join("\n");
 
     setIsSubmitting(true);
     setBookingStatus(null);
@@ -294,6 +302,54 @@ export default function BookingPage() {
                           )}
                         </button>
                       ))}
+                    </div>
+
+                    {/* Square Footage Input */}
+                    <div className="mt-6 pt-4 border-t">
+                      <Label htmlFor="square-footage" className="text-sm font-medium">
+                        Square Footage (optional)
+                      </Label>
+                      <Input
+                        id="square-footage"
+                        type="number"
+                        placeholder="e.g., 1500"
+                        value={squareFootage}
+                        onChange={(e) => setSquareFootage(e.target.value)}
+                        className="mt-2 max-w-xs"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Helps us prepare for your service
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Square Footage for services without pricing tiers */}
+              {pricingTiers.length === 0 && selectedService && (
+                <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Home className="w-5 h-5 text-purple-500" />
+                      Property Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div>
+                      <Label htmlFor="square-footage-alt" className="text-sm font-medium">
+                        Square Footage (optional)
+                      </Label>
+                      <Input
+                        id="square-footage-alt"
+                        type="number"
+                        placeholder="e.g., 1500"
+                        value={squareFootage}
+                        onChange={(e) => setSquareFootage(e.target.value)}
+                        className="mt-2 max-w-xs"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Helps us prepare for your service
+                      </p>
                     </div>
                   </CardContent>
                 </Card>
@@ -443,6 +499,12 @@ export default function BookingPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Property Size</span>
                         <span className="font-medium">{selectedPricingTier}</span>
+                      </div>
+                    )}
+                    {squareFootage && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Square Footage</span>
+                        <span className="font-medium">{squareFootage} sq ft</span>
                       </div>
                     )}
                     {selectedSlot?.startAt && (
