@@ -82,6 +82,12 @@ model ServiceItem {
   squareServiceId     String?
   squareTeamMemberIds String[] @default([])
   duration            Int      @default(60)
+  // Deposit configuration
+  depositAmount       Decimal? @db.Decimal(10, 2)
+  depositPercent      Int?     @default(25)
+  requiresDeposit     Boolean  @default(true)
+  // Pricing tiers (JSON: [{ name: "Studio", price: 100 }, { name: "1 Bed", price: 150 }])
+  pricingTiers        Json?
 
   @@index([isVisible])
   @@map("services")

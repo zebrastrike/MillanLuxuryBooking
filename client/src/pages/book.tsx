@@ -8,8 +8,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Clock, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
-import type { ServiceItem } from "@shared/types";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar, Clock, Sparkles, Home, AlertCircle } from "lucide-react";
+import type { ServiceItem, ServicePricingTier } from "@shared/types";
 
 type AvailabilitySlot = {
   startAt: string | null;
@@ -36,6 +38,7 @@ export default function BookingPage() {
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(
     Number.isFinite(initialServiceId) ? initialServiceId : null,
   );
+  const [selectedPricingTier, setSelectedPricingTier] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
   const [selectedSlot, setSelectedSlot] = useState<AvailabilitySlot | null>(null);
   const [customerName, setCustomerName] = useState("");
@@ -51,11 +54,50 @@ export default function BookingPage() {
 
   const squareServices = services.filter((service) => Boolean(service.squareServiceId));
 
+  const selectedService = squareServices.find((s) => s.id === selectedServiceId);
+
+  // Parse pricing tiers from service
+  const pricingTiers = useMemo((): ServicePricingTier[] => {
+    if (!selectedService?.pricingTiers) return [];
+    try {
+      const tiers = selectedService.pricingTiers as ServicePricingTier[];
+      return Array.isArray(tiers) ? tiers : [];
+    } catch {
+      return [];
+    }
+  }, [selectedService]);
+
+  // Calculate selected price based on tier or base price
+  const selectedPrice = useMemo(() => {
+    if (selectedPricingTier && pricingTiers.length > 0) {
+      const tier = pricingTiers.find((t) => t.name === selectedPricingTier);
+      if (tier) return tier.price;
+    }
+    return selectedService?.price ? Number(selectedService.price) : null;
+  }, [selectedPricingTier, pricingTiers, selectedService]);
+
+  // Calculate deposit amount
+  const depositAmount = useMemo(() => {
+    if (!selectedService?.requiresDeposit) return null;
+    if (selectedService.depositAmount) return Number(selectedService.depositAmount);
+    if (selectedPrice && selectedService.depositPercent) {
+      return Math.round((selectedPrice * selectedService.depositPercent) / 100);
+    }
+    // Default: 25% deposit
+    if (selectedPrice) return Math.round(selectedPrice * 0.25);
+    return null;
+  }, [selectedService, selectedPrice]);
+
   useEffect(() => {
     if (!selectedServiceId && squareServices.length > 0) {
       setSelectedServiceId(squareServices[0].id);
     }
   }, [selectedServiceId, squareServices]);
+
+  // Reset pricing tier when service changes
+  useEffect(() => {
+    setSelectedPricingTier(null);
+  }, [selectedServiceId]);
 
   const availabilityQuery = useQuery<AvailabilityResponse>({
     queryKey: ["/api/bookings/availability", selectedServiceId],
@@ -124,6 +166,12 @@ export default function BookingPage() {
 
     const segment = selectedSlot.appointmentSegments[0];
 
+    // Build notes with pricing tier info
+    let bookingNotes = notes;
+    if (selectedPricingTier) {
+      bookingNotes = `Size: ${selectedPricingTier}${notes ? `\n${notes}` : ""}`;
+    }
+
     setIsSubmitting(true);
     setBookingStatus(null);
     try {
@@ -134,7 +182,7 @@ export default function BookingPage() {
           customerName,
           customerEmail,
           customerPhone,
-          notes,
+          notes: bookingNotes,
           serviceId: selectedServiceId,
           startAt: selectedSlot.startAt,
           teamMemberId: segment.teamMemberId,
@@ -150,7 +198,7 @@ export default function BookingPage() {
 
       setBookingStatus({
         success: true,
-        message: `Booking confirmed! Reference #${data.bookingId}`,
+        message: `Booking confirmed! Reference #${data.bookingId}. ${depositAmount ? `A deposit of $${depositAmount.toFixed(2)} will be collected.` : ""}`,
       });
     } catch (error) {
       setBookingStatus({
@@ -161,8 +209,6 @@ export default function BookingPage() {
       setIsSubmitting(false);
     }
   };
-
-  const selectedService = squareServices.find((s) => s.id === selectedServiceId);
 
   return (
     <div className="min-h-screen bg-background">
@@ -205,7 +251,12 @@ export default function BookingPage() {
                             : "border-border hover:border-purple-300 hover:shadow-md"
                         }`}
                       >
-                        <p className="font-semibold text-lg">{service.title}</p>
+                        <div className="flex items-start justify-between">
+                          <p className="font-semibold text-lg">{service.title}</p>
+                          {service.requiresDeposit !== false && (
+                            <Badge variant="outline" className="text-xs">Deposit Required</Badge>
+                          )}
+                        </div>
                         {service.displayPrice && service.price && (
                           <p className="text-purple-600 font-bold mt-1">Starting at ${Number(service.price).toFixed(2)}</p>
                         )}
@@ -214,6 +265,39 @@ export default function BookingPage() {
                     ))}
                 </CardContent>
               </Card>
+
+              {/* Pricing Tier Selection (if available) */}
+              {pricingTiers.length > 0 && (
+                <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Home className="w-5 h-5 text-purple-500" />
+                      Select Property Size
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                      {pricingTiers.map((tier) => (
+                        <button
+                          key={tier.name}
+                          onClick={() => setSelectedPricingTier(tier.name)}
+                          className={`rounded-xl border-2 px-4 py-4 text-left transition-all ${
+                            selectedPricingTier === tier.name
+                              ? "border-purple-500 bg-gradient-to-br from-purple-50 to-pink-50 shadow-lg shadow-purple-100"
+                              : "border-border hover:border-purple-300 hover:shadow-md"
+                          }`}
+                        >
+                          <p className="font-semibold">{tier.name}</p>
+                          <p className="text-purple-600 font-bold mt-1">${tier.price.toFixed(2)}</p>
+                          {tier.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{tier.description}</p>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Calendar Date Selection */}
               <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
@@ -355,6 +439,12 @@ export default function BookingPage() {
                         <span className="font-medium">{selectedService.title}</span>
                       </div>
                     )}
+                    {selectedPricingTier && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Property Size</span>
+                        <span className="font-medium">{selectedPricingTier}</span>
+                      </div>
+                    )}
                     {selectedSlot?.startAt && (
                       <>
                         <div className="flex justify-between">
@@ -367,12 +457,42 @@ export default function BookingPage() {
                         </div>
                       </>
                     )}
-                    {selectedService?.displayPrice && selectedService?.price && (
-                      <div className="flex justify-between pt-2 border-t border-purple-200">
-                        <span className="font-semibold">Starting Price</span>
-                        <span className="font-bold text-purple-600">${Number(selectedService.price).toFixed(2)}</span>
-                      </div>
+                    {selectedPrice && (
+                      <>
+                        <div className="border-t border-purple-200 my-2" />
+                        <div className="flex justify-between">
+                          <span className="font-medium">Service Price</span>
+                          <span className="font-bold text-purple-600">${selectedPrice.toFixed(2)}</span>
+                        </div>
+                        {depositAmount && selectedService?.requiresDeposit !== false && (
+                          <div className="flex justify-between items-center pt-2 border-t border-purple-200">
+                            <div>
+                              <span className="font-semibold">Deposit Due</span>
+                              <p className="text-xs text-muted-foreground">Due at booking</p>
+                            </div>
+                            <span className="font-bold text-lg text-purple-600">${depositAmount.toFixed(2)}</span>
+                          </div>
+                        )}
+                      </>
                     )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Deposit Notice */}
+              {selectedService?.requiresDeposit !== false && (
+                <Card className="border-amber-200 bg-amber-50/50">
+                  <CardContent className="pt-4">
+                    <div className="flex gap-3">
+                      <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm">
+                        <p className="font-medium text-amber-900">Deposit Required</p>
+                        <p className="text-amber-700 mt-1">
+                          A {selectedService?.depositPercent || 25}% deposit is required to confirm your booking.
+                          The remaining balance is due on the day of service.
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -433,34 +553,23 @@ export default function BookingPage() {
                           : "border-destructive/30 bg-destructive/10 text-destructive"
                       }`}
                     >
-                      {bookingStatus.success && <Sparkles className="w-4 h-4 inline mr-2" />}
                       {bookingStatus.message}
                     </div>
                   )}
 
                   <Button
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 shadow-lg shadow-purple-200 hover:shadow-purple-300 transition-all"
-                    size="lg"
+                    onClick={handleSubmit}
                     disabled={
                       isSubmitting ||
+                      !selectedServiceId ||
                       !selectedSlot ||
-                      !customerName ||
-                      !customerEmail ||
-                      !selectedServiceId
+                      !customerName.trim() ||
+                      !customerEmail.trim()
                     }
-                    onClick={handleSubmit}
+                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                    size="lg"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Booking...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="w-4 h-4 mr-2" />
-                        Confirm Booking
-                      </>
-                    )}
+                    {isSubmitting ? "Booking..." : depositAmount ? `Confirm Booking • $${depositAmount.toFixed(2)} Deposit` : "Confirm Booking"}
                   </Button>
                 </CardContent>
               </Card>

@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Navigation } from '@/components/Navigation';
 import { Footer } from '@/components/Footer';
 import { FragranceCard } from '@/components/FragranceCard';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import type { FragranceProduct } from '@shared/types';
 
 const CATEGORIES = [
@@ -25,10 +25,29 @@ export default function Fragrances() {
     queryKey: ['/api/products'],
   });
 
+  // Filter to only Square-synced products
   const squareProducts = products.filter((product) => Boolean(product.squareCatalogId));
-  const filteredProducts = selectedCategory === 'all'
-    ? squareProducts
-    : squareProducts.filter((p) => p.category === selectedCategory);
+
+  // Group products by squareItemId (variations of the same product)
+  const groupedProducts = useMemo(() => {
+    const groups = new Map<string, FragranceProduct[]>();
+    squareProducts.forEach((product) => {
+      // Use squareItemId as the grouping key, fall back to squareCatalogId or product id
+      const key = product.squareItemId ?? product.squareCatalogId ?? `product-${product.id}`;
+      const existing = groups.get(key) ?? [];
+      existing.push(product);
+      groups.set(key, existing);
+    });
+    return Array.from(groups.entries()).map(([key, items]) => ({
+      key,
+      items: items.sort((a, b) => (a.fragrance || a.name).localeCompare(b.fragrance || b.name)),
+    }));
+  }, [squareProducts]);
+
+  // Filter groups by category
+  const filteredGroups = selectedCategory === 'all'
+    ? groupedProducts
+    : groupedProducts.filter((group) => group.items.some((item) => item.category === selectedCategory));
 
   return (
     <div className="min-h-screen bg-background">
@@ -91,14 +110,14 @@ export default function Fragrances() {
                 Try Again
               </Button>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : filteredGroups.length === 0 ? (
             <p className="text-center text-muted-foreground py-12">
               No products in this category yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredProducts.map((product) => (
-                <FragranceCard key={product.id} product={product} />
+              {filteredGroups.map((group) => (
+                <FragranceCard key={group.key} products={group.items} />
               ))}
             </div>
           )}

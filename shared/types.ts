@@ -48,6 +48,12 @@ export interface GalleryItem {
   createdAt: string | Date;
 }
 
+export interface ServicePricingTier {
+  name: string;
+  price: number;
+  description?: string;
+}
+
 export interface ServiceItem {
   id: number;
   title: string;
@@ -66,6 +72,12 @@ export interface ServiceItem {
   squareServiceId?: string | null;
   squareTeamMemberIds?: string[];
   duration?: number | null;
+  // Deposit configuration
+  depositAmount?: number | null;
+  depositPercent?: number | null;
+  requiresDeposit?: boolean;
+  // Pricing tiers for different sizes
+  pricingTiers?: ServicePricingTier[] | null;
 }
 
 export interface Testimonial {

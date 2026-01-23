@@ -1883,13 +1883,18 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
         }
         const price = Number(item.price);
         const amount = BigInt(Math.round(price * 100));
+        // Include fragrance info in the name if not "Signature"
+        const displayName = product.fragrance && product.fragrance !== "Signature"
+          ? `${product.name} (${product.fragrance})`
+          : product.name;
         return {
-          name: product.name,
+          name: displayName,
           quantity: String(item.quantity),
           basePriceMoney: {
             amount,
             currency: Currency.Usd,
           },
+          catalogObjectId: product.squareVariationId ?? undefined,
         };
       });
 
@@ -1956,9 +1961,12 @@ export async function registerRoutes(app: Express, env: EnvConfig): Promise<Serv
           items: {
             create: cart.items.map((item) => {
               const product = productMap.get(item.productId);
+              const displayName = product?.fragrance && product.fragrance !== "Signature"
+                ? `${product.name} (${product.fragrance})`
+                : product?.name ?? "Item";
               return {
                 productId: item.productId,
-                name: product?.name ?? "Item",
+                name: displayName,
                 quantity: item.quantity,
                 price: Number(item.price),
                 sku: product?.sku ?? null,
