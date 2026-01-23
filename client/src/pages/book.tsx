@@ -13,6 +13,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Clock, Sparkles, Home, AlertCircle } from "lucide-react";
 import type { ServiceItem, ServicePricingTier } from "@shared/types";
 
+// Square footage pricing tiers
+const SQFT_TIERS = [
+  { name: "1-999 sq ft", addOn: 0 },
+  { name: "1,000-1,499 sq ft", addOn: 50 },
+  { name: "1,500-1,999 sq ft", addOn: 90 },
+  { name: "2,000-2,499 sq ft", addOn: 120 },
+  { name: "2,500-2,999 sq ft", addOn: 140 },
+  { name: "3,000-3,499 sq ft", addOn: 200 },
+  { name: "3,500-3,999 sq ft", addOn: 250 },
+  { name: "4,000-4,499 sq ft", addOn: 290 },
+  { name: "4,500-5,000 sq ft", addOn: 320 },
+  { name: "5,000+ sq ft", addOn: null }, // Call for estimate
+] as const;
+
 type AvailabilitySlot = {
   startAt: string | null;
   locationId: string;
@@ -68,14 +82,30 @@ export default function BookingPage() {
     }
   }, [selectedService]);
 
-  // Calculate selected price based on tier or base price
-  const selectedPrice = useMemo(() => {
+  // Get square footage add-on price
+  const sqftAddOn = useMemo(() => {
+    if (!squareFootage) return 0;
+    const tier = SQFT_TIERS.find((t) => t.name === squareFootage);
+    return tier?.addOn ?? 0;
+  }, [squareFootage]);
+
+  // Check if "call for estimate" tier selected
+  const requiresEstimate = squareFootage === "5,000+ sq ft";
+
+  // Calculate base price from tier or service
+  const basePrice = useMemo(() => {
     if (selectedPricingTier && pricingTiers.length > 0) {
       const tier = pricingTiers.find((t) => t.name === selectedPricingTier);
       if (tier) return tier.price;
     }
     return selectedService?.price ? Number(selectedService.price) : null;
   }, [selectedPricingTier, pricingTiers, selectedService]);
+
+  // Calculate total price including square footage add-on
+  const selectedPrice = useMemo(() => {
+    if (basePrice === null) return null;
+    return basePrice + sqftAddOn;
+  }, [basePrice, sqftAddOn]);
 
   // Calculate deposit amount
   const depositAmount = useMemo(() => {
@@ -95,9 +125,10 @@ export default function BookingPage() {
     }
   }, [selectedServiceId, squareServices]);
 
-  // Reset pricing tier when service changes
+  // Reset pricing tier and square footage when service changes
   useEffect(() => {
     setSelectedPricingTier(null);
+    setSquareFootage("");
   }, [selectedServiceId]);
 
   const availabilityQuery = useQuery<AvailabilityResponse>({
@@ -304,22 +335,31 @@ export default function BookingPage() {
                       ))}
                     </div>
 
-                    {/* Square Footage Input */}
+                    {/* Square Footage Selection */}
                     <div className="mt-6 pt-4 border-t">
-                      <Label htmlFor="square-footage" className="text-sm font-medium">
-                        Square Footage (optional)
+                      <Label className="text-sm font-medium">
+                        Property Square Footage
                       </Label>
-                      <Input
-                        id="square-footage"
-                        type="number"
-                        placeholder="e.g., 1500"
-                        value={squareFootage}
-                        onChange={(e) => setSquareFootage(e.target.value)}
-                        className="mt-2 max-w-xs"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Helps us prepare for your service
-                      </p>
+                      <Select value={squareFootage} onValueChange={setSquareFootage}>
+                        <SelectTrigger className="mt-2 max-w-sm">
+                          <SelectValue placeholder="Select square footage range" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SQFT_TIERS.map((tier) => (
+                            <SelectItem key={tier.name} value={tier.name}>
+                              {tier.name}
+                              {tier.addOn !== null ? (
+                                tier.addOn > 0 ? ` (+$${tier.addOn})` : " (included)"
+                              ) : " — Call for estimate"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {requiresEstimate && (
+                        <p className="text-sm text-amber-600 mt-2">
+                          📞 For properties over 5,000 sq ft, please call for a private estate estimate.
+                        </p>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -331,26 +371,30 @@ export default function BookingPage() {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Home className="w-5 h-5 text-purple-500" />
-                      Property Details
+                      Property Square Footage
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div>
-                      <Label htmlFor="square-footage-alt" className="text-sm font-medium">
-                        Square Footage (optional)
-                      </Label>
-                      <Input
-                        id="square-footage-alt"
-                        type="number"
-                        placeholder="e.g., 1500"
-                        value={squareFootage}
-                        onChange={(e) => setSquareFootage(e.target.value)}
-                        className="mt-2 max-w-xs"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Helps us prepare for your service
+                    <Select value={squareFootage} onValueChange={setSquareFootage}>
+                      <SelectTrigger className="max-w-sm">
+                        <SelectValue placeholder="Select square footage range" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SQFT_TIERS.map((tier) => (
+                          <SelectItem key={tier.name} value={tier.name}>
+                            {tier.name}
+                            {tier.addOn !== null ? (
+                              tier.addOn > 0 ? ` (+$${tier.addOn})` : " (included)"
+                            ) : " — Call for estimate"}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {requiresEstimate && (
+                      <p className="text-sm text-amber-600 mt-3">
+                        📞 For properties over 5,000 sq ft, please call for a private estate estimate.
                       </p>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               )}
@@ -504,7 +548,15 @@ export default function BookingPage() {
                     {squareFootage && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Square Footage</span>
-                        <span className="font-medium">{squareFootage} sq ft</span>
+                        <span className="font-medium">
+                          {squareFootage}
+                          {sqftAddOn > 0 && <span className="text-purple-600 ml-1">(+${sqftAddOn})</span>}
+                        </span>
+                      </div>
+                    )}
+                    {requiresEstimate && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
+                        📞 Call for estate estimate
                       </div>
                     )}
                     {selectedSlot?.startAt && (
@@ -519,11 +571,23 @@ export default function BookingPage() {
                         </div>
                       </>
                     )}
-                    {selectedPrice && (
+                    {selectedPrice && !requiresEstimate && (
                       <>
                         <div className="border-t border-purple-200 my-2" />
+                        {sqftAddOn > 0 && basePrice && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Base Price</span>
+                              <span>${basePrice.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-muted-foreground">Sq Ft Add-on</span>
+                              <span>+${sqftAddOn.toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
                         <div className="flex justify-between">
-                          <span className="font-medium">Service Price</span>
+                          <span className="font-medium">Total Price</span>
                           <span className="font-bold text-purple-600">${selectedPrice.toFixed(2)}</span>
                         </div>
                         {depositAmount && selectedService?.requiresDeposit !== false && (
