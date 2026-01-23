@@ -40,9 +40,7 @@
       "Bash(git cherry-pick:*)",
       "Bash(python -c:*)",
       "Bash(git rm:*)",
-      "Bash(git show:*)",
-      "Bash(npx tsc:*)",
-      "Bash(git checkout:*)"
+      "Bash(git merge:*)"
     ]
   }
 }
