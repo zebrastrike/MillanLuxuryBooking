@@ -51,19 +51,28 @@ export default function CheckoutPage() {
     };
   };
 
+  const tax = subtotal * 0.075;
+  const total = subtotal + tax;
+
   const createPaymentRequest = () => ({
     countryCode: "US",
     currencyCode: "USD",
     total: {
-      amount: subtotal.toFixed(2),
+      amount: total.toFixed(2),
       label: "Total",
     },
-    lineItems: items.map((item) => ({
-      amount: (item.price * item.quantity).toFixed(2),
-      label: item.product?.fragrance && item.product.fragrance !== "Signature"
-        ? `${item.product.name} (${item.product.fragrance})`
-        : item.product?.name ?? "Item",
-    })),
+    lineItems: [
+      ...items.map((item) => ({
+        amount: (item.price * item.quantity).toFixed(2),
+        label: item.product?.fragrance && item.product.fragrance !== "Signature"
+          ? `${item.product.name} (${item.product.fragrance})`
+          : item.product?.name ?? "Item",
+      })),
+      {
+        amount: tax.toFixed(2),
+        label: "Sales Tax (7.5%)",
+      },
+    ],
     requestBillingContact: true,
   });
 
@@ -270,9 +279,19 @@ export default function CheckoutPage() {
                   <span>${(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
-              <div className="flex items-center justify-between font-semibold">
-                <span>Total</span>
-                <span>${subtotal.toFixed(2)}</span>
+              <div className="border-t pt-3 mt-3 space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span>Subtotal</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Sales Tax (7.5%)</span>
+                  <span>${(subtotal * 0.075).toFixed(2)}</span>
+                </div>
+                <div className="flex items-center justify-between font-semibold text-lg pt-2 border-t">
+                  <span>Total</span>
+                  <span>${(subtotal * 1.075).toFixed(2)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
