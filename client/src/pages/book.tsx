@@ -27,6 +27,24 @@ const SQFT_TIERS = [
   { name: "5,000+ sq ft", addOn: null }, // Call for estimate
 ] as const;
 
+// Laundry add-on items (fixed price)
+const LAUNDRY_ITEMS = [
+  { id: "king-comforter", name: "King Comforter", price: 30 },
+  { id: "king-sheets", name: "King Bed Sheets", price: 15 },
+  { id: "queen-comforter", name: "Queen Comforter", price: 25 },
+  { id: "queen-sheets", name: "Queen Bed Sheets", price: 12 },
+  { id: "twin-comforter", name: "Twin/Full Comforter", price: 20 },
+  { id: "twin-sheets", name: "Twin/Full Bed Sheets", price: 10 },
+  { id: "small-blankets", name: "Small Blankets", price: 6 },
+] as const;
+
+// Laundry variable pricing
+const LAUNDRY_RATES = {
+  regularPerLb: 2.45,
+  delicatePerLb: 3.80,
+  deliveryPerMile: 0.75,
+} as const;
+
 type AvailabilitySlot = {
   startAt: string | null;
   locationId: string;
@@ -63,6 +81,13 @@ export default function BookingPage() {
   const [bookingStatus, setBookingStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Laundry add-ons state
+  const [selectedLaundryItems, setSelectedLaundryItems] = useState<Set<string>>(new Set());
+  const [regularLaundryLbs, setRegularLaundryLbs] = useState("");
+  const [delicateLaundryLbs, setDelicateLaundryLbs] = useState("");
+  const [deliveryMiles, setDeliveryMiles] = useState("");
+  const [needsPickupDelivery, setNeedsPickupDelivery] = useState(false);
+
   const { data: services = [], isLoading: servicesLoading } = useQuery<ServiceItem[]>({
     queryKey: ["/api/services"],
   });
@@ -70,6 +95,9 @@ export default function BookingPage() {
   const squareServices = services.filter((service) => Boolean(service.squareServiceId));
 
   const selectedService = squareServices.find((s) => s.id === selectedServiceId);
+
+  // Check if this is a laundry service
+  const isLaundryService = selectedService?.title?.toLowerCase().includes("laundry") ?? false;
 
   // Parse pricing tiers from service
   const pricingTiers = useMemo((): ServicePricingTier[] => {
@@ -92,6 +120,31 @@ export default function BookingPage() {
   // Check if "call for estimate" tier selected
   const requiresEstimate = squareFootage === "5,000+ sq ft";
 
+  // Calculate laundry add-ons total
+  const laundryItemsTotal = useMemo(() => {
+    let total = 0;
+    selectedLaundryItems.forEach((itemId) => {
+      const item = LAUNDRY_ITEMS.find((i) => i.id === itemId);
+      if (item) total += item.price;
+    });
+    return total;
+  }, [selectedLaundryItems]);
+
+  const laundryVariableTotal = useMemo(() => {
+    let total = 0;
+    const regularLbs = parseFloat(regularLaundryLbs) || 0;
+    const delicateLbs = parseFloat(delicateLaundryLbs) || 0;
+    const miles = parseFloat(deliveryMiles) || 0;
+
+    if (regularLbs > 0) total += regularLbs * LAUNDRY_RATES.regularPerLb;
+    if (delicateLbs > 0) total += delicateLbs * LAUNDRY_RATES.delicatePerLb;
+    if (needsPickupDelivery && miles > 0) total += miles * LAUNDRY_RATES.deliveryPerMile;
+
+    return total;
+  }, [regularLaundryLbs, delicateLaundryLbs, deliveryMiles, needsPickupDelivery]);
+
+  const laundryTotal = laundryItemsTotal + laundryVariableTotal;
+
   // Calculate base price from tier or service
   const basePrice = useMemo(() => {
     if (selectedPricingTier && pricingTiers.length > 0) {
@@ -101,11 +154,15 @@ export default function BookingPage() {
     return selectedService?.price ? Number(selectedService.price) : null;
   }, [selectedPricingTier, pricingTiers, selectedService]);
 
-  // Calculate total price including square footage add-on
+  // Calculate total price including square footage add-on and laundry
   const selectedPrice = useMemo(() => {
+    // For laundry, price is entirely from add-ons
+    if (isLaundryService) {
+      return laundryTotal > 0 ? laundryTotal : null;
+    }
     if (basePrice === null) return null;
     return basePrice + sqftAddOn;
-  }, [basePrice, sqftAddOn]);
+  }, [basePrice, sqftAddOn, isLaundryService, laundryTotal]);
 
   // Calculate deposit amount
   const depositAmount = useMemo(() => {
@@ -125,11 +182,29 @@ export default function BookingPage() {
     }
   }, [selectedServiceId, squareServices]);
 
-  // Reset pricing tier and square footage when service changes
+  // Reset pricing tier, square footage, and laundry selections when service changes
   useEffect(() => {
     setSelectedPricingTier(null);
     setSquareFootage("");
+    setSelectedLaundryItems(new Set());
+    setRegularLaundryLbs("");
+    setDelicateLaundryLbs("");
+    setDeliveryMiles("");
+    setNeedsPickupDelivery(false);
   }, [selectedServiceId]);
+
+  // Toggle laundry item selection
+  const toggleLaundryItem = (itemId: string) => {
+    setSelectedLaundryItems((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(itemId)) {
+        newSet.delete(itemId);
+      } else {
+        newSet.add(itemId);
+      }
+      return newSet;
+    });
+  };
 
   const availabilityQuery = useQuery<AvailabilityResponse>({
     queryKey: ["/api/bookings/availability", selectedServiceId],
@@ -198,13 +273,34 @@ export default function BookingPage() {
 
     const segment = selectedSlot.appointmentSegments[0];
 
-    // Build notes with pricing tier and square footage info
+    // Build notes with pricing tier, square footage, and laundry info
     const noteParts: string[] = [];
     if (selectedPricingTier) {
       noteParts.push(`Size: ${selectedPricingTier}`);
     }
     if (squareFootage) {
-      noteParts.push(`Square Footage: ${squareFootage} sq ft`);
+      noteParts.push(`Square Footage: ${squareFootage}`);
+    }
+    // Laundry details
+    if (isLaundryService) {
+      const laundryDetails: string[] = [];
+      if (selectedLaundryItems.size > 0) {
+        const items = LAUNDRY_ITEMS.filter((i) => selectedLaundryItems.has(i.id));
+        laundryDetails.push(`Items: ${items.map((i) => `${i.name} ($${i.price})`).join(", ")}`);
+      }
+      if (parseFloat(regularLaundryLbs) > 0) {
+        laundryDetails.push(`Regular Laundry: ${regularLaundryLbs} lbs @ $${LAUNDRY_RATES.regularPerLb}/lb`);
+      }
+      if (parseFloat(delicateLaundryLbs) > 0) {
+        laundryDetails.push(`Delicate Fabrics: ${delicateLaundryLbs} lbs @ $${LAUNDRY_RATES.delicatePerLb}/lb`);
+      }
+      if (needsPickupDelivery && parseFloat(deliveryMiles) > 0) {
+        laundryDetails.push(`Pick-up/Delivery: ${deliveryMiles} miles @ $${LAUNDRY_RATES.deliveryPerMile}/mile`);
+      }
+      if (laundryDetails.length > 0) {
+        noteParts.push("--- Laundry Details ---");
+        noteParts.push(...laundryDetails);
+      }
     }
     if (notes) {
       noteParts.push(notes);
@@ -399,6 +495,152 @@ export default function BookingPage() {
                 </Card>
               )}
 
+              {/* Laundry Add-ons */}
+              {isLaundryService && (
+                <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <span className="text-2xl">🧺</span>
+                      Laundry Items & Services
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">Select all that apply</p>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {/* Fixed Price Items */}
+                    <div>
+                      <Label className="text-sm font-semibold mb-3 block">Bedding & Blankets</Label>
+                      <div className="grid gap-2 md:grid-cols-2">
+                        {LAUNDRY_ITEMS.map((item) => (
+                          <label
+                            key={item.id}
+                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                              selectedLaundryItems.has(item.id)
+                                ? "border-purple-500 bg-purple-50"
+                                : "border-border hover:border-purple-300"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={selectedLaundryItems.has(item.id)}
+                              onChange={() => toggleLaundryItem(item.id)}
+                              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                            />
+                            <span className="flex-1 font-medium">{item.name}</span>
+                            <span className="text-purple-600 font-bold">${item.price}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Variable Pricing - By Weight */}
+                    <div className="border-t pt-4">
+                      <Label className="text-sm font-semibold mb-3 block">Laundry by Weight</Label>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div>
+                          <Label htmlFor="regular-lbs" className="text-sm text-muted-foreground">
+                            Regular Clothes (${LAUNDRY_RATES.regularPerLb}/lb)
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="regular-lbs"
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              placeholder="0"
+                              value={regularLaundryLbs}
+                              onChange={(e) => setRegularLaundryLbs(e.target.value)}
+                              className="max-w-24"
+                            />
+                            <span className="text-sm text-muted-foreground">lbs</span>
+                            {parseFloat(regularLaundryLbs) > 0 && (
+                              <span className="text-purple-600 font-medium">
+                                = ${(parseFloat(regularLaundryLbs) * LAUNDRY_RATES.regularPerLb).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="delicate-lbs" className="text-sm text-muted-foreground">
+                            Delicate Fabrics (${LAUNDRY_RATES.delicatePerLb}/lb)
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="delicate-lbs"
+                              type="number"
+                              min="0"
+                              step="0.5"
+                              placeholder="0"
+                              value={delicateLaundryLbs}
+                              onChange={(e) => setDelicateLaundryLbs(e.target.value)}
+                              className="max-w-24"
+                            />
+                            <span className="text-sm text-muted-foreground">lbs</span>
+                            {parseFloat(delicateLaundryLbs) > 0 && (
+                              <span className="text-purple-600 font-medium">
+                                = ${(parseFloat(delicateLaundryLbs) * LAUNDRY_RATES.delicatePerLb).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pick-up & Delivery */}
+                    <div className="border-t pt-4">
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        needsPickupDelivery ? "border-purple-500 bg-purple-50" : "border-border hover:border-purple-300"
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={needsPickupDelivery}
+                          onChange={(e) => setNeedsPickupDelivery(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <span className="font-medium">Pick-up & Delivery</span>
+                          <span className="text-sm text-muted-foreground ml-2">(${LAUNDRY_RATES.deliveryPerMile}/mile)</span>
+                        </div>
+                      </label>
+                      {needsPickupDelivery && (
+                        <div className="mt-3 ml-7">
+                          <Label htmlFor="delivery-miles" className="text-sm text-muted-foreground">
+                            Estimated round-trip miles
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="delivery-miles"
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              value={deliveryMiles}
+                              onChange={(e) => setDeliveryMiles(e.target.value)}
+                              className="max-w-24"
+                            />
+                            <span className="text-sm text-muted-foreground">miles</span>
+                            {parseFloat(deliveryMiles) > 0 && (
+                              <span className="text-purple-600 font-medium">
+                                = ${(parseFloat(deliveryMiles) * LAUNDRY_RATES.deliveryPerMile).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Laundry Total */}
+                    {laundryTotal > 0 && (
+                      <div className="border-t pt-4 bg-gradient-to-r from-purple-50 to-pink-50 -mx-6 -mb-6 px-6 pb-6 rounded-b-lg">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold">Laundry Total</span>
+                          <span className="text-xl font-bold text-purple-600">${laundryTotal.toFixed(2)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               {/* Calendar Date Selection */}
               <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
                 <CardHeader>
@@ -557,6 +799,42 @@ export default function BookingPage() {
                     {requiresEstimate && (
                       <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
                         📞 Call for estate estimate
+                      </div>
+                    )}
+                    {/* Laundry Items Summary */}
+                    {isLaundryService && selectedLaundryItems.size > 0 && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Items:</span>
+                        <div className="mt-1 space-y-1">
+                          {LAUNDRY_ITEMS.filter((i) => selectedLaundryItems.has(i.id)).map((item) => (
+                            <div key={item.id} className="flex justify-between text-xs">
+                              <span>{item.name}</span>
+                              <span>${item.price}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {isLaundryService && laundryVariableTotal > 0 && (
+                      <div className="space-y-1">
+                        {parseFloat(regularLaundryLbs) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span>Regular ({regularLaundryLbs} lbs)</span>
+                            <span>${(parseFloat(regularLaundryLbs) * LAUNDRY_RATES.regularPerLb).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {parseFloat(delicateLaundryLbs) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span>Delicate ({delicateLaundryLbs} lbs)</span>
+                            <span>${(parseFloat(delicateLaundryLbs) * LAUNDRY_RATES.delicatePerLb).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {needsPickupDelivery && parseFloat(deliveryMiles) > 0 && (
+                          <div className="flex justify-between text-xs">
+                            <span>Delivery ({deliveryMiles} mi)</span>
+                            <span>${(parseFloat(deliveryMiles) * LAUNDRY_RATES.deliveryPerMile).toFixed(2)}</span>
+                          </div>
+                        )}
                       </div>
                     )}
                     {selectedSlot?.startAt && (
