@@ -81,8 +81,8 @@ export default function BookingPage() {
   const [bookingStatus, setBookingStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Laundry add-ons state
-  const [selectedLaundryItems, setSelectedLaundryItems] = useState<Set<string>>(new Set());
+  // Laundry add-ons state (quantities instead of just selected)
+  const [laundryItemQuantities, setLaundryItemQuantities] = useState<Record<string, number>>({});
   const [regularLaundryLbs, setRegularLaundryLbs] = useState("");
   const [delicateLaundryLbs, setDelicateLaundryLbs] = useState("");
   const [deliveryMiles, setDeliveryMiles] = useState("");
@@ -120,15 +120,17 @@ export default function BookingPage() {
   // Check if "call for estimate" tier selected
   const requiresEstimate = squareFootage === "5,000+ sq ft";
 
-  // Calculate laundry add-ons total
+  // Calculate laundry add-ons total (with quantities)
   const laundryItemsTotal = useMemo(() => {
     let total = 0;
-    selectedLaundryItems.forEach((itemId) => {
-      const item = LAUNDRY_ITEMS.find((i) => i.id === itemId);
-      if (item) total += item.price;
+    Object.entries(laundryItemQuantities).forEach(([itemId, qty]) => {
+      if (qty > 0) {
+        const item = LAUNDRY_ITEMS.find((i) => i.id === itemId);
+        if (item) total += item.price * qty;
+      }
     });
     return total;
-  }, [selectedLaundryItems]);
+  }, [laundryItemQuantities]);
 
   const laundryVariableTotal = useMemo(() => {
     let total = 0;
@@ -186,24 +188,19 @@ export default function BookingPage() {
   useEffect(() => {
     setSelectedPricingTier(null);
     setSquareFootage("");
-    setSelectedLaundryItems(new Set());
+    setLaundryItemQuantities({});
     setRegularLaundryLbs("");
     setDelicateLaundryLbs("");
     setDeliveryMiles("");
     setNeedsPickupDelivery(false);
   }, [selectedServiceId]);
 
-  // Toggle laundry item selection
-  const toggleLaundryItem = (itemId: string) => {
-    setSelectedLaundryItems((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(itemId)) {
-        newSet.delete(itemId);
-      } else {
-        newSet.add(itemId);
-      }
-      return newSet;
-    });
+  // Update laundry item quantity
+  const updateLaundryQuantity = (itemId: string, qty: number) => {
+    setLaundryItemQuantities((prev) => ({
+      ...prev,
+      [itemId]: Math.max(0, qty),
+    }));
   };
 
   const availabilityQuery = useQuery<AvailabilityResponse>({
@@ -284,9 +281,10 @@ export default function BookingPage() {
     // Laundry details
     if (isLaundryService) {
       const laundryDetails: string[] = [];
-      if (selectedLaundryItems.size > 0) {
-        const items = LAUNDRY_ITEMS.filter((i) => selectedLaundryItems.has(i.id));
-        laundryDetails.push(`Items: ${items.map((i) => `${i.name} ($${i.price})`).join(", ")}`);
+      // Items with quantities
+      const itemsWithQty = LAUNDRY_ITEMS.filter((i) => (laundryItemQuantities[i.id] || 0) > 0);
+      if (itemsWithQty.length > 0) {
+        laundryDetails.push(`Items: ${itemsWithQty.map((i) => `${laundryItemQuantities[i.id]}x ${i.name} ($${i.price * laundryItemQuantities[i.id]})`).join(", ")}`);
       }
       if (parseFloat(regularLaundryLbs) > 0) {
         laundryDetails.push(`Regular Laundry: ${regularLaundryLbs} lbs @ $${LAUNDRY_RATES.regularPerLb}/lb`);
@@ -401,8 +399,8 @@ export default function BookingPage() {
                 </CardContent>
               </Card>
 
-              {/* Pricing Tier Selection (if available) */}
-              {pricingTiers.length > 0 && (
+              {/* Pricing Tier Selection (if available, not for laundry) */}
+              {pricingTiers.length > 0 && !isLaundryService && (
                 <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -461,8 +459,8 @@ export default function BookingPage() {
                 </Card>
               )}
 
-              {/* Square Footage for services without pricing tiers */}
-              {pricingTiers.length === 0 && selectedService && (
+              {/* Square Footage for services without pricing tiers (not for laundry) */}
+              {pricingTiers.length === 0 && selectedService && !isLaundryService && (
                 <Card className="border-2 border-transparent hover:border-purple-200/50 transition-colors">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -503,38 +501,103 @@ export default function BookingPage() {
                       <span className="text-2xl">🧺</span>
                       Laundry Items & Services
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground">Select all that apply</p>
+                    <p className="text-sm text-muted-foreground">Select items and quantities</p>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    {/* Fixed Price Items */}
+                    {/* Pick-up & Delivery - First */}
                     <div>
-                      <Label className="text-sm font-semibold mb-3 block">Bedding & Blankets</Label>
-                      <div className="grid gap-2 md:grid-cols-2">
-                        {LAUNDRY_ITEMS.map((item) => (
-                          <label
-                            key={item.id}
-                            className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                              selectedLaundryItems.has(item.id)
-                                ? "border-purple-500 bg-purple-50"
-                                : "border-border hover:border-purple-300"
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedLaundryItems.has(item.id)}
-                              onChange={() => toggleLaundryItem(item.id)}
-                              className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        needsPickupDelivery ? "border-purple-500 bg-purple-50" : "border-border hover:border-purple-300"
+                      }`}>
+                        <input
+                          type="checkbox"
+                          checked={needsPickupDelivery}
+                          onChange={(e) => setNeedsPickupDelivery(e.target.checked)}
+                          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <div className="flex-1">
+                          <span className="font-medium">🚗 Pick-up & Delivery</span>
+                          <span className="text-sm text-muted-foreground ml-2">(${LAUNDRY_RATES.deliveryPerMile}/mile)</span>
+                        </div>
+                      </label>
+                      {needsPickupDelivery && (
+                        <div className="mt-3 ml-7">
+                          <Label htmlFor="delivery-miles" className="text-sm text-muted-foreground">
+                            Estimated round-trip miles
+                          </Label>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Input
+                              id="delivery-miles"
+                              type="number"
+                              min="0"
+                              step="1"
+                              placeholder="0"
+                              value={deliveryMiles}
+                              onChange={(e) => setDeliveryMiles(e.target.value)}
+                              className="max-w-24"
                             />
-                            <span className="flex-1 font-medium">{item.name}</span>
-                            <span className="text-purple-600 font-bold">${item.price}</span>
-                          </label>
-                        ))}
+                            <span className="text-sm text-muted-foreground">miles</span>
+                            {parseFloat(deliveryMiles) > 0 && (
+                              <span className="text-purple-600 font-medium">
+                                = ${(parseFloat(deliveryMiles) * LAUNDRY_RATES.deliveryPerMile).toFixed(2)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bedding Items with Quantity */}
+                    <div className="border-t pt-4">
+                      <Label className="text-sm font-semibold mb-3 block">🛏️ Bedding & Blankets</Label>
+                      <div className="space-y-2">
+                        {LAUNDRY_ITEMS.map((item) => {
+                          const qty = laundryItemQuantities[item.id] || 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                                qty > 0 ? "border-purple-500 bg-purple-50" : "border-border"
+                              }`}
+                            >
+                              <span className="flex-1 font-medium">{item.name}</span>
+                              <span className="text-purple-600 font-bold">${item.price} ea</span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => updateLaundryQuantity(item.id, qty - 1)}
+                                  disabled={qty <= 0}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center font-medium">{qty}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => updateLaundryQuantity(item.id, qty + 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              {qty > 0 && (
+                                <span className="text-purple-600 font-bold min-w-16 text-right">
+                                  ${(item.price * qty).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
                     {/* Variable Pricing - By Weight */}
                     <div className="border-t pt-4">
-                      <Label className="text-sm font-semibold mb-3 block">Laundry by Weight</Label>
+                      <Label className="text-sm font-semibold mb-3 block">👕 Laundry by Weight</Label>
                       <div className="grid gap-4 md:grid-cols-2">
                         <div>
                           <Label htmlFor="regular-lbs" className="text-sm text-muted-foreground">
@@ -583,49 +646,6 @@ export default function BookingPage() {
                           </div>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Pick-up & Delivery */}
-                    <div className="border-t pt-4">
-                      <label className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                        needsPickupDelivery ? "border-purple-500 bg-purple-50" : "border-border hover:border-purple-300"
-                      }`}>
-                        <input
-                          type="checkbox"
-                          checked={needsPickupDelivery}
-                          onChange={(e) => setNeedsPickupDelivery(e.target.checked)}
-                          className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                        />
-                        <div className="flex-1">
-                          <span className="font-medium">Pick-up & Delivery</span>
-                          <span className="text-sm text-muted-foreground ml-2">(${LAUNDRY_RATES.deliveryPerMile}/mile)</span>
-                        </div>
-                      </label>
-                      {needsPickupDelivery && (
-                        <div className="mt-3 ml-7">
-                          <Label htmlFor="delivery-miles" className="text-sm text-muted-foreground">
-                            Estimated round-trip miles
-                          </Label>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Input
-                              id="delivery-miles"
-                              type="number"
-                              min="0"
-                              step="1"
-                              placeholder="0"
-                              value={deliveryMiles}
-                              onChange={(e) => setDeliveryMiles(e.target.value)}
-                              className="max-w-24"
-                            />
-                            <span className="text-sm text-muted-foreground">miles</span>
-                            {parseFloat(deliveryMiles) > 0 && (
-                              <span className="text-purple-600 font-medium">
-                                = ${(parseFloat(deliveryMiles) * LAUNDRY_RATES.deliveryPerMile).toFixed(2)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
                     </div>
 
                     {/* Laundry Total */}
@@ -802,16 +822,19 @@ export default function BookingPage() {
                       </div>
                     )}
                     {/* Laundry Items Summary */}
-                    {isLaundryService && selectedLaundryItems.size > 0 && (
+                    {isLaundryService && laundryItemsTotal > 0 && (
                       <div>
                         <span className="text-muted-foreground text-xs">Items:</span>
                         <div className="mt-1 space-y-1">
-                          {LAUNDRY_ITEMS.filter((i) => selectedLaundryItems.has(i.id)).map((item) => (
-                            <div key={item.id} className="flex justify-between text-xs">
-                              <span>{item.name}</span>
-                              <span>${item.price}</span>
-                            </div>
-                          ))}
+                          {LAUNDRY_ITEMS.filter((i) => (laundryItemQuantities[i.id] || 0) > 0).map((item) => {
+                            const qty = laundryItemQuantities[item.id] || 0;
+                            return (
+                              <div key={item.id} className="flex justify-between text-xs">
+                                <span>{qty}x {item.name}</span>
+                                <span>${(item.price * qty).toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
