@@ -30,6 +30,11 @@ const resolveServiceTitle = (service: ServiceItem) => service.title || service.n
 
 const normalizeServiceName = (name: string) => name.replace(/^[^A-Za-z0-9]+/, "").trim();
 
+const isLaundryAddonServiceName = (name: string) => {
+  const lowerName = name.toLowerCase();
+  return lowerName.includes("comforter") || lowerName.includes("bed sheet");
+};
+
 const getServiceType = (name: string) => {
   const lowerName = name.toLowerCase();
   if (lowerName.includes("laundry") || lowerName.includes("comforter") || lowerName.includes("bed sheet")) {
@@ -55,7 +60,11 @@ export function Services({ limit, heading, subheading, showAllLink = false }: Se
   const { data: assets = {} } = useAssets();
 
   const { items: serviceList, isValid } = normalizeArrayData<ServiceItem>(services);
-  const squareServices = serviceList.filter((service) => Boolean(service.squareServiceId));
+  const squareServices = serviceList.filter((service) => {
+    if (!service.squareServiceId) return false;
+    const serviceTitle = normalizeServiceName(resolveServiceTitle(service));
+    return !isLaundryAddonServiceName(serviceTitle);
+  });
   const limitedServices = typeof limit === "number" ? squareServices.slice(0, limit) : squareServices;
   const hasShapeError = !isLoading && !error && !isValid;
   const background = assets?.servicesBackground?.url ?? assets?.heroBackground?.url ?? fallbackBg;

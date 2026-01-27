@@ -92,7 +92,14 @@ export default function BookingPage() {
     queryKey: ["/api/services"],
   });
 
-  const squareServices = services.filter((service) => Boolean(service.squareServiceId));
+  const isLaundryAddonService = (service: ServiceItem) => {
+    const name = (service.title ?? service.name ?? "").toLowerCase();
+    return name.includes("comforter") || name.includes("bed sheet");
+  };
+
+  const squareServices = services.filter(
+    (service) => Boolean(service.squareServiceId) && !isLaundryAddonService(service),
+  );
 
   const selectedService = squareServices.find((s) => s.id === selectedServiceId);
 
@@ -547,54 +554,6 @@ export default function BookingPage() {
                       )}
                     </div>
 
-                    {/* Bedding Items with Quantity */}
-                    <div className="border-t pt-4">
-                      <Label className="text-sm font-semibold mb-3 block">🛏️ Bedding & Blankets</Label>
-                      <div className="space-y-2">
-                        {LAUNDRY_ITEMS.map((item) => {
-                          const qty = laundryItemQuantities[item.id] || 0;
-                          return (
-                            <div
-                              key={item.id}
-                              className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
-                                qty > 0 ? "border-purple-500 bg-purple-50" : "border-border"
-                              }`}
-                            >
-                              <span className="flex-1 font-medium">{item.name}</span>
-                              <span className="text-purple-600 font-bold">${item.price} ea</span>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => updateLaundryQuantity(item.id, qty - 1)}
-                                  disabled={qty <= 0}
-                                >
-                                  -
-                                </Button>
-                                <span className="w-8 text-center font-medium">{qty}</span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => updateLaundryQuantity(item.id, qty + 1)}
-                                >
-                                  +
-                                </Button>
-                              </div>
-                              {qty > 0 && (
-                                <span className="text-purple-600 font-bold min-w-16 text-right">
-                                  ${(item.price * qty).toFixed(2)}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
                     {/* Variable Pricing - By Weight */}
                     <div className="border-t pt-4">
                       <Label className="text-sm font-semibold mb-3 block">👕 Laundry by Weight</Label>
@@ -645,6 +604,54 @@ export default function BookingPage() {
                             )}
                           </div>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Bedding Items with Quantity */}
+                    <div className="border-t pt-4">
+                      <Label className="text-sm font-semibold mb-3 block">🛏️ Bedding & Blankets</Label>
+                      <div className="space-y-2">
+                        {LAUNDRY_ITEMS.map((item) => {
+                          const qty = laundryItemQuantities[item.id] || 0;
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-center gap-3 p-3 rounded-lg border-2 transition-all ${
+                                qty > 0 ? "border-purple-500 bg-purple-50" : "border-border"
+                              }`}
+                            >
+                              <span className="flex-1 font-medium">{item.name}</span>
+                              <span className="text-purple-600 font-bold">${item.price} ea</span>
+                              <div className="flex items-center gap-2">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => updateLaundryQuantity(item.id, qty - 1)}
+                                  disabled={qty <= 0}
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center font-medium">{qty}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => updateLaundryQuantity(item.id, qty + 1)}
+                                >
+                                  +
+                                </Button>
+                              </div>
+                              {qty > 0 && (
+                                <span className="text-purple-600 font-bold min-w-16 text-right">
+                                  ${(item.price * qty).toFixed(2)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
